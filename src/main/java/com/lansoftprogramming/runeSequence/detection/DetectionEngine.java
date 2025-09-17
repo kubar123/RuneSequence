@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.detection;
 
 import com.lansoftprogramming.runeSequence.capture.ScreenCapture;
 import com.lansoftprogramming.runeSequence.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.sequence.SequenceManager;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
