@@ -1,0 +1,16 @@
+{
+  "presets": {
+    "f47ac10b-58cc-4372-a567-0e02b2c3d479": {
+      "name": "Raid Opener",
+      "expression": "livingdeath + adrenrenewal → touchofdeath → deathskulls → soulsap"
+    },
+    "9c858901-8a57-4791-81fe-4c455b099bc9": {
+      "name": "Defensive Chain",
+      "expression": "omniguard spec / fingerofdeath → volleyofsouls → touchofdeath / necroauto → deathguard90 spec"
+    },
+    "a1b2c3d4-e5f6-7890-abcd-ef1234567890": {
+      "name": "Burst Rotation",
+      "expression": "deathskulls → soulsap → touchofdeath → volleyofsouls"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "smokecloud": {
+    "triggers_gcd": true,
+    "cast_duration": 0,
+    "cooldown": 15,
+    "detection_threshold": 0.3
+  },
+  "big_ability": {
+    "triggers_gcd": true,
+    "cast_duration": 4.0,
+    "cooldown": 30
+  },
+  "utility": {
+    "triggers_gcd": false,
+    "cast_duration": 0,
+    "cooldown": 0
+  }
+}
