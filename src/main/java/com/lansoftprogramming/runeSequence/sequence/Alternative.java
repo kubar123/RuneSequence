@@ -7,17 +7,17 @@ package com.lansoftprogramming.runeSequence.sequence;
  */
 public class Alternative {
 
-	private final String token;   // Ability name (or macro string)
-	private final Step group;     // Optional nested group (from parentheses)
+	private final String token;                 // Ability name (or macro string)
+	private final SequenceDefinition subgroup;  // Nested expression (from parentheses)
 
 	public Alternative(String token) {
 		this.token = token;
-		this.group = null;
+		this.subgroup = null;
 	}
 
-	public Alternative(Step group) {
+	public Alternative(SequenceDefinition subgroup) {
 		this.token = null;
-		this.group = group;
+		this.subgroup = subgroup;
 	}
 
 	public boolean isToken() {
@@ -25,15 +25,15 @@ public class Alternative {
 	}
 
 	public boolean isGroup() {
-		return group != null;
+		return subgroup != null;
 	}
 
 	public String getToken() {
 		return token;
 	}
 
-	public Step getGroup() {
-		return group;
+	public SequenceDefinition getSubgroup() {
+		return subgroup;
 	}
 
 	@Override
@@ -42,7 +42,7 @@ public class Alternative {
 			return token;
 		}
 		if (isGroup()) {
-			return "(" + group + ")";
+			return "(" + subgroup + ")";
 		}
 		return "?";
 	}

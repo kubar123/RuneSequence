@@ -72,7 +72,8 @@ public class SequenceParser {
 			consume("(");
 			SequenceDefinition inner = parseExpression();
 			consume(")");
-			return new Alternative(new Step(inner.getSteps())); // flatten inner as a group
+			return new Alternative(inner);
+
 		}
 		return new Alternative(parseToken());
 	}
