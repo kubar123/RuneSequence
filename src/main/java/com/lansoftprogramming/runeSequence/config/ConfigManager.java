@@ -117,6 +117,21 @@ public class ConfigManager {
 		return !settings.isMigrated();
 	}
 
+	/*++*/ // Missing methods for DetectionEngine
+	/*++*/
+	public int getDetectionInterval() {
+		/*++*/
+		return settings.getDetection().getIntervalMs();
+		/*++*/
+	}
+
+	/*++*/
+	public double getConfidenceThreshold() {
+		/*++*/
+		return settings.getDetection().getConfidenceThreshold();
+		/*++*/
+	}
+
 	private AppSettings loadDefaultSettings() throws IOException {
 		return loadDefaultResource("defaults/settings.json", AppSettings.class);
 	}
@@ -138,7 +153,7 @@ public class ConfigManager {
 		}
 	}
 
-	private static Path getAppDataPath() {
+	public static Path getAppDataPath() {
 		String os = System.getProperty("os.name").toLowerCase();
 
 		if (os.contains("win")) {

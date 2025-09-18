@@ -7,9 +7,9 @@ import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.awt.*;
-import java.awt.image.BufferedImage;
+
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +71,7 @@ public class DetectionEngine {
 		try {
 			long startTime = System.nanoTime();
 
-/
+
 			Mat screenMat = screenCapture.captureScreen();
 
 			detectAbilities(screenMat);

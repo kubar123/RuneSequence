@@ -44,7 +44,8 @@ public class Step {
 			}
 		} else {
 			// group
-			for (Term t : alt.getGroup().getTerms()) {
+			/*##*/
+			for (Term t : alt.getSubgroup().getSteps().get(0).getTerms()) { // Fixed: getGroup() -> getSubgroup()
 				for (Alternative a : t.getAlternatives()) {
 					collectDetectable(a, abilityCfg, out);
 				}
@@ -71,7 +72,8 @@ public class Step {
 			out.add(r);
 		} else {
 			// group
-			for (Term t : alt.getGroup().getTerms()) {
+			/*##*/
+			for (Term t : alt.getSubgroup().getSteps().get(0).getTerms()) { // Fixed: getGroup() -> getSubgroup()
 				for (Alternative a : t.getAlternatives()) {
 					collectDetections(a, lastDetections, out);
 				}
