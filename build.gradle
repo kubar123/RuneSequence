@@ -1,0 +1,35 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24) // or 21/17 if 25 not available
+    }
+}
+
+application {
+    // Update this when you create your main class
+    mainClass = 'com.lansoftprogramming.RuneSequence.Main'
+    applicationDefaultJvmArgs = ["--enable-native-access=ALL-UNNAMED"]
+
+
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.bytedeco:opencv-platform:4.11.0-1.5.12'
+    implementation 'com.github.kwhat:jnativehook:2.2.2'
+    implementation "com.google.code.gson:gson:2.11.0"
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
+    implementation 'org.slf4j:slf4j-api:2.0.9'
+    implementation 'ch.qos.logback:logback-classic:1.5.18'
+    implementation("com.1stleg:jnativehook:2.0.2")
+    implementation 'org.bytedeco:javacv:1.5.12'
+    implementation 'org.bytedeco:ffmpeg-platform:7.1.1-1.5.12'
+}
