@@ -2,8 +2,6 @@
 
 This document provides a brief, at-a-glance summary of the classes in the RuneSequence project.
 
-**Note on Missing Components:** The project is missing `OverlayRenderer`, `Alternative`, and an expression parser.
-
 ---
 
 ## Core Classes
@@ -59,8 +57,11 @@ A thread-safe, high-level class for managing all defined ability sequences and c
 ### `ActiveSequence`
 A stateful object that represents the currently running sequence, tracking its progress and deciding when to advance.
 
-### `SequenceDefinition`, `Step`, `Term`
+### `SequenceDefinition`, `Step`, `Term`, `Alternative`
 Immutable classes that act as nodes in an Abstract Syntax Tree (AST) to represent the grammatical structure of a parsed sequence.
+
+### `SequenceParser`
+A recursive descent parser that transforms a sequence expression string into its corresponding Abstract Syntax Tree structure.
 
 ### `StepTimer`
 Enforces ability cooldowns and step durations, ensuring the sequence's timing is synchronized with in-game mechanics.

@@ -2,11 +2,6 @@
 
 This document provides a detailed explanation of the classes in the RuneSequence project.
 
-**Note on Missing Components:** The analysis was performed on the available source files. The following components are referenced in the code but their source files were not found in the project structure. Their functionality has been inferred from their usage in other classes.
--   `OverlayRenderer.java`: This class is used by `DetectionEngine` to draw highlights on the screen for currently and next-up abilities. It would likely use `JWindow` or a similar lightweight, transparent window to create the overlays without interfering with the game.
--   `Alternative.java`: A key component of the sequence Abstract Syntax Tree (AST) within the `sequence` package. It would represent an "OR" condition (`/`), a single ability token, or a parenthesized group of other expressions.
--   **Expression Parser**: The logic to convert the string-based ability "expressions" from `RotationConfig` into a `SequenceDefinition` object (the AST) is not present. This would typically be a class that implements the defined expression grammar.
-
 ---
 
 ## Core Classes
@@ -36,7 +31,7 @@ A Plain Old Java Object (POJO) that serves as a data container for the contents 
 A data container for `abilities.json`. Its most notable feature is the use of Jackson's `@JsonAnySetter`. This allows the JSON file to contain an arbitrary list of abilities, each as a named object, which are then collected into a `Map<String, AbilityData>`. This provides great flexibility, as new abilities can be defined purely in the JSON file without requiring any changes to the Java source code. The nested `AbilityData` class holds gameplay-relevant properties like cooldowns.
 
 ### `RotationConfig`
-A data container for `rotations.json`, which stores predefined ability sequences, or "presets." Each preset has a name and an `expression` string (e.g., `"Ability1 -> Ability2 + Ability3"`). This class holds the raw string representation of sequences, which would then be fed into the (missing) parser to create the `SequenceDefinition` objects used by the `SequenceManager`.
+A data container for `rotations.json`, which stores predefined ability sequences, or "presets." Each preset has a name and an `expression` string (e.g., `"Ability1 -> Ability2 + Ability3"`). This class holds the raw string representation of sequences, which is fed into the `SequenceParser` to create the `SequenceDefinition` objects used by the `SequenceManager`.
 
 ### `ScalingConverter`
 A simple but important utility class. It provides a static `getScaling` method that acts as a lookup table, converting a display scaling percentage (like 100%, 150%) into a specific integer value. This value corresponds to a folder name where appropriately sized image assets are stored. This mechanism allows the `TemplateCache` to load the correct set of images that will match what is actually on the screen, which is crucial for accurate detection on high-DPI displays.
@@ -83,11 +78,18 @@ This class represents a live, running instance of an ability sequence. It holds 
 -   **`processDetections(...)`**: This is the key method where the sequence state is advanced. It takes the list of detected abilities from the `DetectionEngine` and uses the `StepTimer` to check if the time-based conditions for the current step have been met. If they have, it advances the `currentStepIndex` to move to the next step in the sequence.
 -   **`getRequiredTemplates()`**: This method is crucial for optimization. It traverses the AST for the current and next steps to determine exactly which ability icons the `DetectionEngine` needs to search for, preventing wasted effort looking for irrelevant templates.
 
-### `SequenceDefinition`, `Step`, `Term`
+### `SequenceDefinition`, `Step`, `Term`, `Alternative`
 These are simple, immutable classes that form the nodes of the AST, directly corresponding to the ability expression grammar.
 -   **`SequenceDefinition`**: The root of the tree, representing a full sequence (`A -> B -> C`). It holds a list of `Step`s.
--   **`Step`**: Represents one part of the sequence between `->` arrows. It holds a list of `Term`s, which represent an "AND" condition (`A + B`).
--   **`Term`**: Represents a list of `Alternative`s, which represent an "OR" condition (`A / B`).
+-   **`Step`**: Represents one part of the sequence between `->` arrows. It holds a list of `Term`s.
+-   **`Term`**: Represents an "AND" condition (`A + B`). It holds a list of `Alternative`s.
+-   **`Alternative`**: Represents an "OR" condition (`A / B`) or a single token. It can hold either a final token (an ability name string) or a nested `SequenceDefinition` for parenthesized groups.
+
+### `SequenceParser`
+This class implements a standard recursive descent parser to translate a human-readable expression string from `RotationConfig` into the `SequenceDefinition` Abstract Syntax Tree (AST) used by the `SequenceManager`. It is instantiated for a single parse operation and is therefore not thread-safe by design.
+-   **`parse()`**: The static entry point that kicks off the parsing process.
+-   **`parseExpression()`, `parseStep()`, `parseTerm()`, `parseAlternative()`**: These private methods are the core of the parser. Each method is responsible for parsing one level of the grammar's hierarchy (e.g., `parseExpression` handles the `->` operator). This recursive structure allows it to naturally handle nested, parenthesized sub-expressions, correctly maintaining operator precedence.
+-   **Helper methods (`peek`, `consume`, etc.)**: A set of utility methods for advancing through the input string, checking for upcoming characters, and consuming expected tokens, which keeps the main parsing logic clean and readable.
 
 ### `StepTimer`
 This class manages the time-based component of a sequence. It is not just a simple delay. When a step begins, `calculateStepDuration` intelligently inspects all abilities within that step, finds the one with the longest cooldown (or applies a default Global Cooldown), and sets a timer for that duration. The `isStepSatisfied` method then returns true only after this amount of time has passed, ensuring the sequence respects in-game ability timings.

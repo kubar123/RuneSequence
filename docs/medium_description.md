@@ -2,8 +2,6 @@
 
 This document provides a mid-level overview of the classes in the RuneSequence project.
 
-**Note on Missing Components:** The project references `OverlayRenderer`, `Alternative`, and an expression parser, but their source files were not found. Their functionality (drawing overlays, handling OR logic in sequences, and parsing expression strings) has been inferred from usage.
-
 ---
 
 ## Core Classes
@@ -31,7 +29,7 @@ A POJO data container for `settings.json`. It holds all global application setti
 A data class for `abilities.json`. It dynamically loads definitions for any number of abilities into a map, using Jackson's `@JsonAnySetter`. This allows new abilities, with properties like cooldowns, to be added without changing the Java code.
 
 ### `RotationConfig`
-A data class for `rotations.json` that stores predefined ability sequences ("presets"). Each preset has a name and a string `expression` that defines the sequence's logic. This class provides the raw string input for the (missing) sequence parser.
+A data class for `rotations.json` that stores predefined ability sequences ("presets"). Each preset has a name and a string `expression` that defines the sequence's logic. This class provides the raw string input for the `SequenceParser`.
 
 ### `ScalingConverter`
 A simple utility that maps a display scaling percentage to a specific integer value. This value is used by `TemplateCache` to locate the folder containing correctly-sized image assets, ensuring reliable detection on high-DPI displays.
@@ -59,8 +57,11 @@ A thread-safe, high-level manager for all ability sequences. It holds a library 
 ### `ActiveSequence`
 A stateful object representing a live, running sequence. It tracks the current step, determines which abilities need to be detected, and uses detection results and the `StepTimer` to decide when it's time to advance to the next step in the sequence.
 
-### `SequenceDefinition`, `Step`, `Term`
-These are immutable classes that form the nodes of a parsed Abstract Syntax Tree (AST). They directly represent the grammar of an ability sequence expression, with `SequenceDefinition` as the root, `Step` for `->` steps, and `Term` for `+` (AND) conditions.
+### `SequenceDefinition`, `Step`, `Term`, `Alternative`
+These are immutable classes that form the nodes of a parsed Abstract Syntax Tree (AST). They directly represent the grammar of an ability sequence expression. `SequenceDefinition` is the root, `Step` represents `->` logic, `Term` handles `+` (AND) logic, and `Alternative` handles `/` (OR) logic and parenthesized sub-groups.
+
+### `SequenceParser`
+A standard recursive descent parser responsible for transforming an expression string from `RotationConfig` into a `SequenceDefinition` AST. It handles operator precedence and parenthesized groups, forming the bridge between the user's configuration and the application's runtime representation of a sequence.
 
 ### `StepTimer`
 A class that manages the cooldown or duration of each step in a sequence. It calculates the required delay based on the cooldowns of the abilities in the current step (including GCDs), ensuring the sequence's timing respects in-game mechanics.
