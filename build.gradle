@@ -5,16 +5,17 @@ plugins {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(24) // or 21/17 if 25 not available
+        languageVersion = JavaLanguageVersion.of(24)
     }
 }
 
 application {
-    // Update this when you create your main class
-    mainClass = 'com.lansoftprogramming.RuneSequence.Main'
-    applicationDefaultJvmArgs = ["--enable-native-access=ALL-UNNAMED"]
-
-
+    mainClass = 'com.lansoftprogramming.runeSequence.TestLoad'  // Minimal test class
+    applicationDefaultJvmArgs = [
+            "--enable-native-access=ALL-UNNAMED",
+            "-Dorg.bytedeco.javacpp.cachedir=C:\\javacpp_cache",
+            "-Dorg.bytedeco.javacpp.logger=DEBUG"
+    ]
 }
 
 repositories {
@@ -22,14 +23,34 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.bytedeco:opencv-platform:4.11.0-1.5.12'
-    implementation 'com.github.kwhat:jnativehook:2.2.2'
-    implementation "com.google.code.gson:gson:2.11.0"
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
+    implementation 'org.bytedeco:opencv-platform:4.7.0-1.5.9'
+    implementation 'org.bytedeco:javacv:1.5.9'
+    implementation 'org.bytedeco:ffmpeg-platform:6.0-1.5.9'
+
+    // Logging
     implementation 'org.slf4j:slf4j-api:2.0.9'
     implementation 'ch.qos.logback:logback-classic:1.5.18'
-    implementation("com.1stleg:jnativehook:2.0.2")
-    implementation 'org.bytedeco:javacv:1.5.12'
-    implementation 'org.bytedeco:ffmpeg-platform:7.1.1-1.5.12'
+
+    // JSON
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.15.2'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
+}
+tasks.withType(JavaExec).configureEach {
+    jvmArgs += [
+            "--enable-native-access=ALL-UNNAMED"
+    ]
+}
+
+tasks.register('testOpenCV') {
+    group = 'verification'
+    description = 'Run a minimal OpenCV load test'
+    dependsOn 'classes'
+    doLast {
+        javaexec {
+            main = 'com.lansoftprogramming.runeSequence.TestLoad'
+            classpath = sourceSets.main.runtimeClasspath
+            jvmArgs = application.applicationDefaultJvmArgs
+        }
+    }
 }

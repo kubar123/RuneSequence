@@ -14,7 +14,6 @@ import java.awt.*;
 
 /*
  * Use static imports for the OpenCV global functions provided by the JavaCPP presets.
- * That lets us call matchTemplate, minMaxLoc, split, merge, cvtColor, etc. as functions.
  */
 import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.*;
