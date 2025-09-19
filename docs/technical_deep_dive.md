@@ -95,3 +95,88 @@ This class is not a simple timer. It implements game-specific timing logic.
 3.  For each ability, it looks up its properties (cooldown, GCD status) in `AbilityConfig`.
 4.  It calculates the duration in game ticks (0.6s) and finds the maximum duration required by any ability in that step.
 5.  This calculated duration becomes the wait time, ensuring the sequence cannot advance faster than the in-game global cooldowns or ability cooldowns allow.
+
+---
+
+## 4. Detection Engine Improvements
+
+The detection engine has been enhanced with several new features to improve accuracy and performance, addressing the need for both high precision and real-time responsiveness.
+
+### 4.1. Per-Ability Detection Thresholds
+
+**Motivation:**
+A global detection threshold is insufficient for a varied set of templates. Some abilities, especially those with very small visual footprints (e.g., under 40x40 pixels), can be easily confused with other screen elements. These require an extremely high similarity threshold (e.g., 99%) to prevent false positives. Conversely, larger, more distinct icons might be reliably detected with a slightly more lenient threshold. Per-ability thresholds provide the granular control needed to tune detection for each specific template.
+
+**Implementation:**
+The `detection_threshold` is now a configurable, optional property within each ability's entry in `abilities.json`.
+
+*   **Configuration:**
+    ```json
+    "Limitless": {
+      "cooldown": 0,
+      "triggers_gcd": false,
+      "detection_threshold": 0.99
+    },
+    "big_ability": {
+      "triggers_gcd": true,
+      "cast_duration": 4.0,
+      "cooldown": 30
+      // No threshold defined, will use default
+    }
+    ```
+
+*   **Logic:** The `TemplateDetector` class retrieves the appropriate threshold using the `getThresholdForTemplate` helper method before performing a match.
+    ```java
+    private double getThresholdForTemplate(String templateName) {
+        // Access the loaded config
+        AbilityConfig.AbilityData abilityData = configManager.getAbilities().getAbility(templateName);
+
+        // Check if the ability and its threshold are defined
+        if (abilityData != null && abilityData.getDetectionThreshold() != null) {
+            return abilityData.getDetectionThreshold();
+        }
+
+        // Fallback to a high default for reliability
+        return 0.99;
+    }
+    ```
+    This logic ensures that if a threshold is explicitly set, it is respected. If it is omitted, the system defaults to a safe, high-confidence value of `0.99`.
+
+### 4.2. Last Known Location Optimization
+
+**Motivation:**
+The detection loop runs on a fixed interval (e.g., every 400ms). In many cases, UI elements like ability icons do not move between frames. Performing a full-screen search in every cycle is computationally expensive and redundant. This optimization drastically reduces the search area for templates that have already been found, freeing up CPU resources and reducing latency.
+
+**Implementation:**
+The `TemplateDetector` now maintains an internal cache of the last successfully found location for each template.
+
+*   **Cache:** A `Map<String, Rectangle> lastKnownLocations` is used to store the bounding box of the last match for each `templateName`.
+
+*   **Optimized Search Logic:** The `detectTemplate` method's logic was modified:
+    1.  **Check Cache:** Before a full-screen search, it checks if `lastKnownLocations` contains the `templateName`.
+    2.  **Region-Based Search:** If a location is cached, it creates a new, slightly larger `Rectangle` around the cached one. A padding of 10 pixels is added to each side to create a 20x20 pixel larger search area. This accounts for minor UI shifts or rendering variations.
+    3.  `detectTemplateInRegion()` is called to perform a highly-localized (and therefore very fast) search.
+    4.  **Cache Update & Return:** If the template is found in this padded region, its new location is updated in the cache, and the result is returned immediately, skipping the full-screen search.
+    5.  **Fallback:** If the template is not found in the cached region (or if no cache entry exists), the detector proceeds with the original full-screen search using `findBestMatch()`. If this search is successful, its location is added to the cache.
+
+### 4.3. Future Improvements - Pipelined Screen Capture
+
+**Motivation:**
+The current detection cycle is sequential: `Capture -> Detect -> Draw`. While the "Last Known Location" optimization reduces the *duration* of the "Detect" step, the process remains synchronous. The application is idle during screen capture, and the capture hardware is idle during detection. Pipelining would allow these operations to overlap, maximizing hardware utilization and improving the application's temporal resolution (its ability to detect changes closer to when they happen).
+
+**Proposed Implementation:**
+A multi-threaded producer-consumer model would be an effective solution.
+
+*   **Producer Thread (Capture):** A dedicated thread would be responsible solely for screen capture. Its loop would consist of:
+    1.  Capture a frame.
+    2.  Place the frame into a shared, thread-safe queue (e.g., a `java.util.concurrent.ArrayBlockingQueue` of size 1 or 2). A small queue size is crucial to ensure freshness.
+
+*   **Consumer Thread (Detection):** The main `DetectionEngine` thread would become the consumer. Its loop would be:
+    1.  Take a frame from the queue, waiting if none is available.
+    2.  Perform detection on that frame.
+
+*   **Benefits:** This decouples the capture rate from the detection rate. The capture thread can run at the maximum speed of the hardware (e.g., 60 FPS), always providing the most recent frame to the detection thread. This significantly reduces the effective latency from screen event to detection.
+
+*   **Potential Challenges:**
+    *   **Thread Safety:** The queue implementation must be thread-safe.
+    *   **Frame Freshness:** If the detection process is slower than the capture rate, the queue could fill with stale frames. A strategy to handle this would be to use a queue of size 1 and have the producer always discard the old frame and overwrite it with the new one (`queue.clear(); queue.put(frame)`). This ensures the detector always works on the most recent possible frame.
