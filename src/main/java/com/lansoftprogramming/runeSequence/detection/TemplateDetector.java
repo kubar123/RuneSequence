@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.detection;
 
 import com.lansoftprogramming.runeSequence.TemplateCache;
+import com.lansoftprogramming.runeSequence.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.config.ConfigManager;
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.opencv.opencv_core.Mat;
@@ -11,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
 
 /*
  * Use static imports for the OpenCV global functions provided by the JavaCPP presets.
@@ -30,11 +33,12 @@ public class TemplateDetector {
 	private static final Logger logger = LoggerFactory.getLogger(TemplateDetector.class);
 
 	private final TemplateCache templateCache;
-	private final double defaultThreshold;
+	private final ConfigManager configManager;
+	private final Map<String, Rectangle> lastKnownLocations = new HashMap<>();
 
 	public TemplateDetector(TemplateCache templateCache, ConfigManager configManager) {
 		this.templateCache = templateCache;
-		this.defaultThreshold = configManager.getSettings().getDetection().getConfidenceThreshold();
+		this.configManager = configManager;
 	}
 
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
@@ -44,7 +48,26 @@ public class TemplateDetector {
 			return DetectionResult.notFound(templateName);
 		}
 
-		return findBestMatch(screen, template, templateName, defaultThreshold);
+		// First, try searching in the last known location
+		if (lastKnownLocations.containsKey(templateName)) {
+			Rectangle lastRoi = lastKnownLocations.get(templateName);
+			// Add some padding to the ROI to allow for small movements
+			Rectangle searchRoi = new Rectangle(lastRoi.x - 10, lastRoi.y - 10, lastRoi.width + 20, lastRoi.height + 20);
+
+			DetectionResult result = detectTemplateInRegion(screen, templateName, searchRoi);
+			if (result.found) {
+				lastKnownLocations.put(templateName, result.boundingBox);
+				return result;
+			}
+		}
+
+		// If not found in the last known location, or if there is no last known location, search the whole screen
+		double threshold = getThresholdForTemplate(templateName);
+		DetectionResult result = findBestMatch(screen, template, templateName, threshold);
+		if (result.found) {
+			lastKnownLocations.put(templateName, result.boundingBox);
+		}
+		return result;
 	}
 
 	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi) {
@@ -66,7 +89,8 @@ public class TemplateDetector {
 		Mat roiMat = new Mat(screen, roiRect);
 
 		try {
-			DetectionResult result = findBestMatch(roiMat, template, templateName, defaultThreshold);
+			double threshold = getThresholdForTemplate(templateName);
+			DetectionResult result = findBestMatch(roiMat, template, templateName, threshold);
 
 			// Adjust coordinates back to screen space
 			if (result.found) {
@@ -80,6 +104,14 @@ public class TemplateDetector {
 		} finally {
 			roiMat.close();
 		}
+	}
+
+	private double getThresholdForTemplate(String templateName) {
+		AbilityConfig.AbilityData abilityData = configManager.getAbilities().getAbility(templateName);
+		if (abilityData != null && abilityData.getDetectionThreshold() != null) {
+			return abilityData.getDetectionThreshold();
+		}
+		return 0.99; // Default high threshold
 	}
 
 	/**
