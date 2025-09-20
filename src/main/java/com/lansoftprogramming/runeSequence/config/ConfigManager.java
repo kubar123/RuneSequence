@@ -117,19 +117,19 @@ public class ConfigManager {
 		return !settings.isMigrated();
 	}
 
-	/*++*/ // Missing methods for DetectionEngine
-	/*++*/
+	// Missing methods for DetectionEngine
+
 	public int getDetectionInterval() {
-		/*++*/
+
 		return settings.getDetection().getIntervalMs();
-		/*++*/
+
 	}
 
-	/*++*/
+
 	public double getConfidenceThreshold() {
-		/*++*/
+
 		return settings.getDetection().getConfidenceThreshold();
-		/*++*/
+
 	}
 
 	private AppSettings loadDefaultSettings() throws IOException {

@@ -42,11 +42,19 @@ public class TemplateDetector {
 	}
 
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
+
+		System.out.println("TemplateDetector.detectTemplate: Starting detection for '" + templateName + "'");
+
 		Mat template = templateCache.getTemplate(templateName);
 		if (template == null) {
 			logger.warn("Template not found in cache: {}", templateName);
+
+			System.out.println("TemplateDetector: Template not found in cache: " + templateName);
 			return DetectionResult.notFound(templateName);
 		}
+
+
+		System.out.println("TemplateDetector: Template found, starting detection...");
 
 		// First, try searching in the last known location
 		if (lastKnownLocations.containsKey(templateName)) {
@@ -124,101 +132,139 @@ public class TemplateDetector {
 	 * @return DetectionResult
 	 */
 	private DetectionResult findBestMatch(Mat screen, Mat template, String templateName, double threshold) {
-		Mat mask = null;
-		Mat workingTemplate = template;
-		Mat workingScreen = null;
-		boolean workingTemplateCreated = false;
-
 		// Basic size check: template must fit in screen (otherwise matchTemplate will fail)
 		if (template.cols() > screen.cols() || template.rows() > screen.rows()) {
 			logger.debug("Template {} is larger than screen; skipping match", templateName);
 			return DetectionResult.notFound(templateName);
 		}
 
+		// Improved resource management with explicit cleanup
+		Mat mask = null;
+		Mat workingTemplate = null;
+		Mat workingScreen = null;
+		MatVector channels = null;
+		MatVector bgrChannels = null;
+		Mat result = null;
+		DoublePointer minVal = null;
+		DoublePointer maxVal = null;
+		Point minLoc = null;
+		Point maxLoc = null;
+
 		try {
 			// Handle alpha channel as mask
 			if (template.channels() == 4) {
-				// Split into channels; channels[3] is alpha
-				MatVector channels = new MatVector(4);
+				// More careful channel management
+				channels = new MatVector(4);
 				split(template, channels);
 
 				// alpha channel -> mask
 				mask = channels.get(3).clone(); // clone so we can manage lifecycle independently
 
 				// Merge BGR channels back into workingTemplate
-				MatVector bgrChannels = new MatVector(3);
+				bgrChannels = new MatVector(3);
 				bgrChannels.put(0, channels.get(0));
 				bgrChannels.put(1, channels.get(1));
 				bgrChannels.put(2, channels.get(2));
 
 				workingTemplate = new Mat();
 				merge(bgrChannels, workingTemplate);
-				workingTemplateCreated = true;
-
-				// Close channel Mats returned by split (we cloned mask and merged BGR into workingTemplate)
-				for (int i = 0; i < channels.size(); i++) {
-					Mat c = channels.get(i);
-					if (c != null) c.close();
-				}
 			} else {
-				// If template has no alpha, ensure mask remains null
+				// If template has no alpha, use original template
+				workingTemplate = template;
 				mask = null;
 			}
 
-			// Ensure color consistency: if screen has alpha and template is 3-channel, convert screen to BGR.
-			workingScreen = ensureColorConsistency(screen, workingTemplate); // may return a new Mat or the original
+			// Ensure color consistency
+			workingScreen = ensureColorConsistency(screen, workingTemplate);
 
 			// Prepare result Mat (float) with correct size
 			int resultCols = workingScreen.cols() - workingTemplate.cols() + 1;
 			int resultRows = workingScreen.rows() - workingTemplate.rows() + 1;
 			if (resultCols <= 0 || resultRows <= 0) {
-				// template cannot be matched inside screen (shouldn't happen due to size check above, but safe-guard)
 				logger.debug("Computed result size invalid ({}x{}); skipping template {}", resultCols, resultRows, templateName);
 				return DetectionResult.notFound(templateName);
 			}
-			Mat result = new Mat(new org.bytedeco.opencv.opencv_core.Size(resultCols, resultRows), CV_32FC1);
 
-			try {
-				// Perform template matching with SQDIFF_NORMED (smaller = better). Use mask when provided.
-				matchTemplate(workingScreen, workingTemplate, result, TM_SQDIFF_NORMED, mask);
+			result = new Mat(new org.bytedeco.opencv.opencv_core.Size(resultCols, resultRows), CV_32FC1);
 
-				// minMaxLoc to find best match
-				DoublePointer minVal = new DoublePointer(1);
-				DoublePointer maxVal = new DoublePointer(1);
-				Point minLoc = new Point();
-				Point maxLoc = new Point();
+			// Perform template matching with SQDIFF_NORMED (smaller = better)
+			matchTemplate(workingScreen, workingTemplate, result, TM_SQDIFF_NORMED, mask);
 
-				minMaxLoc(result, minVal, maxVal, minLoc, maxLoc, null);
+			// minMaxLoc to find best match
+			minVal = new DoublePointer(1);
+			maxVal = new DoublePointer(1);
+			minLoc = new Point();
+			maxLoc = new Point();
 
-				double minValD = minVal.get();
-				// Convert to intuitive confidence: lower error -> higher confidence
-				double confidence = 1.0 - minValD;
-				// Found if confidence meets threshold
-				boolean found = confidence >= threshold;
+			minMaxLoc(result, minVal, maxVal, minLoc, maxLoc, null);
 
-				if (found) {
-					Rectangle boundingBox = new Rectangle(
-							minLoc.x(), minLoc.y(),
-							workingTemplate.cols(), workingTemplate.rows()
-					);
+			double minValD = minVal.get();
+			// Convert to intuitive confidence: lower error -> higher confidence
+			double confidence = 1.0 - minValD;
+			// Found if confidence meets threshold
+			boolean found = confidence >= threshold;
 
-					return DetectionResult.found(templateName,
-							new java.awt.Point(minLoc.x(), minLoc.y()),
-							confidence, boundingBox);
-				} else {
-					return DetectionResult.notFound(templateName);
-				}
-			} finally {
-				// free result
-				result.close();
+			if (found) {
+				Rectangle boundingBox = new Rectangle(
+						minLoc.x(), minLoc.y(),
+						workingTemplate.cols(), workingTemplate.rows()
+				);
+
+				return DetectionResult.found(templateName,
+						new java.awt.Point(minLoc.x(), minLoc.y()),
+						confidence, boundingBox);
+			} else {
+				return DetectionResult.notFound(templateName);
 			}
+
+		} catch (Exception e) {
+
+			System.err.println("TemplateDetector.findBestMatch ERROR for " + templateName + ": " + e.getMessage());
+
+			e.printStackTrace();
+
+			logger.error("Template matching failed for {}", templateName, e);
+
+			return DetectionResult.notFound(templateName);
 		} finally {
-			// Cleanup created Mats
+			// Comprehensive cleanup - close all created resources
+
 			if (mask != null) mask.close();
-			if (workingTemplateCreated && workingTemplate != null) workingTemplate.close();
-			// If ensureColorConsistency returned a different Mat than the original screen, close it
-			if (workingScreen != null && workingScreen != screen) {
-				workingScreen.close();
+
+			if (workingTemplate != null && workingTemplate != template) workingTemplate.close();
+
+			if (workingScreen != null && workingScreen != screen) workingScreen.close();
+
+			if (result != null) result.close();
+
+			if (minVal != null) minVal.close();
+
+			if (maxVal != null) maxVal.close();
+
+			if (minLoc != null) minLoc.close();
+
+			if (maxLoc != null) maxLoc.close();
+
+			// Close channel vectors and individual channels
+
+			if (channels != null) {
+
+				for (int i = 0; i < channels.size(); i++) {
+
+					Mat c = channels.get(i);
+
+					if (c != null) c.close();
+
+				}
+
+				channels.close();
+
+			}
+
+			if (bgrChannels != null) {
+
+				bgrChannels.close();
+
 			}
 		}
 	}

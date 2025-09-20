@@ -4,35 +4,45 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Recursive descent parser for ability sequence expressions.
- * Grammar:
- * Expression := Step ('→' Step)*
- * Step       := Term ('+' Term)*
- * Term       := Alternative ('/' Alternative)*
- * Alternative:= Token | '(' Expression ')'
+ * A recursive descent parser that transforms a sequence expression string into an Abstract Syntax Tree (AST).
+ * The parser is implemented based on the following grammar:
+ * <p>
+ * Expression  := Step ('→' Step)*
+ * Step        := Term ('+' Term)*
+ * Term        := Alternative ('/' Alternative)*
+ * Alternative := Ability | '(' Expression ')'
+ * Ability     := A string representing an ability name.
+ * <p>
+ * This parser first tokenizes the input string and then builds the AST from the token stream.
  */
 public class SequenceParser {
 
-	private final String input;
+	private final List<Token> tokens;
 	private int pos = 0;
 
-	public SequenceParser(String input) {
-		this.input = input;
+	public SequenceParser(List<Token> tokens) {
+		this.tokens = tokens;
 	}
 
+	/**
+	 * Parses a raw expression string into a {@link SequenceDefinition}.
+	 *
+	 * @param input The expression string.
+	 * @return The root of the AST.
+	 */
 	public static SequenceDefinition parse(String input) {
-		return new SequenceParser(input).parseExpression();
+
+		Tokenizer tokenizer = new Tokenizer();
+		List<Token> tokens = tokenizer.tokenize(input);
+		return new SequenceParser(tokens).parseExpression();
 	}
 
 	private SequenceDefinition parseExpression() {
 		List<Step> steps = new ArrayList<>();
 		steps.add(parseStep());
 
-		skipWhitespace();
-		while (peek("→")) {
-			consume("→");
+		while (matchOperator("→")) {
 			steps.add(parseStep());
-			skipWhitespace();
 		}
 
 		return new SequenceDefinition(steps);
@@ -42,11 +52,8 @@ public class SequenceParser {
 		List<Term> terms = new ArrayList<>();
 		terms.add(parseTerm());
 
-		skipWhitespace();
-		while (peek("+")) {
-			consume("+");
+		while (matchOperator("+")) {
 			terms.add(parseTerm());
-			skipWhitespace();
 		}
 
 		return new Step(terms);
@@ -56,66 +63,55 @@ public class SequenceParser {
 		List<Alternative> alts = new ArrayList<>();
 		alts.add(parseAlternative());
 
-		skipWhitespace();
-		while (peek("/")) {
-			consume("/");
+		while (matchOperator("/")) {
 			alts.add(parseAlternative());
-			skipWhitespace();
 		}
 
 		return new Term(alts);
 	}
 
 	private Alternative parseAlternative() {
-		skipWhitespace();
-		if (peek("(")) {
-			consume("(");
+		if (peek() instanceof Token.LeftParen) {
+			consume(Token.LeftParen.class);
 			SequenceDefinition inner = parseExpression();
-			consume(")");
+			consume(Token.RightParen.class);
 			return new Alternative(inner);
-
+		} else {
+			Token.Ability abilityToken = consume(Token.Ability.class);
+			return new Alternative(abilityToken.name());
 		}
-		return new Alternative(parseToken());
-	}
-
-	private String parseToken() {
-		skipWhitespace();
-		StringBuilder sb = new StringBuilder();
-		while (!eof() && !isDelimiter(peekChar())) {
-			sb.append(input.charAt(pos++));
-		}
-		return sb.toString().trim();
 	}
 
 	// --------------------
 	// Helpers
 	// --------------------
-	private boolean peek(String s) {
-		skipWhitespace();
-		return input.startsWith(s, pos);
-	}
 
-	private void consume(String s) {
-		skipWhitespace();
-		if (!input.startsWith(s, pos)) {
-			throw new IllegalStateException("Expected '" + s + "' at pos " + pos);
+	private Token peek() {
+		if (eof()) {
+			return null;
 		}
-		pos += s.length();
+		return tokens.get(pos);
 	}
 
-	private void skipWhitespace() {
-		while (!eof() && Character.isWhitespace(input.charAt(pos))) pos++;
+	private boolean matchOperator(String symbol) {
+		Token current = peek();
+		if (current instanceof Token.Operator op && op.symbol().equals(symbol)) {
+			pos++;
+			return true;
+		}
+		return false;
+	}
+
+	private <T extends Token> T consume(Class<T> type) {
+		Token current = peek();
+		if (type.isInstance(current)) {
+			pos++;
+			return type.cast(current);
+		}
+		throw new IllegalStateException("Expected token of type " + type.getSimpleName() + " but found " + (current != null ? current.getClass().getSimpleName() : "EOF") + " at position " + pos);
 	}
 
 	private boolean eof() {
-		return pos >= input.length();
-	}
-
-	private char peekChar() {
-		return input.charAt(pos);
-	}
-
-	private boolean isDelimiter(char c) {
-		return Character.isWhitespace(c) || c == '+' || c == '/' || c == '→' || c == ')' || c == '(';
+		return pos >= tokens.size();
 	}
 }

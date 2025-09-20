@@ -24,4 +24,9 @@ public class SequenceDefinition {
 	public int size() {
 		return steps.size();
 	}
+
+	@Override
+	public String toString() {
+		return String.join(" → ", steps.stream().map(Object::toString).toList());
+	}
 }

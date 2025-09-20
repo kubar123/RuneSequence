@@ -8,15 +8,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class AbilityConfig {
-	/*++*/ private Map<String, AbilityData> abilities = new HashMap<>();
+	private Map<String, AbilityData> abilities = new HashMap<>();
 
-	/*++*/
+
 	@JsonAnyGetter
 	public Map<String, AbilityData> getAbilities() {
 		return abilities;
 	}
 
-	/*++*/
+
 	@JsonAnySetter
 	public void setAbility(String name, AbilityData data) {
 		abilities.put(name, data);

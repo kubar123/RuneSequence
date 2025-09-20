@@ -14,4 +14,10 @@ public class Term {
 	public List<Alternative> getAlternatives() {
 		return alternatives;
 	}
+
+	@Override
+	public String toString() {
+		String result = String.join(" / ", alternatives.stream().map(Object::toString).toList());
+		return alternatives.size() > 1 ? "(" + result + ")" : result;
+	}
 }

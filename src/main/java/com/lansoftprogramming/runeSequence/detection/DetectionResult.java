@@ -18,13 +18,13 @@ public class DetectionResult {
 		this.found = found;
 	}
 
-	/*++*/
+
 	public static DetectionResult found(String templateName, Point location,
 	                                    double confidence, Rectangle boundingBox) {
 		return new DetectionResult(templateName, location, confidence, boundingBox, true);
 	}
 
-	/*++*/
+
 	public static DetectionResult notFound(String templateName) {
 		return new DetectionResult(templateName, null, 0.0, null, false);
 	}

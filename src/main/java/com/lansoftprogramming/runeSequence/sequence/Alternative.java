@@ -42,7 +42,16 @@ public class Alternative {
 			return token;
 		}
 		if (isGroup()) {
-			return "(" + subgroup + ")";
+			String subgroupStr = subgroup.toString();
+			// This heuristic avoids double-parentheses when a group contains just a single OR-expression.
+			boolean isSimpleOrGroup = subgroup.getSteps().size() == 1 &&
+					subgroup.getSteps().get(0).getTerms().size() == 1 &&
+					subgroup.getSteps().get(0).getTerms().get(0).getAlternatives().size() > 1;
+
+			if (isSimpleOrGroup) {
+				return subgroupStr;
+			}
+			return "(" + subgroupStr + ")";
 		}
 		return "?";
 	}

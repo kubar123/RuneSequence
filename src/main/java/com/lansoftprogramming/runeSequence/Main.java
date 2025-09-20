@@ -82,6 +82,13 @@ public class Main {
 			}));
 
 			logger.info("Application setup complete. Detection engine is running.");
+			synchronized (Main.class) {
+				try {
+					Main.class.wait();
+				} catch (InterruptedException e) {
+					logger.info("Main thread interrupted, shutting down.");
+				}
+			}
 
 		} catch (Exception e) {
 			logger.error("A critical error occurred during application startup.", e);
