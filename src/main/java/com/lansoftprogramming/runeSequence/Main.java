@@ -33,7 +33,7 @@ public class Main {
 
 			// 3. Initialize core components
 			ScreenCapture screenCapture = new ScreenCapture();
-			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager);
+			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
 			OverlayRenderer overlayRenderer = new OverlayRenderer();
 
 			// 4. Set up the Sequence Manager with our debug rotation
@@ -50,7 +50,7 @@ public class Main {
 							entry -> SequenceParser.parse(entry.getValue().getExpression())
 					));
 
-			SequenceManager sequenceManager = new SequenceManager(configManager, namedSequences);
+			SequenceManager sequenceManager = new SequenceManager(namedSequences, configManager.getAbilities());
 
 			// Activate our specific debug sequence
 			String debugSequenceName = "debug-limitless";
@@ -67,7 +67,7 @@ public class Main {
 					templateDetector,
 					sequenceManager,
 					overlayRenderer,
-					configManager
+					configManager.getDetectionInterval()
 			);
 
 			detectionEngine.start();

@@ -1,7 +1,7 @@
 package com.lansoftprogramming.runeSequence.sequence;
 
+import com.lansoftprogramming.runeSequence.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.detection.DetectionResult;
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,20 +11,20 @@ import java.util.Map;
 public class ActiveSequence {
 
 	private final SequenceDefinition definition;
-	private final ConfigManager configManager;
+	private final AbilityConfig abilityConfig;
 
 	private int currentStepIndex = 0;
 	private final StepTimer stepTimer;
 
 	private Map<String, DetectionResult> lastDetections = new HashMap<>();
 
-	public ActiveSequence(SequenceDefinition def, ConfigManager configManager) {
+	public ActiveSequence(SequenceDefinition def, AbilityConfig abilityConfig) {
 		this.definition = def;
-		this.configManager = configManager;
+		this.abilityConfig = abilityConfig;
 		this.stepTimer = new StepTimer();
 
 		System.out.println("ActiveSequence: Created with " + def.getSteps().size() + " steps");
-		this.stepTimer.startStep(def.getStep(currentStepIndex), configManager);
+		this.stepTimer.startStep(def.getStep(currentStepIndex), abilityConfig);
 	}
 
 	public List<String> getRequiredTemplates() {
@@ -36,14 +36,14 @@ public class ActiveSequence {
 		System.out.println("ActiveSequence.getRequiredTemplates: currentStepIndex=" + currentStepIndex);
 
 		if (current != null) {
-			List<String> currentTemplates = current.getDetectableTokens(configManager);
+			List<String> currentTemplates = current.getDetectableTokens(abilityConfig);
 			result.addAll(currentTemplates);
 
 			System.out.println("  Current step templates: " + currentTemplates);
 		}
 
 		if (next != null) {
-			List<String> nextTemplates = next.getDetectableTokens(configManager);
+			List<String> nextTemplates = next.getDetectableTokens(abilityConfig);
 			result.addAll(nextTemplates);
 
 			System.out.println("  Next step templates: " + nextTemplates);
@@ -145,7 +145,7 @@ public class ActiveSequence {
 		System.out.println("advanceStep: Advanced to step " + currentStepIndex);
 
 		Step step = getCurrentStep();
-		stepTimer.startStep(step, configManager);
+		stepTimer.startStep(step, abilityConfig);
 	}
 
 	public void reset() {

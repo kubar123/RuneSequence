@@ -1,7 +1,6 @@
 package com.lansoftprogramming.runeSequence.detection;
 
 import com.lansoftprogramming.runeSequence.capture.ScreenCapture;
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.sequence.SequenceManager;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
@@ -20,26 +19,25 @@ public class DetectionEngine {
 	private final TemplateDetector detector;
 	private final SequenceManager sequenceManager;
 	private final OverlayRenderer overlay;
-	private final ConfigManager configManager;
+	private final int detectionIntervalMs;
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
-	                       ConfigManager configManager) {
+	                       int detectionIntervalMs) {
 		this.screenCapture = screenCapture;
 		this.detector = detector;
 		this.sequenceManager = sequenceManager;
 		this.overlay = overlay;
-		this.configManager = configManager;
+		this.detectionIntervalMs = detectionIntervalMs;
 	}
 
 	public void start() {
 		if (isRunning) return;
 
 		isRunning = true;
-		int intervalMs = configManager.getDetectionInterval();
 
 		scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
 			Thread t = new Thread(r, "DetectionEngine");
@@ -47,8 +45,8 @@ public class DetectionEngine {
 			return t;
 		});
 
-		scheduler.scheduleAtFixedRate(this::processFrame, 0, intervalMs, TimeUnit.MILLISECONDS);
-		logger.info("Detection engine started ({}ms interval)", intervalMs);
+		scheduler.scheduleAtFixedRate(this::processFrame, 0, detectionIntervalMs, TimeUnit.MILLISECONDS);
+		logger.info("Detection engine started ({}ms interval)", detectionIntervalMs);
 	}
 
 	public void stop() {

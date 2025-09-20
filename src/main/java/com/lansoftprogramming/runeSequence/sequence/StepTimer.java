@@ -1,7 +1,6 @@
 package com.lansoftprogramming.runeSequence.sequence;
 
 import com.lansoftprogramming.runeSequence.config.AbilityConfig;
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.detection.DetectionResult;
 
 import java.util.Map;
@@ -15,9 +14,9 @@ public class StepTimer {
 	private long stepStartTimeMs;
 	private long stepDurationMs;
 
-	public void startStep(Step step, ConfigManager configManager) {
+	public void startStep(Step step, AbilityConfig abilityConfig) {
 		stepStartTimeMs = System.currentTimeMillis();
-		stepDurationMs = calculateStepDuration(step, configManager);
+		stepDurationMs = calculateStepDuration(step, abilityConfig);
 	}
 
 	public boolean isStepSatisfied(Map<String, DetectionResult> lastDetections) {
@@ -30,12 +29,11 @@ public class StepTimer {
 		stepDurationMs = 0;
 	}
 
-	private long calculateStepDuration(Step step, ConfigManager configManager) {
+	private long calculateStepDuration(Step step, AbilityConfig abilityConfig) {
 		long maxTicks = 3; // default 3 ticks
-		AbilityConfig abilities = configManager.getAbilities();
 
-		for (String token : step.getDetectableTokens(configManager)) {
-			AbilityConfig.AbilityData data = abilities.getAbility(token);
+		for (String token : step.getDetectableTokens(abilityConfig)) {
+			AbilityConfig.AbilityData data = abilityConfig.getAbility(token);
 			if (data != null) {
 				if (data.isTriggersGcd()) maxTicks = Math.max(maxTicks, 3);
 				// allow custom cooldowns here

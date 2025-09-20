@@ -1,6 +1,6 @@
 package com.lansoftprogramming.runeSequence.sequence;
 
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.detection.DetectionResult;
 
 import java.util.List;
@@ -9,12 +9,12 @@ import java.util.Objects;
 
 public class SequenceManager {
 
-	private final ConfigManager configManager;
+	private final AbilityConfig abilityConfig;
 	private final Map<String, SequenceDefinition> namedSequences;
 	private ActiveSequence activeSequence;
 
-	public SequenceManager(ConfigManager configManager, Map<String, SequenceDefinition> namedSequences) {
-		this.configManager = Objects.requireNonNull(configManager);
+	public SequenceManager(Map<String, SequenceDefinition> namedSequences, AbilityConfig abilityConfig) {
+		this.abilityConfig = Objects.requireNonNull(abilityConfig);
 		this.namedSequences = Objects.requireNonNull(namedSequences);
 	}
 
@@ -95,7 +95,7 @@ public class SequenceManager {
 			return false;
 		}
 
-		this.activeSequence = new ActiveSequence(def, configManager);
+		this.activeSequence = new ActiveSequence(def, abilityConfig);
 
 		System.out.println("SequenceManager: Sequence activated successfully");
 		return true;

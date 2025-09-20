@@ -2,7 +2,6 @@ package com.lansoftprogramming.runeSequence.detection;
 
 import com.lansoftprogramming.runeSequence.TemplateCache;
 import com.lansoftprogramming.runeSequence.config.AbilityConfig;
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.MatVector;
@@ -33,12 +32,12 @@ public class TemplateDetector {
 	private static final Logger logger = LoggerFactory.getLogger(TemplateDetector.class);
 
 	private final TemplateCache templateCache;
-	private final ConfigManager configManager;
+	private final AbilityConfig abilityConfig;
 	private final Map<String, Rectangle> lastKnownLocations = new HashMap<>();
 
-	public TemplateDetector(TemplateCache templateCache, ConfigManager configManager) {
+	public TemplateDetector(TemplateCache templateCache, AbilityConfig abilityConfig) {
 		this.templateCache = templateCache;
-		this.configManager = configManager;
+		this.abilityConfig = abilityConfig;
 	}
 
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
@@ -115,7 +114,7 @@ public class TemplateDetector {
 	}
 
 	private double getThresholdForTemplate(String templateName) {
-		AbilityConfig.AbilityData abilityData = configManager.getAbilities().getAbility(templateName);
+		AbilityConfig.AbilityData abilityData = abilityConfig.getAbility(templateName);
 		if (abilityData != null && abilityData.getDetectionThreshold() != null) {
 			return abilityData.getDetectionThreshold();
 		}

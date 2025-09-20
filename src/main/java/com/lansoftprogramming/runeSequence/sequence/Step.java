@@ -1,7 +1,6 @@
 package com.lansoftprogramming.runeSequence.sequence;
 
 import com.lansoftprogramming.runeSequence.config.AbilityConfig;
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.detection.DetectionResult;
 
 import java.util.ArrayList;
@@ -23,13 +22,11 @@ public class Step {
 	/**
 	 * Flatten all detectable tokens in this step for detection engine
 	 */
-	public List<String> getDetectableTokens(ConfigManager configManager) {
+	public List<String> getDetectableTokens(AbilityConfig abilityConfig) {
 		List<String> out = new ArrayList<>();
-		AbilityConfig abilityCfg = configManager.getAbilities();
-
 		for (Term t : terms) {
 			for (Alternative alt : t.getAlternatives()) {
-				collectDetectable(alt, abilityCfg, out);
+				collectDetectable(alt, abilityConfig, out);
 			}
 		}
 		return out;
@@ -77,8 +74,10 @@ public class Step {
 			}
 		}
 
-		List<String> detectableTokens = getDetectableTokens(null); // Pass your ConfigManager here
-		System.out.println("Detectable tokens: " + detectableTokens);
+		// TODO: The config is no longer available here, this method may need to be moved
+		// or the config passed in from a higher level for debugging.
+		// List<String> detectableTokens = getDetectableTokens(abilityCfg);
+		// System.out.println("Detectable tokens: " + detectableTokens);
 		System.out.println("=================");
 	}
 
