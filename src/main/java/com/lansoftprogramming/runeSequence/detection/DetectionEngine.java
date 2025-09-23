@@ -63,76 +63,38 @@ public class DetectionEngine {
 	}
 
 	private void processFrame() {
-
-		// SAFETY: Check overlay data before rendering
-		System.out.println("DetectionEngine: About to update overlays...");
-		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
-		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
-
-		System.out.println("Current abilities count: " + currentAbilities.size());
-		for (DetectionResult r : currentAbilities) {
-			System.out.println("  Current: " + r.templateName + " found=" + r.found +
-					" boundingBox=" + r.boundingBox);
-		}
-
-		System.out.println("Next abilities count: " + nextAbilities.size());
-		for (DetectionResult r : nextAbilities) {
-			System.out.println("  Next: " + r.templateName + " found=" + r.found +
-					" boundingBox=" + r.boundingBox);
-		}
-
-		try {
-			// Update overlays
-			updateOverlays();
-			System.out.println("DetectionEngine: Overlays updated successfully");
-		} catch (Exception e) {
-			System.err.println("DetectionEngine: OVERLAY CRASH: " + e.getMessage());
-			e.printStackTrace();
-			throw e;
-		}
-		System.out.println("DetectionEngine.processFrame: Starting");
+		logger.debug("DetectionEngine.processFrame: Starting");
 
 		try {
 			long startTime = System.nanoTime();
 
 			Mat screenMat = screenCapture.captureScreen();
 			if (screenMat == null || screenMat.empty()) {
-
-				System.out.println("DetectionEngine: Screen capture failed");
+				logger.warn("DetectionEngine: Screen capture failed");
 				return;
 			}
-
-
-			System.out.println("DetectionEngine: Screen captured successfully");
+			logger.debug("DetectionEngine: Screen captured successfully");
 
 			// Get required templates
 			List<String> requiredTemplates = sequenceManager.getRequiredTemplates();
-
-			System.out.println("DetectionEngine: Required templates: " + requiredTemplates);
+			logger.debug("DetectionEngine: Required templates: {}", requiredTemplates);
 
 			if (requiredTemplates.isEmpty()) {
-
-				System.out.println("DetectionEngine: No templates required");
+				logger.debug("DetectionEngine: No templates required");
 				screenMat.close();
 				return;
 			}
 
 			// Detect all required templates
-
-			System.out.println("DetectionEngine: Starting template detection");
+			logger.debug("DetectionEngine: Starting template detection");
 			List<DetectionResult> detectionResults = new ArrayList<>();
-
 			for (String templateName : requiredTemplates) {
-
-				System.out.println("  Detecting: " + templateName);
+				logger.debug("  Detecting: {}", templateName);
 				DetectionResult result = detector.detectTemplate(screenMat, templateName);
 				detectionResults.add(result);
-
-				System.out.println("    Result: found=" + result.found + " confidence=" + result.confidence);
+				logger.debug("    Result: found={} confidence={}", result.found, result.confidence);
 			}
-
-
-			System.out.println("DetectionEngine: Detection complete, " + detectionResults.size() + " results");
+			logger.debug("DetectionEngine: Detection complete, {} results", detectionResults.size());
 
 			// Process results through sequence manager
 			sequenceManager.processDetection(detectionResults);
@@ -148,9 +110,6 @@ public class DetectionEngine {
 			}
 
 		} catch (Exception e) {
-
-			System.err.println("DetectionEngine.processFrame ERROR: " + e.getMessage());
-			e.printStackTrace();
 			logger.error("Error in detection frame", e);
 		}
 	}
@@ -159,13 +118,9 @@ public class DetectionEngine {
 	// The old method only passed results if found=true, but we need ALL results
 
 	private void updateOverlays() {
-
 		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
 		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
-
-
-		System.out.println("DetectionEngine.updateOverlays: current=" + currentAbilities.size() + " next=" + nextAbilities.size());
-
+		logger.debug("DetectionEngine.updateOverlays: current={} next={}", currentAbilities.size(), nextAbilities.size());
 		overlay.updateOverlays(currentAbilities, nextAbilities);
 	}
 

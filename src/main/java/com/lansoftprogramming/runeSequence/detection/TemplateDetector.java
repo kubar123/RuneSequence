@@ -42,19 +42,14 @@ public class TemplateDetector {
 	}
 
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
-
-		System.out.println("TemplateDetector.detectTemplate: Starting detection for '" + templateName + "'");
+		logger.debug("TemplateDetector.detectTemplate: Starting detection for '{}'", templateName);
 
 		Mat template = templateCache.getTemplate(templateName);
 		if (template == null) {
 			logger.warn("Template not found in cache: {}", templateName);
-
-			System.out.println("TemplateDetector: Template not found in cache: " + templateName);
 			return DetectionResult.notFound(templateName);
 		}
-
-
-		System.out.println("TemplateDetector: Template found, starting detection...");
+		logger.debug("TemplateDetector: Template found, starting detection...");
 
 		// First, try searching in the last known location
 		if (lastKnownLocations.containsKey(templateName)) {
@@ -138,29 +133,25 @@ public class TemplateDetector {
 			return DetectionResult.notFound(templateName);
 		}
 
-		// Improved resource management with explicit cleanup
 		Mat mask = null;
 		Mat workingTemplate = null;
 		Mat workingScreen = null;
 		MatVector channels = null;
 		MatVector bgrChannels = null;
 		Mat result = null;
-		DoublePointer minVal = null;
-		DoublePointer maxVal = null;
-		Point minLoc = null;
-		Point maxLoc = null;
+		DoublePointer minVal = new DoublePointer(1);
+		DoublePointer maxVal = new DoublePointer(1);
+		Point minLoc = new Point();
+		Point maxLoc = new Point();
 
 		try {
 			// Handle alpha channel as mask
 			if (template.channels() == 4) {
-				// More careful channel management
 				channels = new MatVector(4);
 				split(template, channels);
 
-				// alpha channel -> mask
 				mask = channels.get(3).clone(); // clone so we can manage lifecycle independently
 
-				// Merge BGR channels back into workingTemplate
 				bgrChannels = new MatVector(3);
 				bgrChannels.put(0, channels.get(0));
 				bgrChannels.put(1, channels.get(1));
@@ -169,103 +160,48 @@ public class TemplateDetector {
 				workingTemplate = new Mat();
 				merge(bgrChannels, workingTemplate);
 			} else {
-				// If template has no alpha, use original template
-				workingTemplate = template;
-				mask = null;
+				workingTemplate = template; // If no alpha, use original template
 			}
 
-			// Ensure color consistency
 			workingScreen = ensureColorConsistency(screen, workingTemplate);
 
-			// Prepare result Mat (float) with correct size
 			int resultCols = workingScreen.cols() - workingTemplate.cols() + 1;
 			int resultRows = workingScreen.rows() - workingTemplate.rows() + 1;
 			if (resultCols <= 0 || resultRows <= 0) {
 				logger.debug("Computed result size invalid ({}x{}); skipping template {}", resultCols, resultRows, templateName);
 				return DetectionResult.notFound(templateName);
 			}
-
 			result = new Mat(new org.bytedeco.opencv.opencv_core.Size(resultCols, resultRows), CV_32FC1);
 
-			// Perform template matching with SQDIFF_NORMED (smaller = better)
 			matchTemplate(workingScreen, workingTemplate, result, TM_SQDIFF_NORMED, mask);
-
-			// minMaxLoc to find best match
-			minVal = new DoublePointer(1);
-			maxVal = new DoublePointer(1);
-			minLoc = new Point();
-			maxLoc = new Point();
-
 			minMaxLoc(result, minVal, maxVal, minLoc, maxLoc, null);
 
-			double minValD = minVal.get();
-			// Convert to intuitive confidence: lower error -> higher confidence
-			double confidence = 1.0 - minValD;
-			// Found if confidence meets threshold
-			boolean found = confidence >= threshold;
-
-			if (found) {
-				Rectangle boundingBox = new Rectangle(
-						minLoc.x(), minLoc.y(),
-						workingTemplate.cols(), workingTemplate.rows()
-				);
-
-				return DetectionResult.found(templateName,
-						new java.awt.Point(minLoc.x(), minLoc.y()),
-						confidence, boundingBox);
+			double confidence = 1.0 - minVal.get();
+			if (confidence >= threshold) {
+				Rectangle boundingBox = new Rectangle(minLoc.x(), minLoc.y(), workingTemplate.cols(), workingTemplate.rows());
+				return DetectionResult.found(templateName, new java.awt.Point(minLoc.x(), minLoc.y()), confidence, boundingBox);
 			} else {
 				return DetectionResult.notFound(templateName);
 			}
 
 		} catch (Exception e) {
-
-			System.err.println("TemplateDetector.findBestMatch ERROR for " + templateName + ": " + e.getMessage());
-
-			e.printStackTrace();
-
 			logger.error("Template matching failed for {}", templateName, e);
-
 			return DetectionResult.notFound(templateName);
 		} finally {
-			// Comprehensive cleanup - close all created resources
-
-			if (mask != null) mask.close();
-
-			if (workingTemplate != null && workingTemplate != template) workingTemplate.close();
-
-			if (workingScreen != null && workingScreen != screen) workingScreen.close();
-
-			if (result != null) result.close();
-
-			if (minVal != null) minVal.close();
-
-			if (maxVal != null) maxVal.close();
-
-			if (minLoc != null) minLoc.close();
-
-			if (maxLoc != null) maxLoc.close();
-
-			// Close channel vectors and individual channels
-
+			// Clean up all native resources quietly
+			closeQuietly(mask, workingScreen != screen ? workingScreen : null, result, minVal, maxVal, minLoc, maxLoc);
+			// Close the workingTemplate only if it was created internally
+			if (workingTemplate != template) {
+				closeQuietly(workingTemplate);
+			}
+			// Close channel vectors and their contents
 			if (channels != null) {
-
 				for (int i = 0; i < channels.size(); i++) {
-
-					Mat c = channels.get(i);
-
-					if (c != null) c.close();
-
+					closeQuietly(channels.get(i));
 				}
-
-				channels.close();
-
+				closeQuietly(channels);
 			}
-
-			if (bgrChannels != null) {
-
-				bgrChannels.close();
-
-			}
+			closeQuietly(bgrChannels);
 		}
 	}
 
@@ -285,5 +221,21 @@ public class TemplateDetector {
 		}
 		// return original reference (caller must NOT close it)
 		return screen;
+	}
+
+	/**
+	 * Closes multiple AutoCloseable resources, ignoring nulls and logging any exceptions.
+	 * @param resources The resources to close.
+	 */
+	private static void closeQuietly(AutoCloseable... resources) {
+		for (AutoCloseable resource : resources) {
+			if (resource != null) {
+				try {
+					resource.close();
+				} catch (Exception e) {
+					logger.warn("Failed to close resource", e);
+				}
+			}
+		}
 	}
 }

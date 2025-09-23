@@ -1,72 +1,71 @@
-# Medium Description Documentation
+# Medium Form Documentation
 
-This document provides a mid-level overview of the classes in the RuneSequence project.
+This document provides a concise description of the classes and methods in the RuneSequence project.
 
 ---
-## Core (`com.lansoftprogramming.runeSequence`)
+
+## Core Components
 
 ### `Main`
-The application's main entry point. It orchestrates the startup by initializing configurations, caching image templates, setting up the core detection and rendering components, and activating a default ability sequence. It ensures a graceful shutdown by using a runtime hook to release all resources.
+The application's entry point. It initializes all core components like configuration, template caching, screen capture, and the detection engine. It parses ability rotations, starts the main detection loop, and ensures a graceful shutdown of all resources.
 
-### `TemplateCache`
-A thread-safe cache that loads ability images (templates) from the correct, OS-specific, and scale-specific directory. It stores them as OpenCV `Mat` objects in a `ConcurrentHashMap`, ensuring they are readily available for the detection engine. It clones `Mat` objects to ensure data integrity.
-
----
-## Configuration (`...config`)
-
-### `ConfigManager`
-The central class for managing all configuration. It loads and saves settings, abilities, and rotation data from JSON files. On first launch, it automatically creates these files from embedded defaults, ensuring a seamless user setup in the appropriate OS-specific data directory.
-
-### `AppSettings`
-A POJO data container for `settings.json`. It holds all global application settings, neatly organized into nested classes for detection parameters (`DetectionSettings`) and the capture area (`RegionSettings`).
-
-### `AbilityConfig`
-A data class for `abilities.json`. It dynamically loads definitions for any number of abilities into a map. This allows new abilities, with properties like cooldowns, to be added without changing the Java code.
-
-### `RotationConfig`
-A data class for `rotations.json` that stores predefined ability sequences ("presets"). Each preset has a name and a string `expression` that defines the sequence's logic.
-
-### `ScalingConverter`
-A simple utility that maps a display scaling percentage to a specific integer value. This value is used by `TemplateCache` to locate the folder containing correctly-sized image assets, ensuring reliable detection on high-DPI displays.
-
----
-## Screen Capture & Detection (`...capture` & `...detection`)
-
-### `ScreenCapture`
-A high-performance, cross-platform screen capture utility using FFmpeg. It intelligently selects the best capture technology for the OS and attempts to use hardware acceleration. It captures the full screen and performs software cropping to efficiently handle changes in the capture region.
-
-### `TemplateDetector`
-Performs the core computer vision task using OpenCV. Its key feature is the ability to use a PNG's alpha channel as a mask for `matchTemplate`. This allows for precise, non-rectangular matching of uniquely shaped ability icons. It also includes an optimization to search in the last known location first.
+- **`main(String[] args)`**: Orchestrates the application startup, wires all components together, and starts the detection process.
+- **`populateTemplateCache()`**: Initializes the template cache from image assets.
+- **`populateSettings()`**: Initializes the configuration manager from JSON files.
 
 ### `DetectionEngine`
-The core of the application's real-time loop. It runs on a scheduled background thread, periodically capturing the screen, directing the `TemplateDetector` to find the required ability icons, and passing the results to the `SequenceManager` to update the sequence state and `OverlayRenderer` to update the UI.
+The heart of the application, running a loop to capture the screen, detect ability icons via `TemplateDetector`, process the findings against the active rotation in `SequenceManager`, and update the on-screen `OverlayRenderer`. It operates on a dedicated thread for non-blocking performance.
 
-### `DetectionResult`
-An immutable value object that cleanly encapsulates the results of a template search. It uses static factory methods (`found`/`notFound`) to clearly indicate whether an ability was located, and bundles the name, location, and confidence of the match.
-
-### `OverlayRenderer`
-Creates a transparent, click-through `JWindow` to display colored borders around detected abilities. It uses different colors and thicknesses to distinguish between "current", "next", and "alternative" (OR) abilities, providing clear, non-intrusive visual feedback on the sequence state.
+- **`start()`**: Starts the main detection thread.
+- **`stop()`**: Gracefully stops the detection thread.
+- **`processFrame()`**: The core method executed each cycle to perform detection and update state.
 
 ---
-## Sequence Management (`...sequence`)
 
-### `SequenceManager`
-A thread-safe, high-level manager for all ability sequences. It holds a library of all defined sequences and controls which one is currently active. It acts as the primary interface for the `DetectionEngine`, delegating all processing to the current `ActiveSequence`.
+## Configuration (`.config`)
 
-### `ActiveSequence`
-A stateful object representing a live, running sequence. It tracks the current step, determines which abilities need to be detected, and uses detection results and the `StepTimer` to decide when it's time to advance to the next step in the sequence.
+### `ConfigManager`
+Manages loading and saving of all JSON configurations (settings, abilities, rotations). It creates default configs on first launch and provides a central access point for all configuration data. It intelligently finds the correct OS-specific folder for storing its data.
+
+- **`initialize()`**: Loads all configurations from disk or creates them from bundled defaults.
+- **`getAppDataPath()`**: A utility to locate the system's standard application data directory.
+
+### `AppSettings`, `AbilityConfig`, `RotationConfig`
+These are POJO classes that map directly to the JSON configuration files (`settings.json`, `abilities.json`, `rotations.json`). They act as structured, type-safe containers for application settings, ability metadata (cooldowns, etc.), and defined rotation presets, respectively.
+
+---
+
+## Screen Capture and Detection (`.capture`, `.detection`)
+
+### `ScreenCapture`
+A service responsible for grabbing frames from the screen using FFmpeg via JavaCV. It can capture the full screen or a specified region and provides the output as an OpenCV `Mat` object, ready for image processing.
+
+- **`captureScreen()`**: The primary method to perform a screen grab and return the image data.
+
+### `TemplateDetector`
+Finds ability icons on the screen by matching them against pre-loaded template images. It uses OpenCV's `matchTemplate` and employs optimizations like searching in the last known location first to improve performance. It also correctly handles templates with transparency.
+
+- **`detectTemplate(Mat, String)`**: Searches the screen for a given template by name.
+- **`findBestMatch(...)`**: The internal worker method that executes the core OpenCV matching logic and manages native memory.
+
+### `TemplateCache`
+Loads all template images from a directory into memory at startup to avoid repeated disk access. It stores them as OpenCV `Mat` objects in a simple map, providing fast, on-demand access for the `TemplateDetector`.
+
+### `OverlayRenderer`
+Draws visual guides on the screen, such as borders around abilities, to provide feedback to the user. It uses a transparent, always-on-top window to render these overlays without interfering with other applications.
+
+---
+
+## Sequence Logic (`.sequence`)
 
 ### `SequenceParser`
-A standard recursive descent parser responsible for transforming an expression string from `RotationConfig` into a `SequenceDefinition` Abstract Syntax Tree (AST). It handles operator precedence and parenthesized groups, forming the bridge between the user's configuration and the application's runtime representation.
+Transforms a rotation defined as a string (e.g., "Ability1 > Ability2") into a structured `SequenceDefinition` object. It uses a tokenizer and a recursive descent algorithm to build an abstract syntax tree representing the complex rotation logic.
 
-### `StepTimer`
-A class that manages the cooldown or duration of each step in a sequence. It calculates the required delay based on the cooldowns of the abilities in the current step (including GCDs), ensuring the sequence's timing respects in-game mechanics.
+### `SequenceManager`
+Manages the state of the active ability sequence. It holds all parsed rotations and uses the `ActiveSequence` to track progress. It receives detection results from the `DetectionEngine` and determines the current and next abilities to be highlighted.
 
-### `Tokenizer`
-A class that breaks down the raw sequence expression string into a list of `Token` objects. It correctly handles ability names with spaces and supports multiple operator symbols (e.g., `->` and `→`).
-
-### `Token`
-A `sealed interface` with `record` implementations that provides a strongly-typed, immutable representation of the parts of a sequence expression (e.g., `Ability`, `Operator`).
+### `ActiveSequence`
+Represents the live, running instance of a `SequenceDefinition`. It tracks which step of the sequence is currently active and advances to the next step when its conditions (i.e., required abilities are detected) are met.
 
 ### `SequenceDefinition`, `Step`, `Term`, `Alternative`
-A set of immutable classes that form the nodes of a parsed Abstract Syntax Tree (AST). They directly represent the grammar of an ability sequence expression, from the root `SequenceDefinition` down to individual `Alternative`s.
+A set of data classes that form the nodes of the abstract syntax tree for a rotation. They represent the hierarchical structure of a sequence, from the whole rotation down to individual, alternative abilities, enabling complex logic.
