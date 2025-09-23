@@ -130,33 +130,23 @@ public class OverlayRenderer {
 	}
 
 	private void addBorder(DetectionResult result, BorderType borderType) {
-
-		System.out.println("OverlayRenderer.addBorder: " + result.templateName +
-				" found=" + result.found + " boundingBox=" + result.boundingBox);
+		logger.debug("OverlayRenderer.addBorder: {} found={} boundingBox={}", result.templateName, result.found, result.boundingBox);
 
 		if (result == null || !result.found) {
-
-			System.out.println("OverlayRenderer: Skipping border for " + result.templateName + " (not found)");
+			logger.debug("OverlayRenderer: Skipping border for {} (not found)", result != null ? result.templateName : "null");
 			return;
 		}
 
-
 		if (result.boundingBox == null) {
-
-			System.err.println("OverlayRenderer: ERROR - found=true but boundingBox=null for " + result.templateName);
-
+			logger.error("OverlayRenderer: ERROR - found=true but boundingBox=null for {}", result.templateName);
 			return;
-
 		}
 
 		Rectangle bounds = calculateBorderBounds(result);
 		OverlayBorder border = new OverlayBorder(result.templateName, bounds, borderType);
-
 		activeBorders.put(result.templateName, border);
 
-
-		System.out.println("OverlayRenderer: Successfully added " + borderType + " border for " + result.templateName);
-
+		logger.debug("OverlayRenderer: Successfully added {} border for {}", borderType, result.templateName);
 		logger.debug("Added {} border for {} at {}", borderType, result.templateName, bounds);
 	}
 

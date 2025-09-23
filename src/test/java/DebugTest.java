@@ -1,53 +1,56 @@
 // DebugTest.java - Standalone test
 
 import com.lansoftprogramming.runeSequence.sequence.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class DebugTest {
+	private static final Logger logger = LoggerFactory.getLogger(DebugTest.class);
+
 	public static void main(String[] args) {
 		// Test the specific failing case
 		String expr = "Limitless";
-		System.out.println("=== Testing: '" + expr + "' ===");
+		logger.debug("=== Testing: '{}' ===", expr);
 
 		try {
 			// Test parsing directly
 			SequenceDefinition sequence = SequenceParser.parse(expr);
-			System.out.println("Parsed sequence: " + sequence);
-			System.out.println("Steps count: " + sequence.getSteps().size());
+			logger.debug("Parsed sequence: {}", sequence);
+			logger.debug("Steps count: {}", sequence.getSteps().size());
 
 			if (!sequence.getSteps().isEmpty()) {
 				Step firstStep = sequence.getStep(0);
-				System.out.println("First step terms: " + firstStep.getTerms().size());
+				logger.debug("First step terms: {}", firstStep.getTerms().size());
 
 				for (int i = 0; i < firstStep.getTerms().size(); i++) {
 					Term term = firstStep.getTerms().get(i);
-					System.out.println("  Term[" + i + "] alternatives: " + term.getAlternatives().size());
+					logger.debug("  Term[{}] alternatives: {}", i, term.getAlternatives().size());
 
 					for (int j = 0; j < term.getAlternatives().size(); j++) {
 						Alternative alt = term.getAlternatives().get(j);
-						System.out.println("    Alt[" + j + "] isToken: " + alt.isToken());
+						logger.debug("    Alt[{}] isToken: {}", j, alt.isToken());
 						if (alt.isToken()) {
-							System.out.println("      Token: '" + alt.getToken() + "'");
+							logger.debug("      Token: '{}'", alt.getToken());
 						}
 					}
 				}
 			}
 
 		} catch (Exception e) {
-			System.err.println("ERROR: " + e.getMessage());
-			e.printStackTrace();
+			logger.error("ERROR: {}", e.getMessage(), e);
 		}
 
 		// Test more cases
 		String[] moreTests = {"ability1", "ability1 + ability2"};
 		for (String test : moreTests) {
-			System.out.println("\n=== Testing: '" + test + "' ===");
+			logger.debug("\n=== Testing: '{}' ===", test);
 			try {
 				SequenceDefinition seq = SequenceParser.parse(test);
-				System.out.println("Success: " + seq.getSteps().size() + " steps");
+				logger.debug("Success: {} steps", seq.getSteps().size());
 			} catch (Exception e) {
-				System.err.println("Failed: " + e.getMessage());
+				logger.error("Failed: {}", e.getMessage());
 			}
 		}
 	}

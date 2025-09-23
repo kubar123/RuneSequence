@@ -2,6 +2,8 @@ package com.lansoftprogramming.runeSequence.sequence;
 
 import com.lansoftprogramming.runeSequence.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.config.ConfigManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ActiveSequence {
-
+	private static final Logger logger = LoggerFactory.getLogger(ActiveSequence.class);
 	private final SequenceDefinition definition;
 	private final ConfigManager configManager;
 
@@ -23,7 +25,7 @@ public class ActiveSequence {
 		this.configManager = configManager;
 		this.stepTimer = new StepTimer();
 
-		System.out.println("ActiveSequence: Created with " + def.getSteps().size() + " steps");
+		logger.debug("ActiveSequence: Created with {} steps", def.getSteps().size());
 		this.stepTimer.startStep(def.getStep(currentStepIndex), configManager);
 	}
 
@@ -32,65 +34,54 @@ public class ActiveSequence {
 		Step next = getNextStep();
 		List<String> result = new ArrayList<>();
 
-
-		System.out.println("ActiveSequence.getRequiredTemplates: currentStepIndex=" + currentStepIndex);
+		logger.debug("ActiveSequence.getRequiredTemplates: currentStepIndex={}", currentStepIndex);
 
 		if (current != null) {
 			List<String> currentTemplates = current.getDetectableTokens(configManager);
 			result.addAll(currentTemplates);
-
-			System.out.println("  Current step templates: " + currentTemplates);
+			logger.debug("  Current step templates: {}", currentTemplates);
 		}
 
 		if (next != null) {
 			List<String> nextTemplates = next.getDetectableTokens(configManager);
 			result.addAll(nextTemplates);
-
-			System.out.println("  Next step templates: " + nextTemplates);
+			logger.debug("  Next step templates: {}", nextTemplates);
 		}
 
-
-		System.out.println("  Total required templates: " + result);
+		logger.debug("  Total required templates: {}", result);
 		return result;
 	}
 
 	public void processDetections(List<DetectionResult> results) {
-
-		System.out.println("ActiveSequence.processDetections: Received " + results.size() + " results");
+		logger.debug("ActiveSequence.processDetections: Received {} results", results.size());
 
 		lastDetections.clear();
 		for (DetectionResult r : results) {
 			lastDetections.put(r.templateName, r);
-
-			System.out.println("  Stored detection: " + r.templateName + " found=" + r.found);
+			logger.debug("  Stored detection: {} found={}", r.templateName, r.found);
 		}
 
-
-		System.out.println("  Checking if step is satisfied...");
+		logger.debug("  Checking if step is satisfied...");
 		if (stepTimer.isStepSatisfied(lastDetections)) {
-
-			System.out.println("  Step satisfied! Advancing...");
+			logger.debug("  Step satisfied! Advancing...");
 			advanceStep();
 		} else {
-
-			System.out.println("  Step not yet satisfied");
+			logger.debug("  Step not yet satisfied");
 		}
 	}
 
 	public List<DetectionResult> getCurrentAbilities() {
 		Step step = getCurrentStep();
 		if (step == null) {
-
-			System.out.println("ActiveSequence.getCurrentAbilities: No current step");
+			logger.debug("ActiveSequence.getCurrentAbilities: No current step");
 			return List.of();
 		}
 
 		List<DetectionResult> current = step.flattenDetections(lastDetections);
-
-		System.out.println("ActiveSequence.getCurrentAbilities: " + current.size() + " abilities");
+		logger.debug("ActiveSequence.getCurrentAbilities: {} abilities", current.size());
 
 		for (DetectionResult result : current) {
-			System.out.println("  Current ability: " + result.templateName + " found=" + result.found);
+			logger.debug("  Current ability: {} found={}", result.templateName, result.found);
 		}
 
 		return current;
@@ -99,35 +90,31 @@ public class ActiveSequence {
 	public List<DetectionResult> getNextAbilities() {
 		Step step = getNextStep();
 		if (step == null) {
-
-			System.out.println("ActiveSequence.getNextAbilities: No next step");
+			logger.debug("ActiveSequence.getNextAbilities: No next step");
 			return List.of();
 		}
 
 		List<DetectionResult> next = step.flattenDetections(lastDetections);
-
-		System.out.println("ActiveSequence.getNextAbilities: " + next.size() + " abilities");
+		logger.debug("ActiveSequence.getNextAbilities: {} abilities", next.size());
 
 		for (DetectionResult result : next) {
-			System.out.println("  Next ability: " + result.templateName + " found=" + result.found);
+			logger.debug("  Next ability: {} found={}", result.templateName, result.found);
 		}
 
 		return next;
 	}
 
 	private Step getCurrentStep() {
-
 		if (currentStepIndex >= definition.size()) {
-			System.out.println("getCurrentStep: Index " + currentStepIndex + " >= " + definition.size());
+			logger.debug("getCurrentStep: Index {} >= {}", currentStepIndex, definition.size());
 			return null;
 		}
 		return definition.getStep(currentStepIndex);
 	}
 
 	private Step getNextStep() {
-
 		if (currentStepIndex + 1 >= definition.size()) {
-			System.out.println("getNextStep: No next step (currentIndex=" + currentStepIndex + ")");
+			logger.debug("getNextStep: No next step (currentIndex={})", currentStepIndex);
 			return null;
 		}
 		return definition.getStep(currentStepIndex + 1);
@@ -135,22 +122,19 @@ public class ActiveSequence {
 
 	private void advanceStep() {
 		if (currentStepIndex >= definition.size() - 1) {
-
-			System.out.println("advanceStep: Already at last step");
+			logger.debug("advanceStep: Already at last step");
 			return;
 		}
 
 		currentStepIndex++;
-
-		System.out.println("advanceStep: Advanced to step " + currentStepIndex);
+		logger.debug("advanceStep: Advanced to step {}", currentStepIndex);
 
 		Step step = getCurrentStep();
 		stepTimer.startStep(step, configManager);
 	}
 
 	public void reset() {
-
-		System.out.println("ActiveSequence.reset: Resetting to step 0");
+		logger.debug("ActiveSequence.reset: Resetting to step 0");
 		currentStepIndex = 0;
 		stepTimer.reset();
 	}
