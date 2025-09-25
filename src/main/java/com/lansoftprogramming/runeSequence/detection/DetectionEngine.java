@@ -103,12 +103,12 @@ public class DetectionEngine {
 
 			System.out.println("DetectionEngine: Screen captured successfully");
 
-			// Get required templates
-			List<String> requiredTemplates = sequenceManager.getRequiredTemplates();
+			// Get required templates + whether each is part of an OR (alternative) term
+			java.util.Map<String, Boolean> requiredFlags = sequenceManager.getRequiredTemplateFlags();
 
-			System.out.println("DetectionEngine: Required templates: " + requiredTemplates);
+			System.out.println("DetectionEngine: Required templates (flags): " + requiredFlags);
 
-			if (requiredTemplates.isEmpty()) {
+			if (requiredFlags.isEmpty()) {
 
 				System.out.println("DetectionEngine: No templates required");
 				screenMat.close();
@@ -120,13 +120,15 @@ public class DetectionEngine {
 			System.out.println("DetectionEngine: Starting template detection");
 			List<DetectionResult> detectionResults = new ArrayList<>();
 
-			for (String templateName : requiredTemplates) {
+			for (java.util.Map.Entry<String, Boolean> e : requiredFlags.entrySet()) {
 
-				System.out.println("  Detecting: " + templateName);
-				DetectionResult result = detector.detectTemplate(screenMat, templateName);
+				String templateName = e.getKey();
+				boolean isAlternative = e.getValue() != null && e.getValue();
+				System.out.println("  Detecting: " + templateName + " (isAlternative=" + isAlternative + ")");
+				DetectionResult result = detector.detectTemplate(screenMat, templateName, isAlternative);
 				detectionResults.add(result);
 
-				System.out.println("    Result: found=" + result.found + " confidence=" + result.confidence);
+				System.out.println("    Result: found=" + result.found + " confidence=" + result.confidence + " isAlternative=" + result.isAlternative);
 			}
 
 

@@ -90,8 +90,10 @@ public class Step {
 		List<DetectionResult> out = new ArrayList<>();
 
 		for (Term t : terms) {
+			// A Term with more than one alternative (separated by '/') represents an OR group.
+			boolean termIsAlternative = t.getAlternatives().size() > 1;
 			for (Alternative alt : t.getAlternatives()) {
-				collectDetections(alt, lastDetections, out);
+				collectDetections(alt, lastDetections, out, termIsAlternative);
 			}
 		}
 
@@ -101,16 +103,39 @@ public class Step {
 	}
 
 	// FIXED: Handle subgroups properly - process ALL steps, not just first
-	private void collectDetections(Alternative alt, Map<String, DetectionResult> lastDetections, List<DetectionResult> out) {
+	private void collectDetections(Alternative alt, Map<String, DetectionResult> lastDetections, List<DetectionResult> out, boolean parentTermIsAlternative) {
 
-		System.out.println("Step.collectDetections: Processing alternative, isToken=" + alt.isToken());
+		System.out.println("Step.collectDetections: Processing alternative, isToken=" + alt.isToken() + ", parentTermIsAlternative=" + parentTermIsAlternative);
 
 		if (alt.isToken()) {
 			String tokenName = alt.getToken();
-			DetectionResult r = lastDetections.getOrDefault(tokenName, DetectionResult.notFound(tokenName));
+			DetectionResult existing = lastDetections.get(tokenName);
+			DetectionResult r;
+			if (existing == null) {
+				// Not found - create a notFound with the correct isAlternative flag
+				r = DetectionResult.notFound(tokenName, parentTermIsAlternative);
+			} else {
+				// Use the existing result's isAlternative if it was set during detection,
+				// otherwise use the parentTermIsAlternative from sequence structure
+				boolean useAlternative = existing.isAlternative || parentTermIsAlternative;
+				if (existing.isAlternative == useAlternative) {
+					r = existing;
+				} else {
+					// Recreate a DetectionResult preserving data but with updated isAlternative
+					if (existing.found) {
+						r = DetectionResult.found(existing.templateName,
+								existing.location,
+								existing.confidence,
+								existing.boundingBox,
+								useAlternative);
+					} else {
+						r = DetectionResult.notFound(existing.templateName, useAlternative);
+					}
+				}
+			}
 			out.add(r);
 
-			System.out.println("  Added token result: " + tokenName + " found=" + r.found);
+			System.out.println("  Added token result: " + tokenName + " found=" + r.found + " isAlternative=" + r.isAlternative);
 		} else {
 			// FIXED: Process ALL steps in the subgroup, not just the first
 
@@ -118,14 +143,15 @@ public class Step {
 
 
 			for (Step step : alt.getSubgroup().getSteps()) {
-				
+
 				System.out.println("    Processing subgroup step with " + step.getTerms().size() + " terms");
 
 				for (Term term : step.getTerms()) {
 
+					boolean termIsAlternative = term.getAlternatives().size() > 1;
 					for (Alternative alternative : term.getAlternatives()) {
 
-						collectDetections(alternative, lastDetections, out);
+						collectDetections(alternative, lastDetections, out, termIsAlternative);
 
 					}
 

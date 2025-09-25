@@ -14,5 +14,10 @@
     "triggers_gcd": false,
     "cast_duration": 0,
     "cooldown": 0
+  },
+  "Limitless": {
+    "cooldown": 0,
+    "triggers_gcd": false,
+    "detection_threshold": 0.1
   }
 }

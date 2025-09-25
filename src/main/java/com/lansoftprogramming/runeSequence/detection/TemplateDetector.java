@@ -41,8 +41,16 @@ public class TemplateDetector {
 	}
 
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
+		// Backwards-compatible entrypoint: default isAlternative to false
+		return detectTemplate(screen, templateName, false);
+	}
 
-		System.out.println("TemplateDetector.detectTemplate: Starting detection for '" + templateName + "'");
+	/**
+	 * New overload that accepts isAlternative which will be propagated into DetectionResult.
+	 */
+	public DetectionResult detectTemplate(Mat screen, String templateName, boolean isAlternative) {
+
+		System.out.println("TemplateDetector.detectTemplate: Starting detection for '" + templateName + "' (isAlternative=" + isAlternative + ")");
 
 		Mat template = templateCache.getTemplate(templateName);
 		if (template == null) {
@@ -61,7 +69,7 @@ public class TemplateDetector {
 			// Add some padding to the ROI to allow for small movements
 			Rectangle searchRoi = new Rectangle(lastRoi.x - 10, lastRoi.y - 10, lastRoi.width + 20, lastRoi.height + 20);
 
-			DetectionResult result = detectTemplateInRegion(screen, templateName, searchRoi);
+			DetectionResult result = detectTemplateInRegion(screen, templateName, searchRoi, isAlternative);
 			if (result.found) {
 				lastKnownLocations.put(templateName, result.boundingBox);
 				return result;
@@ -70,7 +78,7 @@ public class TemplateDetector {
 
 		// If not found in the last known location, or if there is no last known location, search the whole screen
 		double threshold = getThresholdForTemplate(templateName);
-		DetectionResult result = findBestMatch(screen, template, templateName, threshold);
+		DetectionResult result = findBestMatch(screen, template, templateName, threshold, isAlternative);
 		if (result.found) {
 			lastKnownLocations.put(templateName, result.boundingBox);
 		}
@@ -78,6 +86,14 @@ public class TemplateDetector {
 	}
 
 	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi) {
+		// Backwards-compatible entrypoint: default isAlternative to false
+		return detectTemplateInRegion(screen, templateName, roi, false);
+	}
+
+	/**
+	 * New overload that accepts isAlternative which will be propagated into DetectionResult.
+	 */
+	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi, boolean isAlternative) {
 		Mat template = templateCache.getTemplate(templateName);
 		if (template == null) {
 			logger.warn("Template not found in cache: {}", templateName);
@@ -97,7 +113,7 @@ public class TemplateDetector {
 
 		try {
 			double threshold = getThresholdForTemplate(templateName);
-			DetectionResult result = findBestMatch(roiMat, template, templateName, threshold);
+			DetectionResult result = findBestMatch(roiMat, template, templateName, threshold, isAlternative);
 
 			// Adjust coordinates back to screen space
 			if (result.found) {
@@ -130,7 +146,7 @@ public class TemplateDetector {
 	 * @param threshold    required confidence in range [0..1]
 	 * @return DetectionResult
 	 */
-	private DetectionResult findBestMatch(Mat screen, Mat template, String templateName, double threshold) {
+	private DetectionResult findBestMatch(Mat screen, Mat template, String templateName, double threshold,boolean isAlternative) {
 		// Basic size check: template must fit in screen (otherwise matchTemplate will fail)
 		if (template.cols() > screen.cols() || template.rows() > screen.rows()) {
 			logger.debug("Template {} is larger than screen; skipping match", templateName);
@@ -211,7 +227,7 @@ public class TemplateDetector {
 
 				return DetectionResult.found(templateName,
 						new java.awt.Point(minLoc.x(), minLoc.y()),
-						confidence, boundingBox);
+						confidence, boundingBox,isAlternative);
 			} else {
 				return DetectionResult.notFound(templateName);
 			}

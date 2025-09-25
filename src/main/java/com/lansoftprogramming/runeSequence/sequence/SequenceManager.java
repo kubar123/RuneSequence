@@ -33,6 +33,20 @@ public class SequenceManager {
 		return required;
 	}
 
+	/**
+	 * Return required templates mapped to whether they are part of an OR (alternative) term.
+	 * Key = template name, Value = true if the template belongs to an OR term (i.e. alternatives), false otherwise.
+	 */
+	public synchronized java.util.Map<String, Boolean> getRequiredTemplateFlags() {
+		if (activeSequence == null) {
+			System.out.println("SequenceManager: No active sequence (flags)");
+			return java.util.Map.of();
+		}
+		java.util.Map<String, Boolean> flags = activeSequence.getRequiredTemplateFlags();
+		System.out.println("SequenceManager.getRequiredTemplateFlags: " + flags);
+		return flags;
+	}
+
 	public synchronized void processDetection(List<DetectionResult> results) {
 
 		System.out.println("SequenceManager.processDetection called with " + results.size() + " results");

@@ -19,9 +19,9 @@ public class OverlayRenderer {
 	// Border types and colors - like piano key highlighting
 	public enum BorderType {
 		CURRENT_GREEN(new Color(0, 255, 0, 220), 4),        // Current abilities - thick bright green
-		NEXT_RED(new Color(255, 0, 0, 200), 2),             // Next abilities - thin red
-		CURRENT_OR_PURPLE(new Color(128, 0, 255, 220), 4),  // Current OR - thick purple
-		NEXT_OR_DARK_PURPLE(new Color(75, 0, 130, 200), 2); // Next OR - thin dark purple
+		NEXT_RED(new Color(255, 0, 0, 200), 3),             // Next abilities - thin red
+		CURRENT_OR_PURPLE(new Color(221, 0, 255, 220), 4),  // Current OR - thick purple
+		NEXT_OR_DARK_PURPLE(new Color(140, 0, 255, 200), 3); // Next OR - thin dark purple
 
 		public final Color color;
 		public final int thickness;
@@ -90,6 +90,18 @@ public class OverlayRenderer {
 		try {
 			// Clear existing borders
 			activeBorders.clear();
+			System.out.println("ABILITIES");
+			if (currentAbilities != null) {
+				for (DetectionResult result : currentAbilities) {
+					System.out.println("Current ability: " + result.templateName +
+							" found=" + result.found +
+							" location=" + result.location +
+							" boundingBox=" + result.boundingBox +
+							" confidence=" + result.confidence +
+							" isAlternative="+ result.isAlternative);
+				}
+			}
+//			System.exit(0);
 
 			// Add current ability borders (green/purple)
 			if (currentAbilities != null) {
@@ -121,7 +133,8 @@ public class OverlayRenderer {
 
 	private BorderType determineCurrentBorderType(java.util.List<DetectionResult> currentAbilities, DetectionResult result) {
 		// If multiple current abilities, it's an OR group - use purple
-		return currentAbilities.size() > 1 ? BorderType.CURRENT_OR_PURPLE : BorderType.CURRENT_GREEN;
+		//Check if result is alternative or not
+		return result.isAlternative ? BorderType.CURRENT_OR_PURPLE : BorderType.CURRENT_GREEN;
 	}
 
 	private BorderType determineNextBorderType(java.util.List<DetectionResult> nextAbilities, DetectionResult result) {
@@ -153,7 +166,6 @@ public class OverlayRenderer {
 		OverlayBorder border = new OverlayBorder(result.templateName, bounds, borderType);
 
 		activeBorders.put(result.templateName, border);
-
 
 		System.out.println("OverlayRenderer: Successfully added " + borderType + " border for " + result.templateName);
 

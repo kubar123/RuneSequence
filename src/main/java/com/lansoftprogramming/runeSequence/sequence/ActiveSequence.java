@@ -54,6 +54,49 @@ public class ActiveSequence {
 		return result;
 	}
 
+	/**
+	 * Return a map of required template names -> whether they belong to an OR term (alternative).
+	 * This allows callers to know which detections should be treated as alternatives.
+	 */
+	public java.util.Map<String, Boolean> getRequiredTemplateFlags() {
+		java.util.Map<String, Boolean> out = new java.util.HashMap<>();
+
+		Step current = getCurrentStep();
+		Step next = getNextStep();
+
+		if (current != null) {
+			addFlagsFromStep(current, out);
+		}
+		if (next != null) {
+			addFlagsFromStep(next, out);
+		}
+
+		System.out.println("ActiveSequence.getRequiredTemplateFlags: " + out);
+		return out;
+	}
+
+	private void addFlagsFromStep(Step step, java.util.Map<String, Boolean> out) {
+		for (Term t : step.getTerms()) {
+			boolean termIsAlternative = t.getAlternatives().size() > 1;
+			for (Alternative alt : t.getAlternatives()) {
+				collectFlags(alt, termIsAlternative, out);
+			}
+		}
+	}
+
+	private void collectFlags(Alternative alt, boolean parentTermIsAlternative, java.util.Map<String, Boolean> out) {
+		if (alt.isToken()) {
+			String tokenName = alt.getToken();
+			// Only put if absent to prefer first occurrence's alternative semantics
+			out.putIfAbsent(tokenName, parentTermIsAlternative);
+			System.out.println("ActiveSequence.collectFlags: token=" + tokenName + " isAlternative=" + parentTermIsAlternative);
+		} else {
+			for (Step step : alt.getSubgroup().getSteps()) {
+				addFlagsFromStep(step, out);
+			}
+		}
+	}
+
 	public void processDetections(List<DetectionResult> results) {
 
 		System.out.println("ActiveSequence.processDetections: Received " + results.size() + " results");
