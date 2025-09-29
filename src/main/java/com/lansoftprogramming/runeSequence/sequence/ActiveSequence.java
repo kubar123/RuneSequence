@@ -2,21 +2,31 @@ package com.lansoftprogramming.runeSequence.sequence;
 
 import com.lansoftprogramming.runeSequence.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.detection.DetectionResult;
+import com.lansoftprogramming.runeSequence.hotkey.SequenceController;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ActiveSequence {
+public class ActiveSequence implements SequenceController.StateChangeListener{
 
 	private final SequenceDefinition definition;
 	private final AbilityConfig abilityConfig;
 
 	private int currentStepIndex = 0;
-	private final StepTimer stepTimer;
+	final StepTimer stepTimer;
 
 	private Map<String, DetectionResult> lastDetections = new HashMap<>();
+
+	@Override
+	public void onStateChanged(SequenceController.State oldState, SequenceController.State newState) {
+		if (newState == SequenceController.State.RUNNING) {
+			stepTimer.resume();
+		} else {
+			stepTimer.pause();
+		}
+	}
 
 	public ActiveSequence(SequenceDefinition def, AbilityConfig abilityConfig) {
 		this.definition = def;
@@ -45,7 +55,6 @@ public class ActiveSequence {
 		if (next != null) {
 			List<String> nextTemplates = next.getDetectableTokens(abilityConfig);
 			result.addAll(nextTemplates);
-
 			System.out.println("  Next step templates: " + nextTemplates);
 		}
 
@@ -142,19 +151,16 @@ public class ActiveSequence {
 	public List<DetectionResult> getNextAbilities() {
 		Step step = getNextStep();
 		if (step == null) {
-
 			System.out.println("ActiveSequence.getNextAbilities: No next step");
 			return List.of();
 		}
 
 		List<DetectionResult> next = step.flattenDetections(lastDetections);
-
 		System.out.println("ActiveSequence.getNextAbilities: " + next.size() + " abilities");
 
 		for (DetectionResult result : next) {
 			System.out.println("  Next ability: " + result.templateName + " found=" + result.found);
 		}
-
 		return next;
 	}
 

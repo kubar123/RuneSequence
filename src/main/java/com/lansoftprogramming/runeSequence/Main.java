@@ -6,6 +6,8 @@ import com.lansoftprogramming.runeSequence.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.detection.DetectionEngine;
 import com.lansoftprogramming.runeSequence.detection.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.hotkey.HotkeyManager;
+import com.lansoftprogramming.runeSequence.hotkey.SequenceController;
 import com.lansoftprogramming.runeSequence.sequence.SequenceManager;
 import com.lansoftprogramming.runeSequence.sequence.SequenceParser;
 import org.slf4j.Logger;
@@ -52,6 +54,14 @@ public class Main {
 
 			SequenceManager sequenceManager = new SequenceManager(namedSequences, configManager.getAbilities());
 
+			//Hotkeys
+			SequenceController sequenceController = new SequenceController(sequenceManager);
+			sequenceManager.setSequenceController(sequenceController);
+
+			HotkeyManager hotkeyManager = new HotkeyManager();
+			hotkeyManager.initialize();
+			hotkeyManager.addListener(sequenceController);
+
 			// Activate our specific debug sequence
 			String debugSequenceName = "debug-limitless";
 			if (sequenceManager.activateSequence(debugSequenceName)) {
@@ -67,7 +77,8 @@ public class Main {
 					templateDetector,
 					sequenceManager,
 					overlayRenderer,
-					configManager.getDetectionInterval()
+					configManager.getDetectionInterval(),
+					sequenceController
 			);
 
 			detectionEngine.start();

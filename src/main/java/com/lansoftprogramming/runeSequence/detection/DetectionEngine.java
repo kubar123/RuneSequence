@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.detection;
 
 import com.lansoftprogramming.runeSequence.capture.ScreenCapture;
+import com.lansoftprogramming.runeSequence.hotkey.SequenceController;
 import com.lansoftprogramming.runeSequence.sequence.SequenceManager;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
@@ -20,18 +21,20 @@ public class DetectionEngine {
 	private final SequenceManager sequenceManager;
 	private final OverlayRenderer overlay;
 	private final int detectionIntervalMs;
+	private final SequenceController sequenceController;
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
-	                       int detectionIntervalMs) {
+	                       int detectionIntervalMs, SequenceController sequenceController) {
 		this.screenCapture = screenCapture;
 		this.detector = detector;
 		this.sequenceManager = sequenceManager;
 		this.overlay = overlay;
 		this.detectionIntervalMs = detectionIntervalMs;
+		this.sequenceController = sequenceController;
 	}
 
 	public void start() {
@@ -61,7 +64,7 @@ public class DetectionEngine {
 	}
 
 	private void processFrame() {
-
+		System.out.println("DetectionEngine: State=" + sequenceController.getState());
 		// SAFETY: Check overlay data before rendering
 		System.out.println("DetectionEngine: About to update overlays...");
 		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
