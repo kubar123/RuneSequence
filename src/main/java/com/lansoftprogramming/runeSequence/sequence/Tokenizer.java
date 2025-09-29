@@ -1,21 +1,21 @@
 package com.lansoftprogramming.runeSequence.sequence;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class Tokenizer {
+	private static final Logger logger = LoggerFactory.getLogger(Tokenizer.class);
 
 	public List<Token> tokenize(String expression) {
 
-		System.out.println("Tokenizer: Input expression: '" + expression + "'");
+		logger.debug("Tokenizer: Input expression: '{}'", expression);
 		// Print char codes for debugging Unicode issues
-
 		for (int i = 0; i < expression.length(); i++) {
-
 			char c = expression.charAt(i);
-
-			System.out.println("  Char[" + i + "]: '" + c + "' (code=" + (int) c + ")");
-
+			logger.debug("  Char[{}]: '{}' (code={})", i, c, (int) c);
 		}
 
 		// Stage 1: Add padding around operators and parentheses
@@ -24,18 +24,14 @@ public class Tokenizer {
 				.replaceAll("([→+/()])", " $1 ")
 				.replaceAll("(->)", " $1 ");
 
-
-		System.out.println("Tokenizer: Padded expression: '" + paddedExpression + "'");
+		logger.debug("Tokenizer: Padded expression: '{}'", paddedExpression);
 
 		// Stage 2: Split by whitespace and merge ability words
 		String[] parts = paddedExpression.trim().split("\\s+");
-
-		System.out.println("Tokenizer: Split into " + parts.length + " parts:");
+		logger.debug("Tokenizer: Split into {} parts:", parts.length);
 
 		for (int i = 0; i < parts.length; i++) {
-
-			System.out.println("  Part[" + i + "]: '" + parts[i] + "'");
-
+			logger.debug("  Part[{}]: '{}'", i, parts[i]);
 		}
 
 		List<Token> tokens = new ArrayList<>();
@@ -47,13 +43,13 @@ public class Tokenizer {
 				if (currentAbility.length() > 0) {
 					String abilityName = currentAbility.toString().trim();
 
-					System.out.println("Tokenizer: Adding ability token: '" + abilityName + "'");
+					logger.debug("Tokenizer: Adding ability token: '{}'", abilityName);
 					tokens.add(new Token.Ability(abilityName));
 					currentAbility.setLength(0);
 				}
 				// Add operator/paren
 
-				System.out.println("Tokenizer: Adding operator/paren: '" + part + "'");
+				logger.debug("Tokenizer: Adding operator/paren: '{}'", part);
 				addOperatorOrParenToken(part, tokens);
 			} else {
 				// Append to current ability
@@ -62,7 +58,7 @@ public class Tokenizer {
 				}
 				currentAbility.append(part);
 
-				System.out.println("Tokenizer: Building ability: '" + currentAbility + "'");
+				logger.debug("Tokenizer: Building ability: '{}'", currentAbility);
 			}
 		}
 
@@ -70,16 +66,16 @@ public class Tokenizer {
 		if (currentAbility.length() > 0) {
 			String finalAbility = currentAbility.toString().trim();
 
-			System.out.println("Tokenizer: Adding final ability: '" + finalAbility + "'");
+			logger.debug("Tokenizer: Adding final ability: '{}'", finalAbility);
 			tokens.add(new Token.Ability(finalAbility));
 		}
 
 
-		System.out.println("Tokenizer: Final token count: " + tokens.size());
+		logger.debug("Tokenizer: Final token count: {}", tokens.size());
 
 		for (int i = 0; i < tokens.size(); i++) {
 
-			System.out.println("  Token[" + i + "]: " + tokens.get(i));
+			logger.debug("  Token[{}]: {}", i, tokens.get(i));
 
 		}
 
@@ -130,7 +126,7 @@ public class Tokenizer {
 		boolean isOp = part.equals("→") || part.equals("->") || part.equals("+") ||
 				part.equals("/") || part.equals("(") || part.equals(")");
 
-		System.out.println("Tokenizer.isOperatorOrParen('" + part + "'): " + isOp);
+		logger.debug("Tokenizer.isOperatorOrParen('{}'): {}", part, isOp);
 		return isOp;
 	}
 
@@ -141,7 +137,7 @@ public class Tokenizer {
 			case "(" -> tokens.add(new Token.LeftParen());
 			case ")" -> tokens.add(new Token.RightParen());
 
-			default -> System.err.println("Tokenizer: Unknown operator/paren: '" + part + "'");
+			default -> logger.error("Tokenizer: Unknown operator/paren: '{}'", part);
 		}
 	}
 }

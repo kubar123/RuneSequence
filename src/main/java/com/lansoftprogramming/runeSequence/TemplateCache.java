@@ -4,6 +4,8 @@ import com.lansoftprogramming.runeSequence.config.ScalingConverter;
 import org.bytedeco.opencv.global.opencv_imgcodecs;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.Size;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,6 +20,7 @@ import java.util.stream.Stream;
 import static org.bytedeco.opencv.global.opencv_imgcodecs.IMREAD_UNCHANGED;
 
 public class TemplateCache {
+	private static final Logger logger = LoggerFactory.getLogger(TemplateCache.class);
 	private final Map<String, TemplateData> cache = new ConcurrentHashMap<>();
 	private final ExecutorService backgroundLoader = Executors.newCachedThreadPool();
 	private final int scaleInt;
@@ -72,10 +75,10 @@ public class TemplateCache {
 	 */
 	public int initialize() {
 		int count = 0;
-		System.out.println("Loading templates from: " + imagePath);
+		logger.info("Loading templates from: {}", imagePath);
 
 		if (!Files.exists(imagePath)) {
-			System.err.println("Directory does not exist: " + imagePath);
+			logger.error("Directory does not exist: {}", imagePath);
 			return 0;
 		}
 
@@ -93,14 +96,14 @@ public class TemplateCache {
 			throw new RuntimeException("Failed to initialize template cache", e);
 		}
 
-		System.out.println("Loaded templates: " + count);
+		logger.info("Loaded {} templates", count);
 		return count;
 	}
 
 	private boolean cacheTemplate(String abilityName, Path file) {
 		Mat mat = opencv_imgcodecs.imread(file.toString(), IMREAD_UNCHANGED);
 		if (mat.empty()) {
-			System.err.println("Failed to load image: " + file);
+			logger.warn("Failed to load image: {}", file);
 			return false;
 		}
 		cache.put(abilityName, new TemplateData(abilityName, mat));

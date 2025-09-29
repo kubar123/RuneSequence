@@ -3,17 +3,17 @@ package com.lansoftprogramming.runeSequence.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
-import java.util.logging.Logger;
 
 public class ConfigManager {
-	private static final Logger logger = Logger.getLogger(ConfigManager.class.getName());
+	private static final Logger logger = LoggerFactory.getLogger(ConfigManager.class);
 	private static final String APP_NAME = "RuneSequence";
 
 	private final Path configDir;
@@ -46,7 +46,7 @@ public class ConfigManager {
 	private void createConfigDirectory() throws IOException {
 		if (!Files.exists(configDir)) {
 			Files.createDirectories(configDir);
-			logger.info("Created config directory: {}" + configDir);
+			logger.info("Created config directory: {}", configDir);
 		}
 	}
 
