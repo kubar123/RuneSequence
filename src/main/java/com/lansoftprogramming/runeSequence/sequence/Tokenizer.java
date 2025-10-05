@@ -82,44 +82,44 @@ public class Tokenizer {
 		return tokens;
 	}
 
-	private List<Token> postProcess(List<Token> tokens) {
-		if (tokens.isEmpty()) {
-			return tokens;
-		}
-
-		List<Token> finalTokens = new ArrayList<>();
-
-		for (int i = 0; i < tokens.size(); i++) {
-			Token current = tokens.get(i);
-
-			// Only merge if we have the exact pattern: Ability LeftParen Ability RightParen
-			if (current instanceof Token.Ability ability1 &&
-					i + 3 < tokens.size() &&
-					tokens.get(i + 1) instanceof Token.LeftParen &&
-					tokens.get(i + 2) instanceof Token.Ability ability2 &&
-					tokens.get(i + 3) instanceof Token.RightParen) {
-
-				String firstName = ability1.name().toLowerCase();
-				String secondName = ability2.name().toLowerCase();
-
-				// Only merge if first ability is short and second looks like a modifier
-				if (firstName.length() <= 4 &&
-						(secondName.contains("tick") || secondName.contains("cast") ||
-								secondName.matches("\\d+.*"))) {
-					String mergedName = ability1.name() + " (" + ability2.name() + ")";
-					finalTokens.add(new Token.Ability(mergedName));
-					i += 3; // Skip next 3 tokens
-				} else {
-					// Don't merge, add current token
-					finalTokens.add(current);
-				}
-			} else {
-				finalTokens.add(current);
-			}
-		}
-
-		return finalTokens;
-	}
+//	private List<Token> postProcess(List<Token> tokens) {
+//		if (tokens.isEmpty()) {
+//			return tokens;
+//		}
+//
+//		List<Token> finalTokens = new ArrayList<>();
+//
+//		for (int i = 0; i < tokens.size(); i++) {
+//			Token current = tokens.get(i);
+//
+//			// Only merge if we have the exact pattern: Ability LeftParen Ability RightParen
+//			if (current instanceof Token.Ability ability1 &&
+//					i + 3 < tokens.size() &&
+//					tokens.get(i + 1) instanceof Token.LeftParen &&
+//					tokens.get(i + 2) instanceof Token.Ability ability2 &&
+//					tokens.get(i + 3) instanceof Token.RightParen) {
+//
+//				String firstName = ability1.name().toLowerCase();
+//				String secondName = ability2.name().toLowerCase();
+//
+//				// Only merge if first ability is short and second looks like a modifier
+//				if (firstName.length() <= 4 &&
+//						(secondName.contains("tick") || secondName.contains("cast") ||
+//								secondName.matches("\\d+.*"))) {
+//					String mergedName = ability1.name() + " (" + ability2.name() + ")";
+//					finalTokens.add(new Token.Ability(mergedName));
+//					i += 3; // Skip next 3 tokens
+//				} else {
+//					// Don't merge, add current token
+//					finalTokens.add(current);
+//				}
+//			} else {
+//				finalTokens.add(current);
+//			}
+//		}
+//
+//		return finalTokens;
+//	}
 
 	// FIXED: Support both Unicode → and ASCII ->
 	private boolean isOperatorOrParen(String part) {

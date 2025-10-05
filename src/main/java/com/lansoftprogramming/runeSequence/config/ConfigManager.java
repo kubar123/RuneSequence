@@ -97,9 +97,9 @@ public class ConfigManager {
 	}
 
 	// Getters
-	public AppSettings getSettings() {
-		return settings;
-	}
+//	public AppSettings getSettings() {
+//		return settings;
+//	}
 
 	public RotationConfig getRotations() {
 		return rotations;
@@ -126,11 +126,11 @@ public class ConfigManager {
 	}
 
 
-	public double getConfidenceThreshold() {
-
-		return settings.getDetection().getConfidenceThreshold();
-
-	}
+//	public double getConfidenceThreshold() {
+//
+//		return settings.getDetection().getConfidenceThreshold();
+//
+//	}
 
 	private AppSettings loadDefaultSettings() throws IOException {
 		return loadDefaultResource("defaults/settings.json", AppSettings.class);

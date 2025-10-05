@@ -37,31 +37,6 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		this.stepTimer.startStep(def.getStep(currentStepIndex), abilityConfig);
 	}
 
-	public List<String> getRequiredTemplates() {
-		Step current = getCurrentStep();
-		Step next = getNextStep();
-		List<String> result = new ArrayList<>();
-
-
-		System.out.println("ActiveSequence.getRequiredTemplates: currentStepIndex=" + currentStepIndex);
-
-		if (current != null) {
-			List<String> currentTemplates = current.getDetectableTokens(abilityConfig);
-			result.addAll(currentTemplates);
-
-			System.out.println("  Current step templates: " + currentTemplates);
-		}
-
-		if (next != null) {
-			List<String> nextTemplates = next.getDetectableTokens(abilityConfig);
-			result.addAll(nextTemplates);
-			System.out.println("  Next step templates: " + nextTemplates);
-		}
-
-
-		System.out.println("  Total required templates: " + result);
-		return result;
-	}
 
 	/**
 	 * Return a map of required template names -> whether they belong to an OR term (alternative).

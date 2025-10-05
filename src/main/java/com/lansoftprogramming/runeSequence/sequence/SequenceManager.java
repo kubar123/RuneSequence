@@ -25,17 +25,7 @@ public class SequenceManager {
 	// -------------------------
 	// Public API
 	// -------------------------
-	public synchronized List<String> getRequiredTemplates() {
-		if (activeSequence == null) {
 
-			System.out.println("SequenceManager: No active sequence");
-			return List.of();
-		}
-		List<String> required = activeSequence.getRequiredTemplates();
-
-		System.out.println("SequenceManager.getRequiredTemplates: " + required);
-		return required;
-	}
 	public synchronized boolean activateSequence(String name) {
 		System.out.println("SequenceManager: Activating sequence: " + name);
 		SequenceDefinition def = namedSequences.get(name);
