@@ -20,9 +20,9 @@ public class Taskbar {
 
         final PopupMenu popup = new PopupMenu();
 
-        URL iconUrl = getClass().getResource("/assets/test/Limitless2.png");
+        URL iconUrl = getClass().getResource("/icon.png");
         if (iconUrl == null) {
-            logger.error("Could not find icon resource: /assets/test/Limitless2.png");
+            logger.error("Could not find icon resource: icon.png");
             return;
         }
         Image image = new ImageIcon(iconUrl).getImage();
