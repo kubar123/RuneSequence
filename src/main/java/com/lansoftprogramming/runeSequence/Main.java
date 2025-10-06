@@ -1,11 +1,14 @@
 package com.lansoftprogramming.runeSequence;
 
+import com.formdev.flatlaf.FlatDarkLaf;
 import com.lansoftprogramming.runeSequence.capture.ScreenCapture;
 import com.lansoftprogramming.runeSequence.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.detection.DetectionEngine;
 import com.lansoftprogramming.runeSequence.detection.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.gui.Taskbar;
+import com.lansoftprogramming.runeSequence.gui.actions.SettingsAction;
 import com.lansoftprogramming.runeSequence.hotkey.HotkeyManager;
 import com.lansoftprogramming.runeSequence.hotkey.SequenceController;
 import com.lansoftprogramming.runeSequence.sequence.SequenceManager;
@@ -13,7 +16,7 @@ import com.lansoftprogramming.runeSequence.sequence.SequenceParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
+import javax.swing.*;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -83,6 +86,17 @@ public class Main {
 
 			detectionEngine.start();
 
+			// Initialize GUI on the Event Dispatch Thread
+			SwingUtilities.invokeLater(() -> {
+				FlatDarkLaf.setup(); // Set the look and feel
+				Taskbar taskbar = new Taskbar();
+				taskbar.initialize();
+
+				// Add a settings option to the context menu
+				taskbar.addMenuItem("Settings", new SettingsAction());
+				taskbar.addSeparator();
+			});
+
 			// Add a shutdown hook to clean up resources gracefully
 			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 				logger.info("Shutdown sequence initiated.");
@@ -93,13 +107,6 @@ public class Main {
 			}));
 
 			logger.info("Application setup complete. Detection engine is running.");
-			synchronized (Main.class) {
-				try {
-					Main.class.wait();
-				} catch (InterruptedException e) {
-					logger.info("Main thread interrupted, shutting down.");
-				}
-			}
 
 		} catch (Exception e) {
 			logger.error("A critical error occurred during application startup.", e);
