@@ -4,65 +4,90 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.concurrent.atomic.AtomicReference;
 
-public class RegionSelectorWindow extends JWindow {
-	private final Rectangle selection = new Rectangle();
-	private Point startDrag;
-	private Rectangle screenBounds;
+public class RegionSelectorWindow extends JDialog {
+    private final Rectangle selection;
+    private final Rectangle screenBounds;
+    private Point startDrag;
+    private boolean selectionMade = false;
 
-	public RegionSelectorWindow() {
-		setAlwaysOnTop(true);
-		setBackground(new Color(0, 0, 0, 50)); // semi-transparent background
+    private RegionSelectorWindow(Frame owner) {
+        super(owner, "Select Region", true); // Modal dialog
+        this.selection = new Rectangle();
 
-		// full screen across all monitors
-		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-		screenBounds = ge.getMaximumWindowBounds();
-		setBounds(screenBounds);
+        setUndecorated(true);
+        setBackground(new Color(0, 0, 0, 1)); // Almost fully transparent
+        setAlwaysOnTop(true);
 
-		RegionOverlay overlay = new RegionOverlay(selection);
-		setContentPane(overlay);
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        this.screenBounds = ge.getMaximumWindowBounds();
+        setBounds(screenBounds);
 
-		MouseAdapter dragListener = new MouseAdapter() {
-			@Override
-			public void mousePressed(MouseEvent e) {
-				startDrag = e.getPoint();
-				selection.setBounds(startDrag.x, startDrag.y, 0, 0);
-				overlay.repaint();
-			}
+        RegionOverlay overlay = new RegionOverlay(selection);
+        setContentPane(overlay);
 
-			@Override
-			public void mouseDragged(MouseEvent e) {
-				int x = Math.min(startDrag.x, e.getX());
-				int y = Math.min(startDrag.y, e.getY());
-				int w = Math.abs(e.getX() - startDrag.x);
-				int h = Math.abs(e.getY() - startDrag.y);
-				selection.setBounds(x, y, w, h);
-				overlay.repaint();
-			}
+        MouseAdapter dragListener = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                startDrag = e.getPoint();
+                selection.setBounds(startDrag.x, startDrag.y, 0, 0);
+            }
 
-			@Override
-			public void mouseReleased(MouseEvent e) {
-				dispose();
-				System.out.println("Selected region: " + selection);
-			}
-		};
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (startDrag == null) return;
+                int x = Math.min(startDrag.x, e.getX());
+                int y = Math.min(startDrag.y, e.getY());
+                int w = Math.abs(e.getX() - startDrag.x);
+                int h = Math.abs(e.getY() - startDrag.y);
+                selection.setBounds(x, y, w, h);
+                overlay.repaint();
+            }
 
-		overlay.addMouseListener(dragListener);
-		overlay.addMouseMotionListener(dragListener);
-	}
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (startDrag != null) {
+                    selectionMade = true;
+                    dispose();
+                }
+            }
+        };
 
-	public Rectangle getSelectedRegion() {
-		return new Rectangle(selection);
-	}
+        overlay.addMouseListener(dragListener);
+        overlay.addMouseMotionListener(dragListener);
+    }
 
-	public Rectangle getScreenBounds() {
-		return new Rectangle(screenBounds);
-	}
+    public static RegionSelectorWindow selectRegion() {
+        // Create a dummy frame to own the dialog
+        final Frame dummyFrame = new JFrame();
+        dummyFrame.setUndecorated(true);
+        dummyFrame.setOpacity(0.0f);
+        dummyFrame.setLocationRelativeTo(null);
+        dummyFrame.setVisible(true);
 
-	public static void launch() {
-		SwingUtilities.invokeLater(() -> {
-			RegionSelectorWindow win = new RegionSelectorWindow();
-			win.setVisible(true);
-		});
-	}
+
+        RegionSelectorWindow dialog = new RegionSelectorWindow(dummyFrame);
+        dialog.setVisible(true); // This will block until the dialog is disposed
+
+        // Cleanup the dummy frame
+        dummyFrame.dispose();
+
+        if (dialog.isSelectionMade()) {
+            return dialog;
+        }
+        return null; // Return null if no selection was made
+    }
+
+    public Rectangle getSelectedRegion() {
+        return selectionMade ? new Rectangle(selection) : null;
+    }
+
+    public Rectangle getScreenBounds() {
+        return new Rectangle(screenBounds);
+    }
+
+    public boolean isSelectionMade() {
+        return selectionMade;
+    }
 }

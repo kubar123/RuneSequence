@@ -97,9 +97,9 @@ public class ConfigManager {
 	}
 
 	// Getters
-//	public AppSettings getSettings() {
-//		return settings;
-//	}
+	public AppSettings getSettings() {
+		return settings;
+	}
 
 	public RotationConfig getRotations() {
 		return rotations;
