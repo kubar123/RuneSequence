@@ -1,35 +1,19 @@
 {
   "utility" : {
     "triggers_gcd" : false,
-    "cast_duration" : 0.0,
-    "cooldown" : 0.0,
+    "cast_duration" : 0,
+    "cooldown" : 0,
     "detection_threshold" : null
   },
   "smokecloud" : {
     "triggers_gcd" : true,
-    "cast_duration" : 0.0,
-    "cooldown" : 15.0,
+    "cast_duration" : 0,
+    "cooldown" : 15,
     "detection_threshold" : 0.3
-  },
-  "livingdeath" : {
-    "triggers_gcd" : true,
-    "detection_threshold" : null
   },
   "Limitless": {
     "cooldown": 0,
     "triggers_gcd": false,
-    "detection_threshold": 0.9
-  },
-  "deathskulls":{
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "soulsap":{
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "touchofdeath":{
-    "triggers_gcd": true,
     "detection_threshold": 0.9
   },
   "Quake":{
@@ -47,5 +31,595 @@
   "Shatter":{
     "triggers_gcd": true,
     "detection_threshold": 0.9
+  },
+  "aggression": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "anti": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "asphyx": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "assault": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "backhand": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "balancedstrike": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "barge": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "cade": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "bash": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "zerk": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "bindingshot": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "bd": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "bloat": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "bloodsiphon": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "bloodtendrils": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "bombard": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "Cease_cease": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "chain": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "chaosroar": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "cleave": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "comb": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "commandphantom": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "commandzombie": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "commandskeleton": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "commandghost": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "conc": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "conjurephantom": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "conjurezombie": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "conjureskeleton": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "conjurearmy": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "conjureghost": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "corruptblast": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "corruptshot": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "dazing": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "deadshot": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "deathskulls": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "deathsswift": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "debil": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "deci": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "deep": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "demonslayer": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "demoralise": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "destroy": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9,
+    "cast_duration" : 7
+  },
+  "deto": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "devo": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "dismember": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "dive": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "divert": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "dbreath": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "dragonslayer": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "eatfood": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "escape": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "eofspec": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "fingerofdeath": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "flurry": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "fbackhand": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "frag": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "freedom": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "frenzy": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "fury": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gbarge": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gchain": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gconc": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "mds": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gdeathsswift": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gflurry": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gfury": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "grico": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gsonicwave": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "gsunshine": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "guthixsblessing": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "havoc": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "horror": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "cane": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "iceasylum": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "immort": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "impact": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "incend": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "incite": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "ingen": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "kick": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "limitless": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "livingdeath": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "magmatempest": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "magmatempesttarget": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "massacre": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "meta": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "meteorstrike": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "naturalinstinct": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "necroauto": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "needle": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "omni": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "onsl": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "overpower": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "piercing": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "prep": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "voke": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "pulverise": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "punish": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "quake": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "quiverslot1": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "quiverslot2": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "rapid": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "reflect": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "regenerate": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "rejuvenate": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "reprisal": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "res": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "revenge": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "ricochet": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "rout": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "sacrifice": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "stw": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "sever": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "shadowtend": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "shatter": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "shock": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "siphon": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "slaughter": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "slice": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "smash": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "smoketendrils": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "snap": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "snipe": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "sonicwave": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "soulsap": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "soulstrike": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "spectralscythe": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "spectralscythe2": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "spectralscythe3": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "stomp": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "stormshards": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "sunshine": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "surge": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "tight": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "touchofdeath": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "transfigure": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "tsunami": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "tuskas": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "undeadslayer": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "unload": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "sbsstandards": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "volleyofsouls": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "spec": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "wm": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "wrack": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "wrackandruin": {
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
   }
+
 }
