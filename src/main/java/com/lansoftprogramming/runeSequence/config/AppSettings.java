@@ -64,10 +64,10 @@ public class AppSettings {
 
 	public static class RegionSettings {
 		@JsonProperty("x")
-		private int x = 447;
+		private int x = 0;
 
 		@JsonProperty("y")
-		private int y = 501;
+		private int y = 0;
 
 		@JsonProperty("width")
 		private int width = 1731;
