@@ -1,23 +1,51 @@
 {
-  "smokecloud": {
-    "triggers_gcd": true,
-    "cast_duration": 0,
-    "cooldown": 15,
-    "detection_threshold": 0.3
+  "utility" : {
+    "triggers_gcd" : false,
+    "cast_duration" : 0.0,
+    "cooldown" : 0.0,
+    "detection_threshold" : null
   },
-  "big_ability": {
-    "triggers_gcd": true,
-    "cast_duration": 4.0,
-    "cooldown": 30
+  "smokecloud" : {
+    "triggers_gcd" : true,
+    "cast_duration" : 0.0,
+    "cooldown" : 15.0,
+    "detection_threshold" : 0.3
   },
-  "utility": {
-    "triggers_gcd": false,
-    "cast_duration": 0,
-    "cooldown": 0
+  "livingdeath" : {
+    "triggers_gcd" : true,
+    "detection_threshold" : null
   },
   "Limitless": {
     "cooldown": 0,
     "triggers_gcd": false,
-    "detection_threshold": 0.1
+    "detection_threshold": 0.9
+  },
+  "deathskulls":{
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "soulsap":{
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "touchofdeath":{
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "Quake":{
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "Adrenaline_renewal":{
+    "triggers_gcd": false,
+    "detection_threshold": 0.8
+  },
+  "Punish":{
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
+  },
+  "Shatter":{
+    "triggers_gcd": true,
+    "detection_threshold": 0.9
   }
 }
