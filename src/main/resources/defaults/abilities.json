@@ -3,7 +3,7 @@
     "triggers_gcd" : false,
     "cast_duration" : 0,
     "cooldown" : 0,
-    "detection_threshold" : null
+    "detection_threshold" : 0.0
   },
   "smokecloud" : {
     "triggers_gcd" : true,
@@ -42,11 +42,13 @@
   },
   "asphyx": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "assault": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "backhand": {
     "triggers_gcd": true,
@@ -86,7 +88,8 @@
   },
   "bloodsiphon": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "bloodtendrils": {
     "triggers_gcd": true,
@@ -134,7 +137,8 @@
   },
   "conc": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "conjurephantom": {
     "triggers_gcd": true,
@@ -203,7 +207,7 @@
   "destroy": {
     "triggers_gcd": true,
     "detection_threshold": 0.9,
-    "cast_duration" : 7
+    "cast_duration" : 8
   },
   "deto": {
     "triggers_gcd": true,
@@ -251,7 +255,8 @@
   },
   "flurry": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "fbackhand": {
     "triggers_gcd": true,
@@ -267,7 +272,8 @@
   },
   "frenzy": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "fury": {
     "triggers_gcd": true,
@@ -283,7 +289,9 @@
   },
   "gconc": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
+
   },
   "mds": {
     "triggers_gcd": true,
@@ -295,7 +303,8 @@
   },
   "gflurry": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "gfury": {
     "triggers_gcd": true,
@@ -443,7 +452,8 @@
   },
   "rapid": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "reflect": {
     "triggers_gcd": true,
@@ -519,7 +529,9 @@
   },
   "smoketendrils": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
+
   },
   "snap": {
     "triggers_gcd": true,
@@ -527,7 +539,8 @@
   },
   "snipe": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 4
   },
   "sonicwave": {
     "triggers_gcd": true,
@@ -595,7 +608,8 @@
   },
   "unload": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "detection_threshold": 0.9,
+    "cast_duration" : 8
   },
   "sbsstandards": {
     "triggers_gcd": true,
