@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.config;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class ScalingConverter {
 
@@ -22,5 +23,16 @@ public class ScalingConverter {
 	// Method to convert input to output
 	public static Integer getScaling(int input) {
 		return scalingMap.get(input);
+	}
+
+	public static int[] getAllSizes() {
+		return scalingMap.values().stream()
+				.mapToInt(Integer::intValue)
+				.sorted()
+				.toArray();
+	}
+
+	public static Set<Integer> getAllScalePercentages() {
+		return scalingMap.keySet();
 	}
 }

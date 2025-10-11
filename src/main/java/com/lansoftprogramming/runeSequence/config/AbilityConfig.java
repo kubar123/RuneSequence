@@ -36,10 +36,10 @@ public class AbilityConfig {
 		private boolean triggersGcd = true;
 
 		@JsonProperty("cast_duration")
-		private double castDuration = 0.0;
+		private short castDuration = 0;
 
 		@JsonProperty("cooldown")
-		private double cooldown = 0.0;
+		private short cooldown = 0;
 
 		@JsonProperty("detection_threshold")
 		private Double detectionThreshold; // Optional
@@ -53,19 +53,19 @@ public class AbilityConfig {
 			this.triggersGcd = triggersGcd;
 		}
 
-		public double getCastDuration() {
+		public short getCastDuration() {
 			return castDuration;
 		}
 
-		public void setCastDuration(double castDuration) {
+		public void setCastDuration(short castDuration) {
 			this.castDuration = castDuration;
 		}
 
-		public double getCooldown() {
+		public short getCooldown() {
 			return cooldown;
 		}
 
-		public void setCooldown(double cooldown) {
+		public void setCooldown(short cooldown) {
 			this.cooldown = cooldown;
 		}
 

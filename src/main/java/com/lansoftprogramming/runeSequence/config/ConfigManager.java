@@ -20,6 +20,7 @@ public class ConfigManager {
 	private final Path settingsPath;
 	private final Path rotationsPath;
 	private final Path abilitiesPath;
+	private final Path abilityImagePath;
 	private final ObjectMapper objectMapper;
 
 	private AppSettings settings;
@@ -31,16 +32,46 @@ public class ConfigManager {
 		this.settingsPath = configDir.resolve("settings.json");
 		this.rotationsPath = configDir.resolve("rotations.json");
 		this.abilitiesPath = configDir.resolve("abilities.json");
+		this.abilityImagePath = configDir.resolve("Abilities");
 
 		this.objectMapper = createObjectMapper();
 	}
 
 	public void initialize() throws IOException {
-		//get Screen Scaling Size
+		//User AppData folder ifExists check
 		createConfigDirectory();
+		//assets
+		checkOrCreateAbilities();
+		//settings files
 		loadOrCreateSettings();
 		loadOrCreateRotations();
 		loadOrCreateAbilities();
+	}
+
+	private void checkOrCreateAbilities() {
+		if(!Files.exists(abilityImagePath)) {
+			logger.info("Abilities directory not found. Extracting defaults...");
+			try {
+				AssetExtractor.extractSubfolder("/defaults/Abilities", abilityImagePath);
+				logger.info("Extracted default abilities to: {}", abilityImagePath);
+			}catch (IOException e) {
+				logger.error("Failed to extract default abilities", e);
+			}
+
+			// Process images with OpenCV if processor is available
+			processAbilityImages(abilityImagePath);
+		}
+	}
+
+	private void processAbilityImages(Path abilitiesDir) {
+		try {
+			int[] sizes = ScalingConverter.getAllSizes();
+			var processor = new com.lansoftprogramming.runeSequence.image.OpenCvImageProcessor();
+			processor.processImages(abilitiesDir, sizes);
+			logger.info("Processed ability images for sizes: {}", java.util.Arrays.toString(sizes));
+		} catch (Exception e) {
+			logger.warn("Failed to process ability images: {}", e.getMessage());
+		}
 	}
 
 	private void createConfigDirectory() throws IOException {

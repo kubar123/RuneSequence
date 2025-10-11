@@ -10,5 +10,10 @@
     "screenHeight": 1400,
     "timestamp": "2025-09-03T12:06:33.670Z"
   },
-  "updated": "2025-09-03T12:06:33.747Z"
+  "updated": "2025-09-03T12:06:33.747Z",
+  "detection" : {
+    "intervalMs" : 100,
+    "confidenceThreshold" : 0.8,
+    "enableOverlay" : true
+  }
 }
