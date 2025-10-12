@@ -38,7 +38,7 @@ public class PresetManagerWindow extends JFrame {
 
 	private void initializeFrame() {
 		setTitle("Preset Manager");
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
 		setSize(1400, 900);
 		setLocationRelativeTo(null);
 	}

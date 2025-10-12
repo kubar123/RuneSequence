@@ -8,6 +8,7 @@ import com.lansoftprogramming.runeSequence.detection.DetectionEngine;
 import com.lansoftprogramming.runeSequence.detection.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.detection.TemplateDetector;
 import com.lansoftprogramming.runeSequence.gui.Taskbar;
+import com.lansoftprogramming.runeSequence.gui.actions.PresetManagerAction;
 import com.lansoftprogramming.runeSequence.gui.actions.RegionSelectorAction;
 import com.lansoftprogramming.runeSequence.gui.actions.SettingsAction;
 import com.lansoftprogramming.runeSequence.hotkey.HotkeyManager;
@@ -94,6 +95,7 @@ public class Main {
 				taskbar.initialize();
 
 				// Add a settings option to the context menu
+				taskbar.addMenuItem("Preset Manager", new PresetManagerAction());
 				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
 				taskbar.addMenuItem("Settings", new SettingsAction());
 				taskbar.addSeparator();
