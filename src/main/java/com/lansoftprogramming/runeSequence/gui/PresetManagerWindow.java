@@ -1,10 +1,25 @@
 package com.lansoftprogramming.runeSequence.gui;
 
+import com.lansoftprogramming.runeSequence.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.config.SequenceListModel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 
 public class PresetManagerWindow extends JFrame {
+	private static final Logger logger = LoggerFactory.getLogger(PresetManagerWindow.class);
+
+	// Dependencies
+	private final ConfigManager configManager;
+
+	// Models
+	private final SequenceListModel sequenceListModel;
 
 	// Master Panel Components
 	private JList<String> sequenceList;
@@ -29,10 +44,14 @@ public class PresetManagerWindow extends JFrame {
 	private JSplitPane verticalSplit;
 	private JSplitPane horizontalSplit;
 
-	public PresetManagerWindow() {
+	public PresetManagerWindow(ConfigManager configManager) {
+		this.configManager = configManager;
+		this.sequenceListModel = new SequenceListModel();
+
 		initializeFrame();
 		initializeComponents();
 		layoutComponents();
+		loadSequences();
 		setVisible(true);
 	}
 
@@ -50,8 +69,10 @@ public class PresetManagerWindow extends JFrame {
 	}
 
 	private void initializeMasterPanel() {
-		sequenceList = new JList<>(new DefaultListModel<>());
+		sequenceList = new JList<>(sequenceListModel);
 		sequenceList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		sequenceList.setCellRenderer(new SequenceListCellRenderer());
+		sequenceList.addListSelectionListener(new SequenceSelectionListener());
 
 		addSequenceButton = new JButton("+");
 		deleteSequenceButton = new JButton("🗑");
@@ -187,14 +208,113 @@ public class PresetManagerWindow extends JFrame {
 		return palettePanel;
 	}
 
+	/**
+	 * Loads sequences from ConfigManager and populates the list.
+	 */
+	private void loadSequences() {
+		try {
+			RotationConfig rotations = configManager.getRotations();
+			sequenceListModel.loadFromConfig(rotations);
+			logger.info("Loaded {} sequences", sequenceListModel.getSize());
+		} catch (Exception e) {
+			logger.error("Failed to load sequences", e);
+			JOptionPane.showMessageDialog(this,
+					"Failed to load sequences: " + e.getMessage(),
+					"Error",
+					JOptionPane.ERROR_MESSAGE);
+		}
+	}
+
+	/**
+	 * Loads the selected sequence details into the detail panel.
+	 */
+	private void loadSequenceDetails(SequenceListModel.SequenceEntry entry) {
+		if (entry == null) {
+			clearDetailPanel();
+			return;
+		}
+
+		RotationConfig.PresetData presetData = entry.getPresetData();
+		sequenceNameField.setText(presetData.getName());
+
+		// TODO: Parse and display expression as ability cards
+		abilityFlowPanel.removeAll();
+		JLabel expressionLabel = new JLabel("Expression: " + presetData.getExpression());
+		abilityFlowPanel.add(expressionLabel);
+		abilityFlowPanel.revalidate();
+		abilityFlowPanel.repaint();
+
+		logger.debug("Loaded sequence: {} ({})", presetData.getName(), entry.getId());
+	}
+
+	/**
+	 * Clears the detail panel.
+	 */
+	private void clearDetailPanel() {
+		sequenceNameField.setText("");
+		abilityFlowPanel.removeAll();
+		abilityFlowPanel.revalidate();
+		abilityFlowPanel.repaint();
+	}
+
+	/**
+	 * Custom cell renderer for the sequence list with visual highlighting.
+	 */
+	private static class SequenceListCellRenderer extends DefaultListCellRenderer {
+		@Override
+		public Component getListCellRendererComponent(JList<?> list, Object value,
+		                                              int index, boolean isSelected, boolean cellHasFocus) {
+			JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+			if (isSelected) {
+				label.setBackground(new Color(100, 149, 237)); // Cornflower blue
+				label.setForeground(Color.WHITE);
+				label.setFont(label.getFont().deriveFont(Font.BOLD));
+			} else {
+				label.setBackground(Color.WHITE);
+				label.setForeground(Color.BLACK);
+				label.setFont(label.getFont().deriveFont(Font.PLAIN));
+			}
+
+			label.setBorder(BorderFactory.createCompoundBorder(
+					BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY),
+					BorderFactory.createEmptyBorder(5, 10, 5, 10)
+			));
+
+			return label;
+		}
+	}
+
+	/**
+	 * Listener for sequence selection events.
+	 */
+	private class SequenceSelectionListener implements ListSelectionListener {
+		@Override
+		public void valueChanged(ListSelectionEvent e) {
+			if (e.getValueIsAdjusting()) {
+				return;
+			}
+
+			int selectedIndex = sequenceList.getSelectedIndex();
+			if (selectedIndex >= 0) {
+				SequenceListModel.SequenceEntry entry = sequenceListModel.getSequenceEntry(selectedIndex);
+				loadSequenceDetails(entry);
+			} else {
+				clearDetailPanel();
+			}
+		}
+	}
+
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(() -> {
 			try {
 				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+				ConfigManager configManager = new ConfigManager();
+				configManager.initialize();
+				new PresetManagerWindow(configManager);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-			new PresetManagerWindow();
 		});
 	}
 }

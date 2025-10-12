@@ -95,7 +95,7 @@ public class Main {
 				taskbar.initialize();
 
 				// Add a settings option to the context menu
-				taskbar.addMenuItem("Preset Manager", new PresetManagerAction());
+				taskbar.addMenuItem("Preset Manager", new PresetManagerAction(configManager));
 				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
 				taskbar.addMenuItem("Settings", new SettingsAction());
 				taskbar.addSeparator();
