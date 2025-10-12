@@ -20,18 +20,21 @@ public class ConfigManager {
 	private final Path settingsPath;
 	private final Path rotationsPath;
 	private final Path abilitiesPath;
+	private final Path abilityCategoriesPath;
 	private final Path abilityImagePath;
 	private final ObjectMapper objectMapper;
 
 	private AppSettings settings;
 	private RotationConfig rotations;
 	private AbilityConfig abilities;
+	private AbilityCategoryConfig abilityCategories;
 
 	public ConfigManager() {
 		this.configDir = getAppDataPath().resolve(APP_NAME);
 		this.settingsPath = configDir.resolve("settings.json");
 		this.rotationsPath = configDir.resolve("rotations.json");
 		this.abilitiesPath = configDir.resolve("abilities.json");
+		this.abilityCategoriesPath = configDir.resolve("ability_categories.json");
 		this.abilityImagePath = configDir.resolve("Abilities");
 
 		this.objectMapper = createObjectMapper();
@@ -46,6 +49,7 @@ public class ConfigManager {
 		loadOrCreateSettings();
 		loadOrCreateRotations();
 		loadOrCreateAbilities();
+		loadOrCreateAbilityCategories();
 	}
 
 	private void checkOrCreateAbilities() {
@@ -106,11 +110,56 @@ public class ConfigManager {
 	private void loadOrCreateAbilities() throws IOException {
 		if (Files.exists(abilitiesPath)) {
 			abilities = objectMapper.readValue(abilitiesPath.toFile(), AbilityConfig.class);
-			logger.info("Loaded existing abilities");
+
+			// Check if abilities need migration (missing new fields)
+			if (needsAbilitiesMigration()) {
+				logger.warn("Abilities file is missing new fields. Backing up and regenerating from defaults.");
+				backupAndRegenerate(abilitiesPath, "abilities.json.backup");
+				abilities = loadDefaultAbilities();
+				saveAbilities();
+				logger.info("Regenerated abilities with updated schema");
+			} else {
+				logger.info("Loaded existing abilities");
+			}
 		} else {
 			abilities = loadDefaultAbilities();
 			saveAbilities();
 			logger.info("Created default abilities");
+		}
+	}
+
+	/**
+	 * Checks if the abilities configuration needs migration to the new schema.
+	 * Returns true if any ability is missing the new fields (common_name, type, level).
+	 */
+	private boolean needsAbilitiesMigration() {
+		if (abilities == null || abilities.getAbilities() == null) {
+			return false;
+		}
+
+		// Sample a few abilities to check if they have the new fields
+		return abilities.getAbilities().values().stream()
+				.limit(5)
+				.anyMatch(data -> data.getCommonName() == null && data.getType() == null && data.getLevel() == null);
+	}
+
+	/**
+	 * Backs up an existing file and prepares for regeneration.
+	 */
+	private void backupAndRegenerate(Path filePath, String backupName) throws IOException {
+		Path backupPath = filePath.getParent().resolve(backupName);
+		Files.copy(filePath, backupPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+		logger.info("Backed up {} to {}", filePath.getFileName(), backupName);
+	}
+
+	private void loadOrCreateAbilityCategories() throws IOException {
+		if (Files.exists(abilityCategoriesPath)) {
+			abilityCategories = objectMapper.readValue(abilityCategoriesPath.toFile(), AbilityCategoryConfig.class);
+			logger.info("Loaded existing ability categories");
+		} else {
+			abilityCategories = loadDefaultAbilityCategories();
+			saveAbilityCategories();
+			logger.info("Created default ability categories");
 		}
 	}
 
@@ -127,6 +176,10 @@ public class ConfigManager {
 		objectMapper.writeValue(abilitiesPath.toFile(), abilities);
 	}
 
+	public void saveAbilityCategories() throws IOException {
+		objectMapper.writeValue(abilityCategoriesPath.toFile(), abilityCategories);
+	}
+
 	// Getters
 	public AppSettings getSettings() {
 		return settings;
@@ -138,6 +191,10 @@ public class ConfigManager {
 
 	public AbilityConfig getAbilities() {
 		return abilities;
+	}
+
+	public AbilityCategoryConfig getAbilityCategories() {
+		return abilityCategories;
 	}
 
 	public Path getConfigDir() {
@@ -173,6 +230,10 @@ public class ConfigManager {
 
 	private AbilityConfig loadDefaultAbilities() throws IOException {
 		return loadDefaultResource("defaults/abilities.json", AbilityConfig.class);
+	}
+
+	private AbilityCategoryConfig loadDefaultAbilityCategories() throws IOException {
+		return loadDefaultResource("defaults/ability_categories.json", AbilityCategoryConfig.class);
 	}
 
 	private <T> T loadDefaultResource(String resourcePath, Class<T> clazz) throws IOException {

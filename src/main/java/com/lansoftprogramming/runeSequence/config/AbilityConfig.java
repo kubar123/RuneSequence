@@ -32,6 +32,15 @@ public class AbilityConfig {
 	}
 
 	public static class AbilityData {
+		@JsonProperty("common_name")
+		private String commonName;
+
+		@JsonProperty("type")
+		private String type;
+
+		@JsonProperty("level")
+		private Integer level;
+
 		@JsonProperty("triggers_gcd")
 		private boolean triggersGcd = true;
 
@@ -42,9 +51,33 @@ public class AbilityConfig {
 		private short cooldown = 0;
 
 		@JsonProperty("detection_threshold")
-		private Double detectionThreshold; // Optional
+		private Double detectionThreshold;
 
 		// Getters and setters
+		public String getCommonName() {
+			return commonName;
+		}
+
+		public void setCommonName(String commonName) {
+			this.commonName = commonName;
+		}
+
+		public String getType() {
+			return type;
+		}
+
+		public void setType(String type) {
+			this.type = type;
+		}
+
+		public Integer getLevel() {
+			return level;
+		}
+
+		public void setLevel(Integer level) {
+			this.level = level;
+		}
+
 		public boolean isTriggersGcd() {
 			return triggersGcd;
 		}

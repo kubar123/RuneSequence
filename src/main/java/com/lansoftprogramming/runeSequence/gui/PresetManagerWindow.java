@@ -1,8 +1,8 @@
 package com.lansoftprogramming.runeSequence.gui;
 
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
-import com.lansoftprogramming.runeSequence.config.RotationConfig;
-import com.lansoftprogramming.runeSequence.config.SequenceListModel;
+import com.lansoftprogramming.runeSequence.config.*;
+import com.lansoftprogramming.runeSequence.gui.component.AbilityPalettePanel;
+import com.lansoftprogramming.runeSequence.gui.service.AbilityIconLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,8 +37,7 @@ public class PresetManagerWindow extends JFrame {
 	private JPanel abilityFlowPanel;
 
 	// Palette Panel Components
-	private JTextField searchField;
-	private JTabbedPane categoryTabs;
+	private AbilityPalettePanel abilityPalettePanel;
 
 	// Split Panes
 	private JSplitPane verticalSplit;
@@ -91,37 +90,31 @@ public class PresetManagerWindow extends JFrame {
 	}
 
 	private void initializePalettePanel() {
-		searchField = new JTextField();
-		searchField.setToolTipText("Search abilities...");
+		try {
+			AbilityIconLoader iconLoader = new AbilityIconLoader(
+					configManager.getConfigDir().resolve("Abilities")
+			);
 
-		categoryTabs = new JTabbedPane();
-
-		// Placeholder tabs for 5+ categories
-		for (int i = 1; i <= 5; i++) {
-			JPanel categoryPanel = new JPanel(new GridLayout(0, 3, 5, 5));
-			JScrollPane scrollPane = new JScrollPane(categoryPanel);
-			scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-			categoryTabs.addTab("Category " + i, scrollPane);
-
-			// Placeholder ability items
-			for (int j = 1; j <= 50; j++) {
-				JPanel abilityCard = new JPanel(new BorderLayout());
-				abilityCard.setBorder(BorderFactory.createLineBorder(Color.GRAY));
-				abilityCard.setPreferredSize(new Dimension(100, 80));
-				JLabel abilityLabel = new JLabel("Ability " + ((i-1)*50 + j), SwingConstants.CENTER);
-				abilityCard.add(abilityLabel, BorderLayout.CENTER);
-				categoryPanel.add(abilityCard);
-			}
+			abilityPalettePanel = new AbilityPalettePanel(
+					configManager.getAbilities(),
+					configManager.getAbilityCategories(),
+					iconLoader
+			);
+		} catch (Exception e) {
+			logger.error("Failed to initialize palette panel", e);
+			JOptionPane.showMessageDialog(this,
+					"Failed to initialize ability palette: " + e.getMessage(),
+					"Error",
+					JOptionPane.ERROR_MESSAGE);
 		}
 	}
 
 	private void layoutComponents() {
 		JPanel masterPanel = createMasterPanel();
 		JPanel detailPanel = createDetailPanel();
-		JPanel palettePanel = createPalettePanel();
 
 		// Horizontal split: Master (left 25%) | Palette (right 75%)
-		horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, masterPanel, palettePanel);
+		horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, masterPanel, abilityPalettePanel);
 		horizontalSplit.setResizeWeight(0.25);
 		horizontalSplit.setDividerLocation(0.25);
 
@@ -192,21 +185,6 @@ public class PresetManagerWindow extends JFrame {
 		return detailPanel;
 	}
 
-	private JPanel createPalettePanel() {
-		JPanel palettePanel = new JPanel(new BorderLayout());
-		palettePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-		// Search bar at top
-		JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
-		searchPanel.add(new JLabel("Search:"), BorderLayout.WEST);
-		searchPanel.add(searchField, BorderLayout.CENTER);
-		searchPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
-
-		palettePanel.add(searchPanel, BorderLayout.NORTH);
-		palettePanel.add(categoryTabs, BorderLayout.CENTER);
-
-		return palettePanel;
-	}
 
 	/**
 	 * Loads sequences from ConfigManager and populates the list.
