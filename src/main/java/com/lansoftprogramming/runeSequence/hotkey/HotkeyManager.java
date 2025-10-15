@@ -18,7 +18,7 @@ public class HotkeyManager {
 
 	public void initialize() {
 		if (initialized) return;
-
+		java.util.logging.LogManager.getLogManager().reset();
 		try {
 			GlobalScreen.registerNativeHook();
 			nativeListener = new NativeHotkeyListener();  // CHANGED NAME
