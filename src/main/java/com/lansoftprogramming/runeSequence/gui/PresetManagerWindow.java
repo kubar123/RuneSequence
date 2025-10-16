@@ -519,17 +519,4 @@ public class PresetManagerWindow extends JFrame {
 		}
 	}
 
-
-	public static void main(String[] args) {
-		SwingUtilities.invokeLater(() -> {
-			try {
-				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-				ConfigManager configManager = new ConfigManager();
-				configManager.initialize();
-				new PresetManagerWindow(configManager);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		});
-	}
 }
