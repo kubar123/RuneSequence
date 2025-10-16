@@ -1,3 +1,4 @@
+// File: gui/SequenceListModel.java
 package com.lansoftprogramming.runeSequence.config;
 
 import javax.swing.*;
@@ -5,69 +6,54 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Model for managing the list of sequences displayed in the PresetManager.
- * Wraps sequence data with ID references for proper management.
- */
-public class SequenceListModel extends AbstractListModel<String> {
-	private final List<SequenceEntry> sequences;
+public class SequenceListModel extends AbstractListModel<SequenceListModel.SequenceEntry> {
 
-	public SequenceListModel() {
-		this.sequences = new ArrayList<>();
-	}
+    private final List<SequenceEntry> sequences = new ArrayList<>();
 
-	/**
-	 * Loads sequences from RotationConfig.
-	 * @param rotationConfig The configuration containing preset data
-	 */
-	public void loadFromConfig(RotationConfig rotationConfig) {
-		sequences.clear();
+    public static class SequenceEntry {
+        private final String id;
+        private final RotationConfig.PresetData presetData;
 
-		Map<String, RotationConfig.PresetData> presets = rotationConfig.getPresets();
-		for (Map.Entry<String, RotationConfig.PresetData> entry : presets.entrySet()) {
-			sequences.add(new SequenceEntry(entry.getKey(), entry.getValue()));
-		}
+        public SequenceEntry(String id, RotationConfig.PresetData presetData) {
+            this.id = id;
+            this.presetData = presetData;
+        }
 
-		fireContentsChanged(this, 0, sequences.size() - 1);
-	}
+        public String getId() {
+            return id;
+        }
 
-	/**
-	 * Gets the sequence entry at the specified index.
-	 * @param index The index
-	 * @return The SequenceEntry
-	 */
-	public SequenceEntry getSequenceEntry(int index) {
-		return sequences.get(index);
-	}
+        public RotationConfig.PresetData getPresetData() {
+            return presetData;
+        }
+    }
 
-	@Override
-	public int getSize() {
-		return sequences.size();
-	}
+    public void loadFromConfig(RotationConfig rotations) {
+        int oldSize = sequences.size();
+        if (oldSize > 0) {
+            sequences.clear();
+            fireIntervalRemoved(this, 0, oldSize - 1);
+        }
 
-	@Override
-	public String getElementAt(int index) {
-		return sequences.get(index).getPresetData().getName();
-	}
+        if (rotations != null && rotations.getPresets() != null) {
+            for (Map.Entry<String, RotationConfig.PresetData> entry : rotations.getPresets().entrySet()) {
+                sequences.add(new SequenceEntry(entry.getKey(), entry.getValue()));
+            }
+        }
 
-	/**
-	 * Inner class representing a sequence entry with ID and data.
-	 */
-	public static class SequenceEntry {
-		private final String id;
-		private final RotationConfig.PresetData presetData;
+        int newSize = sequences.size();
+        if (newSize > 0) {
+            fireIntervalAdded(this, 0, newSize - 1);
+        }
+    }
 
-		public SequenceEntry(String id, RotationConfig.PresetData presetData) {
-			this.id = id;
-			this.presetData = presetData;
-		}
+    @Override
+    public int getSize() {
+        return sequences.size();
+    }
 
-		public String getId() {
-			return id;
-		}
-
-		public RotationConfig.PresetData getPresetData() {
-			return presetData;
-		}
-	}
+    @Override
+    public SequenceEntry getElementAt(int index) {
+        return sequences.get(index);
+    }
 }
