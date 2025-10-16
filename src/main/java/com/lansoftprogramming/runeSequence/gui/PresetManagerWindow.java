@@ -223,22 +223,63 @@ public class PresetManagerWindow extends JFrame {
 		RotationConfig.PresetData presetData = entry.getPresetData();
 		sequenceNameField.setText(presetData.getName());
 
-		// Parse expression using the sequence visual service
 		abilityFlowPanel.removeAll();
 		List<SequenceElement> elements = sequenceVisualService.parseToVisualElements(presetData.getExpression());
 
-		for (SequenceElement element : elements) {
-			if (element.isAbility()) {
-				// Create and add ability card
-				AbilityItem item = createAbilityItem(element.getValue());
-				if (item != null) {
-					JPanel abilityCard = createAbilityCard(item);
-					abilityFlowPanel.add(abilityCard);
+		for (int i = 0; i < elements.size(); i++) {
+			SequenceElement currentElement = elements.get(i);
+
+			// Check if this element can start a group (ability followed by + or /)
+			if (currentElement.isAbility() && (i + 1 < elements.size())) {
+				SequenceElement nextElement = elements.get(i + 1);
+
+				if (nextElement.isPlus() || nextElement.isSlash()) {
+					// Start of a new group found
+					SequenceElement.Type groupType = nextElement.getType();
+					Color groupColor = groupType == SequenceElement.Type.PLUS
+							? new Color(220, 235, 255) // Light blue for AND
+							: new Color(255, 240, 220); // Light orange for OR
+
+					AbilityGroupPanel groupPanel = new AbilityGroupPanel(groupColor);
+
+					// Add the first ability to the group
+					AbilityItem firstItem = createAbilityItem(currentElement.getValue());
+					if (firstItem != null) {
+						groupPanel.add(createAbilityCard(firstItem));
+					}
+
+					// Loop forward to consume all elements belonging to this group
+					int groupIndex = i + 1;
+					while (groupIndex < elements.size()) {
+						SequenceElement separator = elements.get(groupIndex);
+						if (separator.getType() != groupType) {
+							break; // Group ends here
+						}
+
+						if (groupIndex + 1 < elements.size() && elements.get(groupIndex + 1).isAbility()) {
+							groupPanel.add(createSeparatorLabel(separator));
+
+							SequenceElement abilityElement = elements.get(groupIndex + 1);
+							AbilityItem item = createAbilityItem(abilityElement.getValue());
+							if (item != null) {
+								groupPanel.add(createAbilityCard(item));
+							}
+							groupIndex += 2; // Consumed separator and ability
+						} else {
+							break; // Malformed sequence, end group
+						}
+					}
+
+					abilityFlowPanel.add(groupPanel);
+					i = groupIndex - 1; // Update main loop index
+
+				} else {
+					// Standalone ability (e.g., followed by -> or at the end)
+					addStandaloneAbility(currentElement);
 				}
-			} else if (element.isSeparator()) {
-				// Create and add separator (arrow, plus, slash)
-				JLabel separator = createSeparatorLabel(element);
-				abilityFlowPanel.add(separator);
+			} else {
+				// Add standalone element (separator like -> or the very last ability)
+				addStandaloneElement(currentElement);
 			}
 		}
 
@@ -249,6 +290,22 @@ public class PresetManagerWindow extends JFrame {
 		logger.debug("Loaded sequence: {} ({}) with {} abilities and {} elements",
 				presetData.getName(), entry.getId(), abilityCount, elements.size());
 	}
+
+	private void addStandaloneAbility(SequenceElement element) {
+		AbilityItem item = createAbilityItem(element.getValue());
+		if (item != null) {
+			abilityFlowPanel.add(createAbilityCard(item));
+		}
+	}
+
+	private void addStandaloneElement(SequenceElement element) {
+		if (element.isAbility()) {
+			addStandaloneAbility(element);
+		} else if (element.isSeparator()) {
+			abilityFlowPanel.add(createSeparatorLabel(element));
+		}
+	}
+
 
 	/**
 	 * Clears the detail panel.
@@ -436,6 +493,32 @@ public class PresetManagerWindow extends JFrame {
 			}
 		}
 	}
+
+	/**
+	 * A custom panel that draws a rounded rectangle background to group abilities.
+	 */
+	private static class AbilityGroupPanel extends JPanel {
+		private final Color backgroundColor;
+		private final int cornerRadius = 15;
+
+		public AbilityGroupPanel(Color backgroundColor) {
+			this.backgroundColor = backgroundColor;
+			setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
+			setOpaque(false); // We are painting our own background
+			setBorder(new EmptyBorder(5, 5, 5, 5)); // Add some padding
+		}
+
+		@Override
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			Graphics2D g2d = (Graphics2D) g.create();
+			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g2d.setColor(backgroundColor);
+			g2d.fillRoundRect(0, 0, getWidth(), getHeight(), cornerRadius, cornerRadius);
+			g2d.dispose();
+		}
+	}
+
 
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(() -> {

@@ -53,6 +53,14 @@ public class SequenceElement {
 		return type == Type.ARROW || type == Type.PLUS || type == Type.SLASH;
 	}
 
+	public boolean isPlus() {
+		return type == Type.PLUS;
+	}
+
+	public boolean isSlash() {
+		return type == Type.SLASH;
+	}
+
 	@Override
 	public String toString() {
 		return "SequenceElement{type=" + type + ", value='" + value + "'}";
