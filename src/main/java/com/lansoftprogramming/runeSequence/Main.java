@@ -1,20 +1,22 @@
 package com.lansoftprogramming.runeSequence;
 
 import com.formdev.flatlaf.FlatDarkLaf;
-import com.lansoftprogramming.runeSequence.capture.ScreenCapture;
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
-import com.lansoftprogramming.runeSequence.config.RotationConfig;
-import com.lansoftprogramming.runeSequence.detection.DetectionEngine;
-import com.lansoftprogramming.runeSequence.detection.OverlayRenderer;
-import com.lansoftprogramming.runeSequence.detection.TemplateDetector;
-import com.lansoftprogramming.runeSequence.gui.Taskbar;
-import com.lansoftprogramming.runeSequence.gui.actions.PresetManagerAction;
-import com.lansoftprogramming.runeSequence.gui.actions.RegionSelectorAction;
-import com.lansoftprogramming.runeSequence.gui.actions.SettingsAction;
-import com.lansoftprogramming.runeSequence.hotkey.HotkeyManager;
-import com.lansoftprogramming.runeSequence.hotkey.SequenceController;
-import com.lansoftprogramming.runeSequence.sequence.SequenceManager;
-import com.lansoftprogramming.runeSequence.sequence.SequenceParser;
+import com.lansoftprogramming.runeSequence.application.TemplateCache;
+import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
+import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
+import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
+import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.ui.taskbar.Taskbar;
+import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
+import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
+import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
+import com.lansoftprogramming.runeSequence.application.SequenceController;
+import com.lansoftprogramming.runeSequence.application.SequenceManager;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +53,7 @@ public class Main {
 			}
 
 			// Parse all presets from the config file
-			Map<String, com.lansoftprogramming.runeSequence.sequence.SequenceDefinition> namedSequences = rotationConfig.getPresets().entrySet().stream()
+			Map<String, SequenceDefinition> namedSequences = rotationConfig.getPresets().entrySet().stream()
 					.collect(Collectors.toMap(
 							Map.Entry::getKey,
 							entry -> SequenceParser.parse(entry.getValue().getExpression())

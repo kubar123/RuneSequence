@@ -1,10 +1,12 @@
 // DebugTest.java - Standalone test
 
-import com.lansoftprogramming.runeSequence.sequence.*;
+import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
+import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
+import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 public class DebugTest {
 	private static final Logger logger = LoggerFactory.getLogger(DebugTest.class);
