@@ -1,4 +1,3 @@
-// File: gui/PresetManagerWindow.java
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
