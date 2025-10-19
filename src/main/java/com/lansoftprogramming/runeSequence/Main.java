@@ -1,22 +1,22 @@
 package com.lansoftprogramming.runeSequence;
 
 import com.formdev.flatlaf.FlatDarkLaf;
+import com.lansoftprogramming.runeSequence.application.SequenceController;
+import com.lansoftprogramming.runeSequence.application.SequenceManager;
 import com.lansoftprogramming.runeSequence.application.TemplateCache;
+import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
+import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
-import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
-import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
 import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
-import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
-import com.lansoftprogramming.runeSequence.ui.taskbar.Taskbar;
 import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
-import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
-import com.lansoftprogramming.runeSequence.application.SequenceController;
-import com.lansoftprogramming.runeSequence.application.SequenceManager;
-import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
+import com.lansoftprogramming.runeSequence.ui.taskbar.Taskbar;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,13 +121,11 @@ public class Main {
 
 	public static void populateTemplateCache() {
 		logger.info("Initializing TemplateCache...");
-		// Use the simpler constructor to fix the compilation error.
 		templateCache = new TemplateCache(APP_NAME);
 	}
 
 	public static void populateSettings() {
 		logger.info("Initializing ConfigManager...");
-		// Use the correct constructor with no arguments.
 		configManager = new ConfigManager();
 		try {
 			configManager.initialize();

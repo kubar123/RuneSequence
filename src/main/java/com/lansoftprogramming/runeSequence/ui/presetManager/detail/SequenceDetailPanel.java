@@ -1,21 +1,29 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
+import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
+import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
+import com.lansoftprogramming.runeSequence.ui.presetManager.service.ExpressionBuilder;
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
-import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SequenceDetailPanel extends JPanel {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailPanel.class);
 
 	private final SequenceDetailService detailService;
+	private final ExpressionBuilder expressionBuilder;
+	private final AbilityDragController dragHandler;
 
 	private final JTextField sequenceNameField;
 	private final JButton settingsButton;
@@ -23,8 +31,16 @@ public class SequenceDetailPanel extends JPanel {
 	private final JButton discardButton;
 	private final JPanel abilityFlowPanel;
 
+	private List<SequenceElement> currentElements;
+	private List<SequenceElement> previewElements;
+	private RotationConfig.PresetData currentPreset;
+	private DropPreview currentPreview;
+
 	public SequenceDetailPanel(SequenceDetailService detailService) {
 		this.detailService = detailService;
+		this.expressionBuilder = new ExpressionBuilder();
+		this.currentElements = new ArrayList<>();
+		this.previewElements = new ArrayList<>();
 
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -33,7 +49,34 @@ public class SequenceDetailPanel extends JPanel {
 		settingsButton = new JButton("Settings");
 		saveButton = new JButton("Save");
 		discardButton = new JButton("Discard");
-		abilityFlowPanel = new WrappingAwarePanel(new WrapLayout(FlowLayout.LEFT, 10, 10));
+		abilityFlowPanel = new JPanel(new WrapLayout(FlowLayout.LEFT, 10, 10));
+
+		dragHandler = new AbilityDragController(abilityFlowPanel, new AbilityDragController.DragCallback() {
+			@Override
+			public void onDragStart(AbilityItem item, boolean isFromPalette) {
+				handleDragStart(item, isFromPalette);
+			}
+
+			@Override
+			public void onDragMove(AbilityItem draggedItem, Point cursorPos, DropPreview preview) {
+				handleDragMove(draggedItem, cursorPos, preview);
+			}
+
+			@Override
+			public void onDragEnd(AbilityItem draggedItem, boolean commit) {
+				handleDragEnd(draggedItem, commit);
+			}
+
+			@Override
+			public List<SequenceElement> getCurrentElements() {
+				return previewElements;
+			}
+
+			@Override
+			public Component[] getAllCards() {
+				return getAbilityCardArray();
+			}
+		});
 
 		layoutComponents();
 	}
@@ -72,55 +115,197 @@ public class SequenceDetailPanel extends JPanel {
 		return scrollPane;
 	}
 
+	private void handleDragStart(AbilityItem item, boolean isFromPalette) {
+	    if (!isFromPalette) {
+	        previewElements = expressionBuilder.removeAbility(new ArrayList<>(currentElements), item.getKey());
+	    } else {
+	        previewElements = new ArrayList<>(currentElements);
+	    }
+	}
+
+	private void handleDragMove(AbilityItem draggedItem, Point cursorPos, DropPreview preview) {
+	    currentPreview = preview;
+	    clearAllHighlights();
+
+	    if (preview.isValid() && preview.getTargetAbilityIndex() >= 0) {
+	        highlightDropZone(preview);
+	    }
+	}
+
+	private void handleDragEnd(AbilityItem draggedItem, boolean commit) {
+	    clearAllHighlights();
+
+	    if (commit && currentPreview != null && currentPreview.isValid()) {
+	        currentElements = expressionBuilder.insertAbility(
+	            new ArrayList<>(previewElements),
+	            draggedItem.getKey(),
+	            currentPreview.getInsertIndex(),
+	            currentPreview.getZoneType()
+	        );
+	        updateExpression();
+	    } else {
+	        previewElements = new ArrayList<>(currentElements);
+	    }
+
+	    currentPreview = null;
+	    renderSequenceElements(currentElements);
+	}
+
+	private void updateExpression() {
+		if (currentPreset != null) {
+			String newExpression = expressionBuilder.buildExpression(currentElements);
+			currentPreset.setExpression(newExpression);
+			logger.debug("Updated expression: {}", newExpression);
+		}
+	}
+
+	public void startPaletteDrag(AbilityItem item, JPanel card, Point startPoint) {
+		MouseAdapter dragListener = dragHandler.createCardDragListener(item, card, true);
+
+		MouseEvent syntheticEvent = new MouseEvent(
+			card, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
+			startPoint.x, startPoint.y, 1, false
+		);
+		dragListener.mousePressed(syntheticEvent);
+
+		card.addMouseMotionListener(dragListener);
+		card.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				dragListener.mouseReleased(e);
+				card.removeMouseMotionListener(dragListener);
+				card.removeMouseListener(this);
+			}
+		});
+	}
+
+	private void clearAllHighlights() {
+		for (Component card : getAbilityCardArray()) {
+			if (card instanceof JPanel) {
+				card.setBackground(Color.WHITE);
+				((JPanel) card).setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+			}
+		}
+		abilityFlowPanel.repaint();
+	}
+
+	private void highlightDropZone(DropPreview preview) {
+		Component[] cards = getAbilityCardArray();
+		int targetIndex = preview.getTargetAbilityIndex();
+
+		if (targetIndex >= 0 && targetIndex < cards.length && cards[targetIndex] instanceof JPanel) {
+			JPanel targetCard = (JPanel) cards[targetIndex];
+
+			Color highlightColor;
+			switch (preview.getZoneType()) {
+				case AND:
+					highlightColor = new Color(170, 255, 171);
+					break;
+				case OR:
+					highlightColor = new Color(158, 99, 220);
+					break;
+				case NEXT:
+					highlightColor = new Color(250, 117, 159);
+					break;
+				default:
+					highlightColor = Color.WHITE;
+			}
+
+			targetCard.setBackground(highlightColor);
+			targetCard.setBorder(BorderFactory.createLineBorder(highlightColor.darker(), 2));
+			abilityFlowPanel.repaint();
+		}
+	}
+
+	private Component[] getAbilityCardArray() {
+	    List<Component> cards = new ArrayList<>();
+	    for (Component comp : abilityFlowPanel.getComponents()) {
+	        collectAbilityCardsRecursive(comp, cards);
+	    }
+	    return cards.toArray(new Component[0]);
+	}
+
+	private void collectAbilityCardsRecursive(Component comp, List<Component> out) {
+	    if (comp == null) return;
+	    if (comp instanceof JPanel && "abilityCard".equals(comp.getName())) {
+	        out.add(comp);
+	        return;
+	    }
+	    if (comp instanceof Container) {
+	        for (Component child : ((Container) comp).getComponents()) {
+	            collectAbilityCardsRecursive(child, out);
+	        }
+	    }
+	}
+
 	public void loadSequence(RotationConfig.PresetData presetData) {
 		if (presetData == null) {
 			clear();
 			return;
 		}
 
+		this.currentPreset = presetData;
 		sequenceNameField.setText(presetData.getName());
-		abilityFlowPanel.removeAll();
 
-		List<SequenceElement> elements = detailService.parseSequenceExpression(presetData.getExpression());
-		renderSequenceElements(elements);
+		currentElements = new ArrayList<>(detailService.parseSequenceExpression(presetData.getExpression()));
+		previewElements = new ArrayList<>(currentElements);
+		renderSequenceElements(currentElements);
 
-		abilityFlowPanel.revalidate();
-		abilityFlowPanel.repaint();
-
-		long abilityCount = elements.stream().filter(SequenceElement::isAbility).count();
-		logger.debug("Loaded sequence: {} with {} abilities and {} elements",
-				presetData.getName(), abilityCount, elements.size());
+		long abilityCount = currentElements.stream().filter(SequenceElement::isAbility).count();
+		logger.debug("Loaded sequence: {} with {} abilities", presetData.getName(), abilityCount);
 	}
 
 	public void clear() {
 		sequenceNameField.setText("");
+		currentElements.clear();
+		previewElements.clear();
+		currentPreset = null;
+		renderSequenceElements(currentElements);
+	}
+
+	/**
+	 * Renders sequence elements as visual cards.
+	 * Tags each card with its element index for stable drop targeting.
+	 */
+	private void renderSequenceElements(List<SequenceElement> elements) {
+
 		abilityFlowPanel.removeAll();
+
+		int i = 0;
+		while (i < elements.size()) {
+			SequenceElement currentElement = elements.get(i);
+
+			if (currentElement.isAbility()) {
+				// Check if this ability starts a group
+				if (i + 1 < elements.size()) {
+					SequenceElement nextElement = elements.get(i + 1);
+					if (nextElement.isPlus() || nextElement.isSlash()) {
+						i = renderAbilityGroup(elements, i, nextElement.getType());
+						i++;
+						continue;
+					}
+				}
+				// Standalone ability
+				addStandaloneAbility(currentElement, i);
+			} else if (currentElement.isSeparator()) {
+				abilityFlowPanel.add(createSeparatorLabel(currentElement));
+			}
+
+			i++;
+		}
+
 		abilityFlowPanel.revalidate();
 		abilityFlowPanel.repaint();
 	}
 
-	private void renderSequenceElements(List<SequenceElement> elements) {
-		for (int i = 0; i < elements.size(); i++) {
-			SequenceElement currentElement = elements.get(i);
-
-			if (currentElement.isAbility() && (i + 1 < elements.size())) {
-				SequenceElement nextElement = elements.get(i + 1);
-
-				if (nextElement.isPlus() || nextElement.isSlash()) {
-					i = renderAbilityGroup(elements, i, nextElement.getType());
-				} else {
-					addStandaloneAbility(currentElement);
-				}
-			} else {
-				addStandaloneElement(currentElement);
-			}
-		}
-	}
-
+	/**
+	 * Renders a group of abilities connected by + or /.
+	 * Tags each card with its element index for stable drop targeting.
+	 */
 	private int renderAbilityGroup(List<SequenceElement> elements, int startIndex, SequenceElement.Type groupType) {
 		Color groupColor = groupType == SequenceElement.Type.PLUS
-				? new Color(220, 235, 255) // Light blue for AND
-				: new Color(255, 240, 220); // Light orange for OR
+				? new Color(220, 255, 223)
+				: new Color(196, 163, 231);
 
 		AbilityGroupPanel groupPanel = new AbilityGroupPanel(groupColor);
 
@@ -128,142 +313,115 @@ public class SequenceDetailPanel extends JPanel {
 		SequenceElement firstElement = elements.get(startIndex);
 		AbilityItem firstItem = detailService.createAbilityItem(firstElement.getValue());
 		if (firstItem != null) {
-			groupPanel.add(createAbilityCard(firstItem));
+			JPanel card = createAbilityCard(firstItem);
+			card.putClientProperty("elementIndex", startIndex);
+			groupPanel.add(card);
 		}
 
-		// Consume group elements
-		int groupIndex = startIndex + 1;
-		while (groupIndex < elements.size()) {
-			SequenceElement separator = elements.get(groupIndex);
+		// Process remaining abilities in the group
+		int currentIndex = startIndex + 1;
+		while (currentIndex < elements.size()) {
+			SequenceElement separator = elements.get(currentIndex);
+
+			// Stop if different separator type
 			if (separator.getType() != groupType) {
 				break;
 			}
 
-			if (groupIndex + 1 < elements.size() && elements.get(groupIndex + 1).isAbility()) {
-				groupPanel.add(createSeparatorLabel(separator));
+			// Add separator visual
+			groupPanel.add(createSeparatorLabel(separator));
 
-				SequenceElement abilityElement = elements.get(groupIndex + 1);
+			// Add next ability if exists
+			if (currentIndex + 1 < elements.size() && elements.get(currentIndex + 1).isAbility()) {
+				int abilityElementIndex = currentIndex + 1;
+				SequenceElement abilityElement = elements.get(abilityElementIndex);
 				AbilityItem item = detailService.createAbilityItem(abilityElement.getValue());
 				if (item != null) {
-					groupPanel.add(createAbilityCard(item));
+					JPanel card = createAbilityCard(item);
+					card.putClientProperty("elementIndex", abilityElementIndex);
+					groupPanel.add(card);
 				}
-				groupIndex += 2;
+				currentIndex += 2;
 			} else {
 				break;
 			}
 		}
 
 		abilityFlowPanel.add(groupPanel);
-		return groupIndex - 1;
+		return currentIndex - 1;
 	}
 
-	private void addStandaloneAbility(SequenceElement element) {
+	/**
+	 * Adds standalone ability card (not in a group).
+	 */
+	private void addStandaloneAbility(SequenceElement element, int elementIndex) {
 		AbilityItem item = detailService.createAbilityItem(element.getValue());
 		if (item != null) {
-			abilityFlowPanel.add(createAbilityCard(item));
+			JPanel card = createAbilityCard(item);
+			card.putClientProperty("elementIndex", elementIndex);
+			abilityFlowPanel.add(card);
 		}
-	}
-
-	private void addStandaloneElement(SequenceElement element) {
-		if (element.isAbility()) {
-			addStandaloneAbility(element);
-		} else if (element.isSeparator()) {
-			abilityFlowPanel.add(createSeparatorLabel(element));
-		}
-	}
-
-	private JPanel createAbilityCard(AbilityItem item) {
-		JPanel card = new JPanel();
-		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-		card.setBackground(Color.WHITE);
-		card.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
-
-		card.setMinimumSize(new Dimension(50, 68));
-		card.setPreferredSize(new Dimension(50, 68));
-		card.setMaximumSize(new Dimension(50, 68));
-
-		JLabel iconLabel = new JLabel(item.getIcon());
-		iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-		iconLabel.setMinimumSize(new Dimension(50, 50));
-		iconLabel.setPreferredSize(new Dimension(50, 50));
-		iconLabel.setMaximumSize(new Dimension(50, 50));
-
-		String displayText = truncateText(item.getDisplayName(), 12);
-		JLabel nameLabel = new JLabel(displayText);
-		nameLabel.setFont(nameLabel.getFont().deriveFont(9f));
-		nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-		nameLabel.setMinimumSize(new Dimension(50, 16));
-		nameLabel.setPreferredSize(new Dimension(50, 16));
-		nameLabel.setMaximumSize(new Dimension(50, 16));
-
-		card.add(iconLabel);
-		card.add(Box.createRigidArea(new Dimension(0, 2)));
-		card.add(nameLabel);
-
-		card.setToolTipText(createTooltipText(item));
-
-		return card;
 	}
 
 	private JLabel createSeparatorLabel(SequenceElement element) {
-		String labelText = " " + element.getValue() + " ";
-		JLabel label = new JLabel(labelText);
-		label.setFont(new Font("Arial", Font.BOLD, 16));
-		label.setAlignmentY(Component.CENTER_ALIGNMENT);
+		JLabel label = new JLabel(" " + element.getValue() + " ");
+		label.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
+		label.setForeground(Color.RED);
+		label.setBorder(new EmptyBorder(0, 5, 0, 5));
 		return label;
 	}
 
-	private String createTooltipText(AbilityItem item) {
-		return String.format("<html><b>%s</b><br>Type: %s<br>Level: %d</html>",
-				item.getDisplayName(), item.getType(), item.getLevel());
-	}
-
 	private String truncateText(String text, int maxLength) {
-		if (text == null || text.length() <= maxLength) {
+		if (text.length() <= maxLength) {
 			return text;
 		}
 		return text.substring(0, maxLength - 3) + "...";
 	}
 
-	private static class AbilityGroupPanel extends JPanel {
-		public AbilityGroupPanel(Color backgroundColor) {
-			setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
-			setBackground(backgroundColor);
-			setBorder(BorderFactory.createCompoundBorder(
-					BorderFactory.createLineBorder(Color.GRAY),
-					new EmptyBorder(5, 5, 5, 5)
-			));
-		}
+	/**
+	 * Creates an ability card visual component.
+	 */
+	private JPanel createAbilityCard(AbilityItem item) {
+	    JPanel card = new JPanel();
+	    card.setName("abilityCard");
+	    card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+	    card.setBackground(Color.WHITE);
+	    card.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+	    card.setMinimumSize(new Dimension(50, 68));
+	    card.setPreferredSize(new Dimension(50, 68));
+	    card.setMaximumSize(new Dimension(50, 68));
+
+	    JLabel iconLabel = new JLabel(item.getIcon());
+	    iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+	    iconLabel.setMinimumSize(new Dimension(50, 50));
+	    iconLabel.setPreferredSize(new Dimension(50, 50));
+	    iconLabel.setMaximumSize(new Dimension(50, 50));
+
+	    String displayText = truncateText(item.getDisplayName(), 12);
+	    JLabel nameLabel = new JLabel(displayText);
+	    nameLabel.setFont(nameLabel.getFont().deriveFont(9f));
+	    nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+	    nameLabel.setMinimumSize(new Dimension(50, 16));
+	    nameLabel.setPreferredSize(new Dimension(50, 16));
+	    nameLabel.setMaximumSize(new Dimension(50, 16));
+
+	    card.add(iconLabel);
+	    card.add(nameLabel);
+
+	    MouseAdapter dragListener = dragHandler.createCardDragListener(item, card, false);
+	    card.addMouseListener(dragListener);
+	    card.addMouseMotionListener(dragListener);
+	    return card;
 	}
 
-	private static class WrappingAwarePanel extends JPanel implements Scrollable {
-		public WrappingAwarePanel(LayoutManager layout) {
-			super(layout);
-		}
-
-		@Override
-		public Dimension getPreferredScrollableViewportSize() {
-			return getPreferredSize();
-		}
-
-		@Override
-		public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
-			return 16;
-		}
-
-		@Override
-		public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-			return (orientation == SwingConstants.VERTICAL) ? visibleRect.height : visibleRect.width;
-		}
-
-		@Override
-		public boolean getScrollableTracksViewportWidth() {
-			return true;
-		}
-
-		@Override
-		public boolean getScrollableTracksViewportHeight() {
-			return false;
+	private static class AbilityGroupPanel extends JPanel {
+		public AbilityGroupPanel(Color groupColor) {
+			setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
+			setBackground(groupColor);
+			setBorder(BorderFactory.createCompoundBorder(
+					BorderFactory.createLineBorder(groupColor.darker()),
+					BorderFactory.createEmptyBorder(5, 5, 5, 5)
+			));
 		}
 	}
 }

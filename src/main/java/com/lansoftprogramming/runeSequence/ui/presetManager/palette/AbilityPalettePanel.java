@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.palette;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityCategoryConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
+import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import org.slf4j.Logger;
@@ -10,8 +11,12 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.util.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -20,14 +25,6 @@ import java.util.stream.Collectors;
  */
 public class AbilityPalettePanel extends JPanel {
 	private static final Logger logger = LoggerFactory.getLogger(AbilityPalettePanel.class);
-	private static final int GRID_GAP = 5;
-
-	// The initial grid column count is now dynamic:
-	private int calculateGridColumns() {
-	    // Column width based on card width (50px) + gap (5px) = 55px per column
-	    int panelWidth = getWidth();
-	    return Math.max(1, panelWidth / 55); // At least 1 column fits.
-	}
 
 	private final AbilityConfig abilityConfig;
 	private final AbilityCategoryConfig categoryConfig;
@@ -35,6 +32,7 @@ public class AbilityPalettePanel extends JPanel {
 
 	private JTextField searchField;
 	private JTabbedPane categoryTabs;
+	private SequenceDetailPanel detailPanel; // Reference to detail panel for drag coordination
 
 	public AbilityPalettePanel(AbilityConfig abilityConfig,
 	                           AbilityCategoryConfig categoryConfig,
@@ -46,6 +44,10 @@ public class AbilityPalettePanel extends JPanel {
 		initializeComponents();
 		layoutComponents();
 		loadCategories();
+	}
+
+	public void setDetailPanel(SequenceDetailPanel detailPanel) {
+		this.detailPanel = detailPanel;
 	}
 
 	private void initializeComponents() {
@@ -143,8 +145,7 @@ public class AbilityPalettePanel extends JPanel {
 			AbilityConfig.AbilityData abilityData = abilityConfig.getAbility(abilityKey);
 
 			if (abilityData == null) {
-				logger.debug("Ability data not found for key '{}'. This may indicate the abilities.json file needs to be updated.", abilityKey);
-				// Create a basic item with defaults so the palette still displays
+				logger.debug("Ability data not found for key '{}'", abilityKey);
 				ImageIcon icon = iconLoader.loadIcon(abilityKey);
 				return new AbilityItem(abilityKey, abilityKey, 0, "Unknown", icon);
 			}
@@ -212,7 +213,16 @@ public class AbilityPalettePanel extends JPanel {
 	    // Tooltip with ability details
 	    card.setToolTipText(createTooltipText(item));
 
-	    // TODO: Treat this entire card (icon + label) as a draggable element in the future
+	    // Enable dragging from palette
+	    card.addMouseListener(new MouseAdapter() {
+	    	@Override
+	    	public void mousePressed(MouseEvent e) {
+	    		logger.info("Palette card pressed: {}", item.getKey());
+	    		if (detailPanel != null) {
+	    			detailPanel.startPaletteDrag(item, card, e.getPoint());
+	    		}
+	    	}
+	    });
 
 		return card;
 	}
