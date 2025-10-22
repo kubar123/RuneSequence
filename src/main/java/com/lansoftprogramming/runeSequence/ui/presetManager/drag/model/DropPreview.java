@@ -7,11 +7,13 @@ public class DropPreview {
     private final int insertIndex; // Index in element list where ability will be inserted
     private final DropZoneType zoneType;
     private final int targetAbilityIndex; // Which ability card were near (-1 if none)
+    private final DropSide dropSide; // Which side of the card (LEFT or RIGHT)
 
-    public DropPreview(int insertIndex, DropZoneType zoneType, int targetAbilityIndex) {
+    public DropPreview(int insertIndex, DropZoneType zoneType, int targetAbilityIndex, DropSide dropSide) {
         this.insertIndex = insertIndex;
         this.zoneType = zoneType;
         this.targetAbilityIndex = targetAbilityIndex;
+        this.dropSide = dropSide;
     }
 
     public int getInsertIndex() {
@@ -24,6 +26,10 @@ public class DropPreview {
 
     public int getTargetAbilityIndex() {
         return targetAbilityIndex;
+    }
+
+    public DropSide getDropSide() {
+        return dropSide;
     }
 
     public boolean isValid() {

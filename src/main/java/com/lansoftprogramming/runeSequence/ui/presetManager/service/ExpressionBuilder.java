@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
+import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropSide;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import org.slf4j.Logger;
@@ -31,7 +32,6 @@ public class ExpressionBuilder {
 
     /**
      * Removes an ability and its associated RIGHT operator.
-     * Operators belong to the ability on their LEFT.
      */
     public List<SequenceElement> removeAbility(List<SequenceElement> elements, String abilityKey) {
         List<SequenceElement> result = new ArrayList<>(elements);
@@ -40,7 +40,6 @@ public class ExpressionBuilder {
             if (result.get(i).isAbility() && result.get(i).getValue().equals(abilityKey)) {
                 result.remove(i);
 
-                // Remove operator to the RIGHT if it exists
                 if (i < result.size() && result.get(i).isSeparator()) {
                     result.remove(i);
                 }
@@ -57,7 +56,7 @@ public class ExpressionBuilder {
      * Inserts ability with proper grouping based on drop zone.
      */
     public List<SequenceElement> insertAbility(List<SequenceElement> elements, String abilityKey,
-                                                int insertIndex, DropZoneType zoneType) {
+                                                int insertIndex, DropZoneType zoneType, DropSide dropSide) {
         List<SequenceElement> result = new ArrayList<>(elements);
 
         if (result.isEmpty()) {
@@ -65,12 +64,15 @@ public class ExpressionBuilder {
             return result;
         }
 
+        logger.debug("insertAbility: key={}, insertIndex={}, zoneType={}, dropSide={}, elements.size={}",
+            abilityKey, insertIndex, zoneType, dropSide, result.size());
+
         switch (zoneType) {
             case AND:
-                insertWithGrouping(result, abilityKey, insertIndex, SequenceElement.Type.PLUS);
+                insertIntoGroup(result, abilityKey, insertIndex, SequenceElement.Type.PLUS, dropSide);
                 break;
             case OR:
-                insertWithGrouping(result, abilityKey, insertIndex, SequenceElement.Type.SLASH);
+                insertIntoGroup(result, abilityKey, insertIndex, SequenceElement.Type.SLASH, dropSide);
                 break;
             case NEXT:
                 insertAsNextStep(result, abilityKey, insertIndex);
@@ -81,99 +83,236 @@ public class ExpressionBuilder {
     }
 
     /**
-     * Inserts ability into an AND or OR group.
-     * Key rule: If target is already in a group, extend that group (prevents mixing separators).
+     * Inserts ability into an existing group or creates a new group.
+     * Uses dropSide to determine insertion position consistently.
+     *
+     * Key principle: insertIndex and dropSide together define where to insert.
+     * - dropSide LEFT: insert BEFORE the ability at insertIndex
+     * - dropSide RIGHT: insert AFTER the ability at insertIndex
      */
-    private void insertWithGrouping(List<SequenceElement> elements,
-                                    String abilityKey,
-                                    int insertIndex,
-                                    SequenceElement.Type groupType) {
+    private void insertIntoGroup(List<SequenceElement> elements,
+                              String abilityKey,
+                              int insertIndex,
+                              SequenceElement.Type requestedGroupType,
+                              DropSide dropSide) {
         if (elements.isEmpty()) {
             elements.add(SequenceElement.ability(abilityKey));
             return;
         }
 
+        // Clamp insertIndex to valid range
         insertIndex = Math.max(0, Math.min(insertIndex, elements.size()));
 
-        SequenceElement separator =
-            groupType == SequenceElement.Type.PLUS ? SequenceElement.plus() : SequenceElement.slash();
-
-        // Ensure we're targeting an ability
-        if (insertIndex >= elements.size() || !elements.get(insertIndex).isAbility()) {
-            insertAsNextStep(elements, abilityKey, insertIndex);
+        // If insertIndex is at the end, just append
+        if (insertIndex >= elements.size()) {
+            if (!elements.isEmpty() && elements.get(elements.size() - 1).isAbility()) {
+                SequenceElement separator = requestedGroupType == SequenceElement.Type.PLUS
+                    ? SequenceElement.plus()
+                    : SequenceElement.slash();
+                elements.add(separator);
+            }
+            elements.add(SequenceElement.ability(abilityKey));
+            logger.debug("Inserted at end");
             return;
         }
 
-        // Check if target is already in a group - if so, use that group's separator type
-        SequenceElement.Type existingGroupType = detectExistingGroupType(elements, insertIndex);
+        // Find the target ability at or near insertIndex
+        int targetAbilityIndex = insertIndex;
+        if (!elements.get(insertIndex).isAbility()) {
+            // Find nearest ability
+            for (int i = insertIndex; i >= 0; i--) {
+                if (elements.get(i).isAbility()) {
+                    targetAbilityIndex = i;
+                    break;
+                }
+            }
 
-        if (existingGroupType != null) {
-            separator = existingGroupType == SequenceElement.Type.PLUS ?
-                SequenceElement.plus() : SequenceElement.slash();
+            if (!elements.get(targetAbilityIndex).isAbility()) {
+                // Fallback to insertAsNextStep if no ability found
+                insertAsNextStep(elements, abilityKey, insertIndex);
+                return;
+            }
         }
 
-        // Insert separator + new ability right after target
-        int insertPosition = insertIndex + 1;
-        elements.add(insertPosition, separator);
-        elements.add(insertPosition + 1, SequenceElement.ability(abilityKey));
+        // Check if target is in an existing group
+        GroupInfo groupInfo = analyzeGroup(elements, targetAbilityIndex);
+
+        logger.debug("insertIntoGroup: targetIndex={}, isInGroup={}, groupType={}, groupStart={}, groupEnd={}, dropSide={}",
+            targetAbilityIndex, groupInfo.isInGroup, groupInfo.groupType, groupInfo.startIndex, groupInfo.endIndex, dropSide);
+
+        SequenceElement separator = requestedGroupType == SequenceElement.Type.PLUS
+            ? SequenceElement.plus()
+            : SequenceElement.slash();
+
+        if (groupInfo.isInGroup) {
+            // Target is in a group - must use the group's separator type
+            if (groupInfo.groupType != requestedGroupType) {
+                logger.debug("Group type mismatch: requested={}, existing={} - using group type",
+                    requestedGroupType, groupInfo.groupType);
+                separator = groupInfo.groupType == SequenceElement.Type.PLUS
+                    ? SequenceElement.plus()
+                    : SequenceElement.slash();
+            }
+        }
+
+        // Insert based on drop side - CONSISTENT for both grouped and standalone
+        int insertPosition;
+        if (dropSide == DropSide.LEFT) {
+            // Insert BEFORE target ability
+            insertPosition = insertIndex;
+            elements.add(insertPosition, SequenceElement.ability(abilityKey));
+            elements.add(insertPosition + 1, separator);
+            logger.debug("LEFT insertion at {} (before target)", insertPosition);
+        } else {
+            // Insert AFTER target ability
+            insertPosition = insertIndex;
+            elements.add(insertPosition, separator);
+            elements.add(insertPosition + 1, SequenceElement.ability(abilityKey));
+            logger.debug("RIGHT insertion at {} (after target)", insertPosition);
+        }
     }
 
     /**
-     * Detects if an ability is already part of a group (has + or / separator adjacent).
+     * Analyzes if an ability is part of a group and returns group boundaries.
      */
-    private SequenceElement.Type detectExistingGroupType(List<SequenceElement> elements, int abilityIndex) {
-        // Check separator after target
-        int checkAfter = abilityIndex + 1;
-        if (checkAfter < elements.size() && elements.get(checkAfter).isSeparator()) {
-            SequenceElement sep = elements.get(checkAfter);
-            if (sep.isPlus() || sep.isSlash()) {
-                return sep.getType();
+    private GroupInfo analyzeGroup(List<SequenceElement> elements, int abilityIndex) {
+        SequenceElement.Type groupType = null;
+        int startIndex = abilityIndex;
+        int endIndex = abilityIndex;
+
+        // Scan backwards to find group start
+        int checkIndex = abilityIndex - 1;
+        while (checkIndex >= 0) {
+            SequenceElement elem = elements.get(checkIndex);
+
+            if (elem.isPlus() || elem.isSlash()) {
+                if (groupType == null) {
+                    groupType = elem.getType();
+                } else if (elem.getType() != groupType) {
+                    // Different separator type - not part of same group
+                    break;
+                }
+                checkIndex--;
+            } else if (elem.isAbility()) {
+                startIndex = checkIndex;
+                checkIndex--;
+            } else {
+                // Arrow separator - end of group
+                break;
             }
         }
 
-        // Check separator before target
-        int checkBefore = abilityIndex - 1;
-        if (checkBefore >= 0 && elements.get(checkBefore).isSeparator()) {
-            SequenceElement sep = elements.get(checkBefore);
-            if (sep.isPlus() || sep.isSlash()) {
-                return sep.getType();
+        // Scan forwards to find group end
+        checkIndex = abilityIndex + 1;
+        while (checkIndex < elements.size()) {
+            SequenceElement elem = elements.get(checkIndex);
+
+            if (elem.isPlus() || elem.isSlash()) {
+                if (groupType == null) {
+                    groupType = elem.getType();
+                } else if (elem.getType() != groupType) {
+                    // Different separator type - not part of same group
+                    break;
+                }
+                checkIndex++;
+            } else if (elem.isAbility()) {
+                endIndex = checkIndex;
+                checkIndex++;
+            } else {
+                // Arrow separator - end of group
+                break;
             }
         }
 
-        return null;
+        boolean isInGroup = groupType != null;
+        return new GroupInfo(isInGroup, groupType, startIndex, endIndex);
     }
 
     /**
      * Inserts ability as a new sequential step (with arrow separator).
+     * When inserting after an ability that's in a group, this splits the group.
      */
     private void insertAsNextStep(List<SequenceElement> elements, String abilityKey, int insertIndex) {
         insertIndex = Math.max(0, Math.min(insertIndex, elements.size()));
+
+        logger.debug("insertAsNextStep: key={}, insertIndex={}, elements={}",
+            abilityKey, insertIndex, buildExpression(elements));
 
         if (insertIndex == 0) {
             elements.add(0, SequenceElement.ability(abilityKey));
             if (elements.size() > 1 && elements.get(1).isAbility()) {
                 elements.add(1, SequenceElement.arrow());
             }
-        } else if (insertIndex >= elements.size()) {
+            return;
+        }
+
+        if (insertIndex >= elements.size()) {
             if (!elements.isEmpty() && elements.get(elements.size() - 1).isAbility()) {
                 elements.add(SequenceElement.arrow());
             }
             elements.add(SequenceElement.ability(abilityKey));
-        } else {
-            SequenceElement beforeElement = elements.get(insertIndex - 1);
-            SequenceElement atElement = elements.get(insertIndex);
+            return;
+        }
 
-            if (beforeElement.isAbility()) {
+        // The key insight: insertIndex points to where we want to insert in the element array
+        // We need to check what's at insertIndex-1 and insertIndex to understand the context
+
+        SequenceElement beforeElement = elements.get(insertIndex - 1);
+        SequenceElement atElement = elements.get(insertIndex);
+
+        logger.debug("  beforeElement[{}]: {}", insertIndex - 1, beforeElement);
+        logger.debug("  atElement[{}]: {}", insertIndex, atElement);
+
+        // Case 1: Inserting right after an ability
+        if (beforeElement.isAbility()) {
+            // Check if the ability is part of a group
+            GroupInfo groupInfo = analyzeGroup(elements, insertIndex - 1);
+            logger.debug("  groupInfo: isInGroup={}, groupType={}", groupInfo.isInGroup, groupInfo.groupType);
+
+            if (groupInfo.isInGroup) {
+                // The ability before us is in a group
+                // We need to split the group at this point
+
+                // Check what comes after: if it's a group separator, we're splitting mid-group
+                if (atElement.isPlus() || atElement.isSlash()) {
+                    logger.debug("  Splitting group: replacing separator at {} with arrow", insertIndex);
+                    // Replace the group separator with arrow to split the group
+                    elements.set(insertIndex, SequenceElement.arrow());
+                    // Insert the new ability after the arrow
+                    elements.add(insertIndex + 1, SequenceElement.ability(abilityKey));
+                    // Check if we need another arrow after the new ability
+                    if (insertIndex + 2 < elements.size() && elements.get(insertIndex + 2).isAbility()) {
+                        elements.add(insertIndex + 2, SequenceElement.arrow());
+                    }
+                } else {
+                    // The group already ended (atElement is arrow or we're at boundary)
+                    // Just insert normally
+                    logger.debug("  Group already ended, inserting normally");
+                    elements.add(insertIndex, SequenceElement.arrow());
+                    elements.add(insertIndex + 1, SequenceElement.ability(abilityKey));
+                    if (atElement.isAbility()) {
+                        elements.add(insertIndex + 2, SequenceElement.arrow());
+                    }
+                }
+            } else {
+                // Standalone ability - standard insertion
+                logger.debug("  Standalone ability, standard insertion");
                 elements.add(insertIndex, SequenceElement.arrow());
-                insertIndex++;
+                elements.add(insertIndex + 1, SequenceElement.ability(abilityKey));
+                if (atElement.isAbility()) {
+                    elements.add(insertIndex + 2, SequenceElement.arrow());
+                }
             }
-
+        } else {
+            // beforeElement is a separator
+            logger.debug("  Before element is separator, inserting after it");
             elements.add(insertIndex, SequenceElement.ability(abilityKey));
-
             if (atElement.isAbility()) {
                 elements.add(insertIndex + 1, SequenceElement.arrow());
             }
         }
+
+        logger.debug("  Result: {}", buildExpression(elements));
     }
 
     /**
@@ -206,6 +345,23 @@ public class ExpressionBuilder {
         }
         while (!elements.isEmpty() && elements.get(elements.size() - 1).isSeparator()) {
             elements.remove(elements.size() - 1);
+        }
+    }
+
+    /**
+     * Internal class holding group analysis results.
+     */
+    private static class GroupInfo {
+        final boolean isInGroup;
+        final SequenceElement.Type groupType;
+        final int startIndex;
+        final int endIndex;
+
+        GroupInfo(boolean isInGroup, SequenceElement.Type groupType, int startIndex, int endIndex) {
+            this.isInGroup = isInGroup;
+            this.groupType = groupType;
+            this.startIndex = startIndex;
+            this.endIndex = endIndex;
         }
     }
 }

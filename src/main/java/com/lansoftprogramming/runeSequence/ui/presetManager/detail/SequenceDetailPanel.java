@@ -36,6 +36,10 @@ public class SequenceDetailPanel extends JPanel {
 	private RotationConfig.PresetData currentPreset;
 	private DropPreview currentPreview;
 
+	//track if highlighting is active
+	private boolean isHighlightActive = false;
+	private boolean isDragOutsidePanel = false;
+
 	public SequenceDetailPanel(SequenceDetailService detailService) {
 		this.detailService = detailService;
 		this.expressionBuilder = new ExpressionBuilder();
@@ -93,7 +97,7 @@ public class SequenceDetailPanel extends JPanel {
 		JPanel headerPanel = new JPanel(new BorderLayout(10, 0));
 
 		JPanel namePanel = new JPanel(new BorderLayout(5, 0));
-		namePanel.add(new JLabel("Sequence Name:"), BorderLayout.WEST);
+		namePanel.add(new JLabel("️Sequence Name:"), BorderLayout.WEST);
 		namePanel.add(sequenceNameField, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
@@ -126,27 +130,58 @@ public class SequenceDetailPanel extends JPanel {
 	private void handleDragMove(AbilityItem draggedItem, Point cursorPos, DropPreview preview) {
 	    currentPreview = preview;
 	    clearAllHighlights();
+	    isHighlightActive = false;
+
+	    // cursorPos is already in flowPanel coordinates, need to convert to this panel's coordinates
+	    Point detailPanelPoint = SwingUtilities.convertPoint(abilityFlowPanel, cursorPos, this);
+	    isDragOutsidePanel = !this.contains(detailPanelPoint);
+
+	    // Notify drag controller about outside state for transparency
+	    dragHandler.setDragOutsidePanel(isDragOutsidePanel);
 
 	    if (preview.isValid() && preview.getTargetAbilityIndex() >= 0) {
 	        highlightDropZone(preview);
+	        isHighlightActive = true;
 	    }
 	}
 
 	private void handleDragEnd(AbilityItem draggedItem, boolean commit) {
 	    clearAllHighlights();
 
-	    if (commit && currentPreview != null && currentPreview.isValid()) {
-	        currentElements = expressionBuilder.insertAbility(
-	            new ArrayList<>(previewElements),
-	            draggedItem.getKey(),
-	            currentPreview.getInsertIndex(),
-	            currentPreview.getZoneType()
-	        );
-	        updateExpression();
+	    // Determine if this was from the sequence (not palette)
+	    boolean isFromSequence = !previewElements.equals(currentElements);
+
+	    if (commit) {
+	        // Dropped inside panel
+	        if (isHighlightActive && currentPreview != null && currentPreview.isValid()) {
+	            // Valid drop with highlighting - insert at new position
+	            currentElements = expressionBuilder.insertAbility(
+				    new ArrayList<>(previewElements),
+				    draggedItem.getKey(),
+				    currentPreview.getInsertIndex(),
+				    currentPreview.getZoneType(),
+				    currentPreview.getDropSide()  // Add this parameter
+				);
+	            updateExpression();
+	        } else {
+	            // No highlighting - cancel drag, restore original
+	            currentElements = new ArrayList<>(currentElements);
+	            previewElements = new ArrayList<>(currentElements);
+	        }
 	    } else {
-	        previewElements = new ArrayList<>(currentElements);
+	        // Dropped outside panel
+	        if (isFromSequence) {
+	            // Delete the ability (keep previewElements which has it removed)
+	            currentElements = new ArrayList<>(previewElements);
+	            updateExpression();
+	        } else {
+	            // Was from palette - just cancel
+	            previewElements = new ArrayList<>(currentElements);
+	        }
 	    }
 
+	    isHighlightActive = false;
+	    isDragOutsidePanel = false;
 	    currentPreview = null;
 	    renderSequenceElements(currentElements);
 	}
