@@ -639,43 +639,84 @@ public class AbilityDragController {
     }
 
     /**
- * Updates drop zone indicators based on current preview.
- * Shows insertion line based on drop side for visual consistency.
- */
+     * Updates drop zone indicators based on current preview.
+     * Shows insertion line based on drop side for visual consistency.
+     */
     private void updateIndicators(DropPreview preview) {
         if (!preview.isValid() || preview.getTargetAbilityIndex() < 0) {
             indicators.hideIndicators();
             return;
         }
-
+    
         Component[] allCards = callback.getAllCards();
         int targetVisualIndex = preview.getTargetAbilityIndex();
-
+    
         if (targetVisualIndex < 0 || targetVisualIndex >= allCards.length) {
             indicators.hideIndicators();
             return;
         }
-
+    
         Component targetCard = allCards[targetVisualIndex];
-
-        // Determine which cards to show insertion line between based on drop SIDE
-        Component leftCard = null;
-        Component rightCard = null;
-
-        if (preview.getDropSide() == DropSide.LEFT) {
-            // Dropping on left side - insert before target card
-            rightCard = targetCard;
-            if (targetVisualIndex > 0) {
-                leftCard = allCards[targetVisualIndex - 1];
+    
+        // If the zone is NEXT, show insertion line between cards (hide symbols)
+        if (preview.getZoneType() == DropZoneType.NEXT) {
+            Component leftCard = null;
+            Component rightCard = null;
+    
+            if (preview.getDropSide() == DropSide.LEFT) {
+                // Dropping on left side - insert before target card
+                rightCard = targetCard;
+                if (targetVisualIndex > 0) {
+                    leftCard = allCards[targetVisualIndex - 1];
+                }
+            } else {
+                // Dropping on right side - insert after target card
+                leftCard = targetCard;
+                if (targetVisualIndex + 1 < allCards.length) {
+                    rightCard = allCards[targetVisualIndex + 1];
+                }
             }
-        } else {
-            // Dropping on right side - insert after target card
-            leftCard = targetCard;
-            if (targetVisualIndex + 1 < allCards.length) {
-                rightCard = allCards[targetVisualIndex + 1];
+    
+            indicators.showInsertionLineBetweenCards(leftCard, rightCard, preview.getZoneType());
+            return;
+        }
+    
+        // For AND/OR zones show top/bottom symbols.
+        // Determine if target ability is in a group using the same element list logic used elsewhere.
+        List<SequenceElement> elementsToCheck = currentDrag != null
+            ? currentDrag.getOriginalElements()
+            : callback.getCurrentElements();
+    
+        Integer elementIdx = null;
+        if (targetCard instanceof JComponent) {
+            Object prop = ((JComponent) targetCard).getClientProperty("elementIndex");
+            if (prop instanceof Integer) {
+                elementIdx = (Integer) prop;
             }
         }
-
-        indicators.showInsertionLineBetweenCards(leftCard, rightCard, preview.getZoneType());
+    
+        if (elementIdx == null) {
+            indicators.hideIndicators();
+            return;
+        }
+    
+        SequenceElement.Type groupType = detectGroupType(elementsToCheck, elementIdx);
+    
+        String topSymbol;
+        String bottomSymbol;
+    
+        if (groupType != null) {
+            // In a group - both zones use the group's separator
+            String groupSymbol = groupType == SequenceElement.Type.PLUS ? "+" : "/";
+            topSymbol = groupSymbol;
+            bottomSymbol = groupSymbol;
+        } else {
+            // Standalone - top is AND (+), bottom is OR (/)
+            topSymbol = "+";
+            bottomSymbol = "/";
+        }
+    
+        indicators.showIndicators(targetCard, topSymbol, bottomSymbol);
     }
+
 }
