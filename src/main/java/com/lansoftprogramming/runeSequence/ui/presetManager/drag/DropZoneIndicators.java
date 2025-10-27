@@ -165,7 +165,7 @@ public class DropZoneIndicators {
         }
 
         // Hide insertion line when using symbol indicators
-        insertionLine.setVisible(false);
+    //insertionLine.setVisible(false);
 
         glassPane.repaint();
     }
