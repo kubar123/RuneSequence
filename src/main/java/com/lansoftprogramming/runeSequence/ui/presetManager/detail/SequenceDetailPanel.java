@@ -15,6 +15,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,7 +34,9 @@ public class SequenceDetailPanel extends JPanel {
 
 	private List<SequenceElement> currentElements;
 	private List<SequenceElement> previewElements;
+	private final List<SaveListener> saveListeners;
 	private RotationConfig.PresetData currentPreset;
+	private String currentPresetId;
 	private DropPreview currentPreview;
 
 	//track if highlighting is active
@@ -45,6 +48,8 @@ public class SequenceDetailPanel extends JPanel {
 		this.expressionBuilder = new ExpressionBuilder();
 		this.currentElements = new ArrayList<>();
 		this.previewElements = new ArrayList<>();
+		this.saveListeners = new ArrayList<>();
+		this.currentPresetId = null;
 
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -83,6 +88,7 @@ public class SequenceDetailPanel extends JPanel {
 		});
 
 		layoutComponents();
+		registerEventHandlers();
 	}
 
 	private void layoutComponents() {
@@ -117,6 +123,10 @@ public class SequenceDetailPanel extends JPanel {
 		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		return scrollPane;
+	}
+
+	private void registerEventHandlers() {
+		saveButton.addActionListener(e -> handleSave());
 	}
 
 	private void handleDragStart(AbilityItem item, boolean isFromPalette) {
@@ -273,12 +283,13 @@ public class SequenceDetailPanel extends JPanel {
 	    }
 	}
 
-	public void loadSequence(RotationConfig.PresetData presetData) {
+	public void loadSequence(String presetId, RotationConfig.PresetData presetData) {
 		if (presetData == null) {
 			clear();
 			return;
 		}
 
+		this.currentPresetId = presetId;
 		this.currentPreset = presetData;
 		sequenceNameField.setText(presetData.getName());
 
@@ -295,6 +306,7 @@ public class SequenceDetailPanel extends JPanel {
 		currentElements.clear();
 		previewElements.clear();
 		currentPreset = null;
+		currentPresetId = null;
 		renderSequenceElements(currentElements);
 	}
 
@@ -458,5 +470,82 @@ public class SequenceDetailPanel extends JPanel {
 					BorderFactory.createEmptyBorder(5, 5, 5, 5)
 			));
 		}
+	}
+
+	public void addSaveListener(SaveListener listener) {
+		if (listener != null) {
+			saveListeners.add(listener);
+		}
+	}
+
+	private void notifySaveListeners(SequenceDetailService.SaveResult result) {
+		for (SaveListener listener : saveListeners) {
+			try {
+				listener.onSequenceSaved(result);
+			} catch (Exception listenerException) {
+				logger.warn("Save listener threw exception", listenerException);
+			}
+		}
+	}
+
+	private void handleSave() {
+		String trimmedName = sequenceNameField.getText() != null
+				? sequenceNameField.getText().trim()
+				: "";
+
+		String expression = expressionBuilder.buildExpression(currentElements);
+
+		try {
+			SequenceDetailService.SaveResult result = detailService.saveSequence(
+					currentPresetId,
+					currentPreset,
+					trimmedName,
+					expression
+			);
+
+			currentPresetId = result.getPresetId();
+			currentPreset = result.getPresetData();
+			if (currentPreset != null) {
+				currentPreset.setName(trimmedName);
+				currentPreset.setExpression(expression);
+			}
+
+			notifySaveListeners(result);
+			JOptionPane.showMessageDialog(
+					this,
+					"Sequence saved successfully.",
+					"Save Complete",
+					JOptionPane.INFORMATION_MESSAGE
+			);
+
+		} catch (IllegalArgumentException validationError) {
+			logger.debug("Sequence validation failed: {}", validationError.getMessage());
+			JOptionPane.showMessageDialog(
+					this,
+					validationError.getMessage(),
+					"Validation Error",
+					JOptionPane.WARNING_MESSAGE
+			);
+		} catch (IOException ioException) {
+			logger.error("Failed to persist sequence", ioException);
+			JOptionPane.showMessageDialog(
+					this,
+					"Failed to save sequence: " + ioException.getMessage(),
+					"I/O Error",
+					JOptionPane.ERROR_MESSAGE
+			);
+		} catch (Exception unexpected) {
+			logger.error("Unexpected error while saving sequence", unexpected);
+			JOptionPane.showMessageDialog(
+					this,
+					"Unexpected error while saving sequence.",
+					"Error",
+					JOptionPane.ERROR_MESSAGE
+			);
+		}
+	}
+
+	public interface SaveListener {
+		void onSequenceSaved(SequenceDetailService.SaveResult result);
 	}
 }

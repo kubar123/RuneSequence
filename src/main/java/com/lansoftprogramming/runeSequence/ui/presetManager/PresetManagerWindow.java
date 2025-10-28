@@ -100,10 +100,15 @@ public class PresetManagerWindow extends JFrame {
     private void wireEventHandlers() {
        masterPanel.addSelectionListener(entry -> {
           if (entry != null) {
-             detailPanel.loadSequence(entry.getPresetData());
+             detailPanel.loadSequence(entry.getId(), entry.getPresetData());
           } else {
              detailPanel.clear();
           }
+       });
+
+       detailPanel.addSaveListener(result -> {
+          sequenceListModel.upsert(result.getPresetId(), result.getPresetData());
+          SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(result.getPresetId()));
        });
     }
 

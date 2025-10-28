@@ -93,6 +93,18 @@ public class SequenceMasterPanel extends JPanel {
 		selectionListeners.add(listener);
 	}
 
+	public void selectSequenceById(String id) {
+		if (id == null) {
+			return;
+		}
+
+		int index = sequenceListModel.indexOf(id);
+		if (index >= 0) {
+			sequenceList.setSelectedIndex(index);
+			sequenceList.ensureIndexIsVisible(index);
+		}
+	}
+
 	/**
 	 * Notifies all registered listeners of a selection change.
 	 * @param entry The newly selected sequence entry, or null if selection is cleared.

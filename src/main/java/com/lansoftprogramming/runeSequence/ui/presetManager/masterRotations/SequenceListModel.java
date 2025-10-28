@@ -28,6 +28,10 @@ public class SequenceListModel extends AbstractListModel<SequenceListModel.Seque
         public RotationConfig.PresetData getPresetData() {
             return presetData;
         }
+
+        public SequenceEntry withPresetData(RotationConfig.PresetData newPresetData) {
+            return new SequenceEntry(this.id, newPresetData);
+        }
     }
 
     public void loadFromConfig(RotationConfig rotations) {
@@ -57,5 +61,30 @@ public class SequenceListModel extends AbstractListModel<SequenceListModel.Seque
     @Override
     public SequenceEntry getElementAt(int index) {
         return sequences.get(index);
+    }
+
+    public void upsert(String id, RotationConfig.PresetData presetData) {
+        for (int i = 0; i < sequences.size(); i++) {
+            SequenceEntry entry = sequences.get(i);
+            if (entry.getId().equals(id)) {
+                sequences.set(i, entry.withPresetData(presetData));
+                fireContentsChanged(this, i, i);
+                return;
+            }
+        }
+
+        SequenceEntry newEntry = new SequenceEntry(id, presetData);
+        sequences.add(newEntry);
+        int newIndex = sequences.size() - 1;
+        fireIntervalAdded(this, newIndex, newIndex);
+    }
+
+    public int indexOf(String id) {
+        for (int i = 0; i < sequences.size(); i++) {
+            if (sequences.get(i).getId().equals(id)) {
+                return i;
+            }
+        }
+        return -1;
     }
 }
