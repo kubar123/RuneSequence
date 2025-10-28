@@ -15,7 +15,6 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -283,6 +282,10 @@ public class SequenceDetailPanel extends JPanel {
 	    }
 	}
 
+	public void loadSequence(RotationConfig.PresetData presetData) {
+		loadSequence(null, presetData);
+	}
+
 	public void loadSequence(String presetId, RotationConfig.PresetData presetData) {
 		if (presetData == null) {
 			clear();
@@ -495,54 +498,49 @@ public class SequenceDetailPanel extends JPanel {
 
 		String expression = expressionBuilder.buildExpression(currentElements);
 
-		try {
-			SequenceDetailService.SaveResult result = detailService.saveSequence(
-					currentPresetId,
-					currentPreset,
-					trimmedName,
-					expression
-			);
+		SequenceDetailService.SaveOutcome outcome = detailService.saveSequence(
+				currentPresetId,
+				currentPreset,
+				trimmedName,
+				expression
+		);
 
-			currentPresetId = result.getPresetId();
-			currentPreset = result.getPresetData();
-			if (currentPreset != null) {
-				currentPreset.setName(trimmedName);
-				currentPreset.setExpression(expression);
-			}
+		if (!outcome.isSuccess()) {
+			String message = outcome.getMessage() != null ? outcome.getMessage() : "Failed to save sequence.";
+			int messageType = outcome.isValidationFailure()
+					? JOptionPane.WARNING_MESSAGE
+					: JOptionPane.ERROR_MESSAGE;
 
-			notifySaveListeners(result);
+			logger.debug("Save attempt failed: {}", message);
 			JOptionPane.showMessageDialog(
 					this,
-					"Sequence saved successfully.",
-					"Save Complete",
-					JOptionPane.INFORMATION_MESSAGE
+					message,
+					"Save Sequence",
+					messageType
 			);
-
-		} catch (IllegalArgumentException validationError) {
-			logger.debug("Sequence validation failed: {}", validationError.getMessage());
-			JOptionPane.showMessageDialog(
-					this,
-					validationError.getMessage(),
-					"Validation Error",
-					JOptionPane.WARNING_MESSAGE
-			);
-		} catch (IOException ioException) {
-			logger.error("Failed to persist sequence", ioException);
-			JOptionPane.showMessageDialog(
-					this,
-					"Failed to save sequence: " + ioException.getMessage(),
-					"I/O Error",
-					JOptionPane.ERROR_MESSAGE
-			);
-		} catch (Exception unexpected) {
-			logger.error("Unexpected error while saving sequence", unexpected);
-			JOptionPane.showMessageDialog(
-					this,
-					"Unexpected error while saving sequence.",
-					"Error",
-					JOptionPane.ERROR_MESSAGE
-			);
+			return;
 		}
+
+		SequenceDetailService.SaveResult result = outcome.getResult();
+		if (result == null) {
+			logger.warn("Save succeeded but result was null. No updates applied.");
+			return;
+		}
+
+		currentPresetId = result.getPresetId();
+		currentPreset = result.getPresetData();
+		if (currentPreset != null) {
+			currentPreset.setName(trimmedName);
+			currentPreset.setExpression(expression);
+		}
+
+		notifySaveListeners(result);
+		JOptionPane.showMessageDialog(
+				this,
+				outcome.getMessage() != null ? outcome.getMessage() : "Sequence saved successfully.",
+				"Save Sequence",
+				JOptionPane.INFORMATION_MESSAGE
+		);
 	}
 
 	public interface SaveListener {

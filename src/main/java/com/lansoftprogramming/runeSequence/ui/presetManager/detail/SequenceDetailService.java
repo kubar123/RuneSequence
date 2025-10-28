@@ -67,42 +67,52 @@ public class SequenceDetailService {
 		return fallbackKey;
 	}
 
-	public SaveResult saveSequence(String existingId,
-								   RotationConfig.PresetData referencePreset,
-								   String sequenceName,
-								   String expression) throws IOException {
+	public SaveOutcome saveSequence(String existingId,
+									RotationConfig.PresetData referencePreset,
+									String sequenceName,
+									String expression) {
 		if (sequenceName == null || sequenceName.isBlank()) {
-			throw new IllegalArgumentException("Sequence name must not be empty");
+			return SaveOutcome.validationFailure("Sequence name must not be empty");
 		}
 
-		RotationConfig rotations = configManager.getRotations();
-		if (rotations == null) {
-			throw new IllegalStateException("Rotation configuration is not initialized");
+		try {
+			RotationConfig rotations = configManager.getRotations();
+			if (rotations == null) {
+				return SaveOutcome.failure("Rotation configuration is not initialized");
+			}
+
+			Map<String, RotationConfig.PresetData> presets = rotations.getPresets();
+			if (presets == null) {
+				presets = new java.util.HashMap<>();
+				rotations.setPresets(presets);
+			}
+
+			String targetId = resolvePresetId(existingId, referencePreset, presets);
+			boolean created = false;
+
+			RotationConfig.PresetData presetData = presets.get(targetId);
+			if (presetData == null) {
+				presetData = new RotationConfig.PresetData();
+				presets.put(targetId, presetData);
+				created = true;
+			}
+
+			presetData.setName(sequenceName);
+			presetData.setExpression(expression);
+
+			configManager.saveRotations();
+			logger.info("Saved sequence '{}' with id {}", sequenceName, targetId);
+
+			SaveResult result = new SaveResult(targetId, presetData, created);
+			return SaveOutcome.success(result, created ? "Sequence created." : "Sequence updated.");
+
+		} catch (IOException ioException) {
+			logger.error("Failed to persist sequence '{}'", sequenceName, ioException);
+			return SaveOutcome.failure("Failed to save sequence: " + ioException.getMessage());
+		} catch (Exception unexpected) {
+			logger.error("Unexpected error while saving sequence '{}'", sequenceName, unexpected);
+			return SaveOutcome.failure("Unexpected error occurred while saving sequence.");
 		}
-
-		Map<String, RotationConfig.PresetData> presets = rotations.getPresets();
-		if (presets == null) {
-			presets = new java.util.HashMap<>();
-			rotations.setPresets(presets);
-		}
-
-		String targetId = resolvePresetId(existingId, referencePreset, presets);
-		boolean created = false;
-
-		RotationConfig.PresetData presetData = presets.get(targetId);
-		if (presetData == null) {
-			presetData = new RotationConfig.PresetData();
-			presets.put(targetId, presetData);
-			created = true;
-		}
-
-		presetData.setName(sequenceName);
-		presetData.setExpression(expression);
-
-		configManager.saveRotations();
-		logger.info("Saved sequence '{}' with id {}", sequenceName, targetId);
-
-		return new SaveResult(targetId, presetData, created);
 	}
 
 	private String resolvePresetId(String existingId,
@@ -144,6 +154,48 @@ public class SequenceDetailService {
 
 		public boolean isCreated() {
 			return created;
+		}
+	}
+
+	public static class SaveOutcome {
+		private final boolean success;
+		private final boolean validationFailure;
+		private final String message;
+		private final SaveResult result;
+
+		private SaveOutcome(boolean success, boolean validationFailure, String message, SaveResult result) {
+			this.success = success;
+			this.validationFailure = validationFailure;
+			this.message = message;
+			this.result = result;
+		}
+
+		public static SaveOutcome success(SaveResult result, String message) {
+			return new SaveOutcome(true, false, message, result);
+		}
+
+		public static SaveOutcome validationFailure(String message) {
+			return new SaveOutcome(false, true, message, null);
+		}
+
+		public static SaveOutcome failure(String message) {
+			return new SaveOutcome(false, false, message, null);
+		}
+
+		public boolean isSuccess() {
+			return success;
+		}
+
+		public boolean isValidationFailure() {
+			return validationFailure;
+		}
+
+		public String getMessage() {
+			return message;
+		}
+
+		public SaveResult getResult() {
+			return result;
 		}
 	}
 }
