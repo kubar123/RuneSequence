@@ -118,7 +118,7 @@ public class SequenceDetailService {
 	private String resolvePresetId(String existingId,
 								   RotationConfig.PresetData referencePreset,
 								   Map<String, RotationConfig.PresetData> presets) {
-		if (existingId != null && !existingId.isBlank() && presets.containsKey(existingId)) {
+		if (existingId != null && !existingId.isBlank()) {
 			return existingId;
 		}
 

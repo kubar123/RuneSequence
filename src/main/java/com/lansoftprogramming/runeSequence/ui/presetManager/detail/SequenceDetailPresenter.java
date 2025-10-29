@@ -177,9 +177,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		flowView.setDragOutsidePanel(isDragOutsidePanel);
 
-		if (preview.isValid() && preview.getTargetAbilityIndex() >= 0) {
-			flowView.highlightDropZone(preview);
-			isHighlightActive = true;
+		if (preview.isValid()) {
+			isHighlightActive = flowView.highlightDropZone(preview);
 		}
 	}
 

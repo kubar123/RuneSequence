@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.util.UUID;
 
 public class PresetManagerWindow extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(PresetManagerWindow.class);
@@ -98,6 +99,8 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void wireEventHandlers() {
+       masterPanel.addAddListener(this::handleAddSequence);
+
        masterPanel.addSelectionListener(entry -> {
           if (entry != null) {
              detailPanel.loadSequence(entry.getId(), entry.getPresetData());
@@ -110,6 +113,18 @@ public class PresetManagerWindow extends JFrame {
           sequenceListModel.upsert(result.getPresetId(), result.getPresetData());
           SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(result.getPresetId()));
        });
+    }
+
+    private void handleAddSequence() {
+       masterPanel.clearSelection();
+
+       RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
+       newPreset.setName("new sequence");
+       newPreset.setExpression("");
+
+       String newPresetId = UUID.randomUUID().toString();
+
+       detailPanel.startNewSequence(newPresetId, newPreset);
     }
 
     private void loadSequences() {

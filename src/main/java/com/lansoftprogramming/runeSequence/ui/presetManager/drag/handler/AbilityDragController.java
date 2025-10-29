@@ -577,29 +577,45 @@ public class AbilityDragController {
      * Updates drop zone indicators based on current preview.
      * Condensed logging: show once, then only on change.
      */
-    private void updateIndicators(DropPreview preview) {
-        if (!preview.isValid() || preview.getTargetAbilityIndex() < 0) {
-            indicators.hideIndicators();
+	private void updateIndicators(DropPreview preview) {
+		if (!preview.isValid()) {
+			indicators.hideIndicators();
 
-            // reset so next valid show will log once
-            lastIndicatorVisualIdx = null;
-            lastIndicatorDropSide = null;
-            lastIndicatorZoneType = null;
-            hasLoggedIndicatorShown = false;
-            return;
-        }
+			// reset so next valid show will log once
+			lastIndicatorVisualIdx = null;
+			lastIndicatorDropSide = null;
+			lastIndicatorZoneType = null;
+			hasLoggedIndicatorShown = false;
+			return;
+		}
 
-        Component[] allCards = callback.getAllCards();
-        int targetVisualIndex = preview.getTargetAbilityIndex();
+		Component[] allCards = callback.getAllCards();
 
-        if (targetVisualIndex < 0 || targetVisualIndex >= allCards.length) {
-            indicators.hideIndicators();
-            lastIndicatorVisualIdx = null;
-            lastIndicatorDropSide = null;
-            lastIndicatorZoneType = null;
-            hasLoggedIndicatorShown = false;
-            return;
-        }
+		if (allCards.length == 0) {
+			indicators.hideIndicators();
+
+			if (!hasLoggedIndicatorShown || lastIndicatorVisualIdx == null || lastIndicatorVisualIdx != -1
+					|| lastIndicatorZoneType != preview.getZoneType()) {
+				logger.info("Highlighting empty panel, zone={}", preview.getZoneType());
+				hasLoggedIndicatorShown = true;
+			}
+
+			lastIndicatorVisualIdx = -1;
+			lastIndicatorDropSide = preview.getDropSide();
+			lastIndicatorZoneType = preview.getZoneType();
+			return;
+		}
+
+		int targetVisualIndex = preview.getTargetAbilityIndex();
+
+		if (targetVisualIndex < 0 || targetVisualIndex >= allCards.length) {
+			indicators.hideIndicators();
+			lastIndicatorVisualIdx = null;
+			lastIndicatorDropSide = null;
+			lastIndicatorZoneType = null;
+			hasLoggedIndicatorShown = false;
+			return;
+		}
 
         Component targetCard = allCards[targetVisualIndex];
 

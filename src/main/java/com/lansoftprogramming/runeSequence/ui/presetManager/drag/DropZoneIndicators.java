@@ -12,6 +12,8 @@ import java.awt.*;
  */
 public class DropZoneIndicators {
 
+    private static final int ABILITY_CARD_HEIGHT = 68;
+
     private final JLabel topIndicator;
     private final JLabel bottomIndicator;
     private final JPanel insertionLine;
@@ -252,6 +254,50 @@ public class DropZoneIndicators {
             hideIndicators();
             return;
         }
+
+        showInsertionLine(insertionX, insertionY, lineHeight, zoneType);
+    }
+
+    /**
+     * Shows an insertion line centered in an empty panel to indicate a valid drop target.
+     * @param targetPanel The panel representing the drop surface
+     * @param zoneType Zone type for color coding
+     */
+    public void showInsertionLineForEmptyPanel(JComponent targetPanel, DropZoneType zoneType) {
+        if (glassPane == null || targetPanel == null) {
+            hideIndicators();
+            return;
+        }
+
+        Container parent = targetPanel.getParent();
+        if (parent == null) {
+            hideIndicators();
+            return;
+        }
+
+        Rectangle panelBounds = SwingUtilities.convertRectangle(
+            parent,
+            targetPanel.getBounds(),
+            glassPane
+        );
+
+        int width = panelBounds.width;
+        int height = panelBounds.height;
+
+        if (width <= 0 || height <= 0) {
+            Dimension preferred = targetPanel.getPreferredSize();
+            width = Math.max(width, preferred.width);
+            height = Math.max(height, preferred.height);
+        }
+
+        if (width <= 0 || height <= 0) {
+            hideIndicators();
+            return;
+        }
+
+        int insertionX = panelBounds.x + width / 2;
+        int lineHeight = ABILITY_CARD_HEIGHT;
+        int insertionY = panelBounds.y + Math.max((height - lineHeight) / 2, 0);
 
         showInsertionLine(insertionX, insertionY, lineHeight, zoneType);
     }

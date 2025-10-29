@@ -81,6 +81,18 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		presenter.loadSequence(presetId, presetData);
 	}
 
+	public void startNewSequence(String presetId, RotationConfig.PresetData presetData) {
+		loadSequence(presetId, presetData);
+		highlightSequenceNameField();
+	}
+
+	public void highlightSequenceNameField() {
+		SwingUtilities.invokeLater(() -> {
+			sequenceNameField.requestFocusInWindow();
+			sequenceNameField.selectAll();
+		});
+	}
+
 	public void clear() {
 		presenter.clear();
 	}

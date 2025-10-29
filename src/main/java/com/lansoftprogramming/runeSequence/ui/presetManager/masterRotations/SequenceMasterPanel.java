@@ -26,6 +26,7 @@ public class SequenceMasterPanel extends JPanel {
 
 	/** Listeners to be notified when the list selection changes. */
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
+	private final List<Runnable> addListeners;
 
 	/**
 	 * Constructs the master panel for sequence management.
@@ -34,6 +35,7 @@ public class SequenceMasterPanel extends JPanel {
 	public SequenceMasterPanel(SequenceListModel sequenceListModel) {
 		this.sequenceListModel = sequenceListModel;
 		this.selectionListeners = new ArrayList<>();
+		this.addListeners = new ArrayList<>();
 
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -44,6 +46,7 @@ public class SequenceMasterPanel extends JPanel {
 		sequenceList.addListSelectionListener(new SequenceSelectionHandler());
 
 		addButton = new JButton("+");
+		addButton.addActionListener(e -> notifyAddListeners());
 
 		ImageIcon trashIcon = null;
 		try {
@@ -93,6 +96,14 @@ public class SequenceMasterPanel extends JPanel {
 		selectionListeners.add(listener);
 	}
 
+	public void addAddListener(Runnable listener) {
+		addListeners.add(listener);
+	}
+
+	public void clearSelection() {
+		sequenceList.clearSelection();
+	}
+
 	public void selectSequenceById(String id) {
 		if (id == null) {
 			return;
@@ -112,6 +123,12 @@ public class SequenceMasterPanel extends JPanel {
 	private void notifySelectionListeners(SequenceListModel.SequenceEntry entry) {
 		for (Consumer<SequenceListModel.SequenceEntry> listener : selectionListeners) {
 			listener.accept(entry);
+		}
+	}
+
+	private void notifyAddListeners() {
+		for (Runnable listener : addListeners) {
+			listener.run();
 		}
 	}
 
