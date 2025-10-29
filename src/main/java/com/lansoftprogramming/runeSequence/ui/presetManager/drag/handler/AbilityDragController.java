@@ -308,13 +308,16 @@ public class AbilityDragController {
             originalIndices.add(idx);
         }
 
-        if (releasePhaseLogging) {
-            logger.info("Built {} valid targets", visualCards.size());
-        }
+		if (releasePhaseLogging) {
+			logger.info("Built {} valid targets", visualCards.size());
+		}
 
-        if (visualCards.isEmpty()) {
-            return new DropPreview(elements.size(), DropZoneType.NEXT, -1, DropSide.RIGHT);
-        }
+		if (visualCards.isEmpty()) {
+			if (releasePhaseLogging) {
+				logger.info("Preview fallback: no candidate cards, append at end (elementCount={})", elements.size());
+			}
+			return new DropPreview(elements.size(), DropZoneType.NEXT, -1, DropSide.RIGHT);
+		}
 
         // Find nearest card
         Component nearestCard = null;
@@ -341,10 +344,18 @@ public class AbilityDragController {
             }
         }
 
-        if (nearestCard == null || minDistance > MAX_DROP_DISTANCE) {
-            int lastOriginalIdx = originalIndices.get(originalIndices.size() - 1);
-            return new DropPreview(elements.size(), DropZoneType.NEXT, lastOriginalIdx, DropSide.RIGHT);
-        }
+		if (nearestCard == null || minDistance > MAX_DROP_DISTANCE) {
+			int lastOriginalIdx = originalIndices.get(originalIndices.size() - 1);
+			if (releasePhaseLogging) {
+				logger.info("Preview fallback: nearest invalid (minDistance={}, limit={}), using NEXT append, lastVisualIdx={}, elementCount={}",
+					minDistance,
+					MAX_DROP_DISTANCE,
+					lastOriginalIdx,
+					elements.size()
+				);
+			}
+			return new DropPreview(elements.size(), DropZoneType.NEXT, lastOriginalIdx, DropSide.RIGHT);
+		}
 
         Rectangle nearestBoundsInFlowPanel = SwingUtilities.convertRectangle(
             nearestCard.getParent(),
@@ -382,9 +393,16 @@ public class AbilityDragController {
                 }
             }
         }
-        if (currentTargetIndex == -1) {
-            currentTargetIndex = Math.min(targetElementIndex, elements.size() - 1);
-        }
+		if (currentTargetIndex == -1) {
+			if (releasePhaseLogging) {
+				logger.info("Preview fallback: unmatched ability key={}, defaulting to index {} (elementsSize={})",
+					targetAbilityKey,
+					targetElementIndex,
+					elements.size()
+				);
+			}
+			currentTargetIndex = Math.min(targetElementIndex, elements.size() - 1);
+		}
 
         GroupBoundaries groupBounds = analyzeGroupBoundaries(elements, currentTargetIndex, existingGroupType);
 
@@ -397,16 +415,41 @@ public class AbilityDragController {
             zoneType = determineMiddleZoneType(existingGroupType);
         }
 
-        int insertIndex = calculateInsertionIndex(
-            elements,
-            currentTargetIndex,
-            dropSide,
-            zoneType,
-            groupBounds
-        );
+		if (releasePhaseLogging) {
+			logger.info("Zone decision: cursorY={}, topLimit={}, bottomLimit={}, zone={}, groupType={}, targetElementIndex={}, targetVisualIndex={}",
+				dragPoint.y,
+				topLimit,
+				bottomLimit,
+				zoneType,
+				existingGroupType,
+				targetElementIndex,
+				targetVisualIndex
+			);
+		}
 
-        return new DropPreview(insertIndex, zoneType, targetVisualIndex, dropSide);
-    }
+		int insertIndex = calculateInsertionIndex(
+			elements,
+			currentTargetIndex,
+			dropSide,
+			zoneType,
+			groupBounds
+		);
+
+		if (releasePhaseLogging) {
+			logger.info("Insert decision: resolvedIndex={}, currentTargetIndex={}, dropSide={}, zone={}, groupBounds=[{},{}], groupType={}, targetKey={}",
+				insertIndex,
+				currentTargetIndex,
+				dropSide,
+				zoneType,
+				groupBounds.start,
+				groupBounds.end,
+				existingGroupType,
+				targetAbilityKey
+			);
+		}
+
+		return new DropPreview(insertIndex, zoneType, targetVisualIndex, dropSide);
+	}
 
     private GroupBoundaries analyzeGroupBoundaries(List<SequenceElement> elements,
                                                    int targetIndex,

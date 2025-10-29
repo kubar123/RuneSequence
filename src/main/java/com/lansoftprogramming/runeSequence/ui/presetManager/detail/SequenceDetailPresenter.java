@@ -190,6 +190,15 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		if (commit) {
 			if (isHighlightActive && currentPreview != null && currentPreview.isValid()) {
+				logger.info(
+					"Commit insert: item={}, insertIndex={}, zone={}, dropSide={}, fromSequence={}, currentElementCount={}",
+					draggedItem.getKey(),
+					currentPreview.getInsertIndex(),
+					currentPreview.getZoneType(),
+					currentPreview.getDropSide(),
+					isFromSequence,
+					currentElements.size()
+				);
 				currentElements = expressionBuilder.insertAbility(
 						new ArrayList<>(previewElements),
 						draggedItem.getKey(),
@@ -201,13 +210,28 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			} else {
 				currentElements = new ArrayList<>(currentElements);
 				previewElements = new ArrayList<>(currentElements);
+				logger.info(
+					"Commit skipped: highlightActive={}, previewValid={}, currentElementCount={}",
+					isHighlightActive,
+					currentPreview != null && currentPreview.isValid(),
+					currentElements.size()
+				);
 			}
 		} else {
 			if (isFromSequence) {
+				logger.info(
+					"Drag cancelled: restoring previewElements (count={}, item={})",
+					previewElements.size(),
+					draggedItem.getKey()
+				);
 				currentElements = new ArrayList<>(previewElements);
 				updateExpression();
 			} else {
 				previewElements = new ArrayList<>(currentElements);
+				logger.debug(
+					"Drag cancelled: no removal needed for palette item {}",
+					draggedItem.getKey()
+				);
 			}
 		}
 
