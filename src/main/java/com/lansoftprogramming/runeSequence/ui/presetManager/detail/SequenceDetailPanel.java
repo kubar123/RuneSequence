@@ -42,7 +42,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		JPanel headerPanel = new JPanel(new BorderLayout(10, 0));
 
 		JPanel namePanel = new JPanel(new BorderLayout(5, 0));
-		namePanel.add(new JLabel("�,?Sequence Name:"), BorderLayout.WEST);
+		namePanel.add(new JLabel("Sequence Name:"), BorderLayout.WEST);
 		namePanel.add(sequenceNameField, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
@@ -66,6 +66,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	private void registerEventHandlers() {
 		saveButton.addActionListener(e -> presenter.saveSequence());
+		discardButton.addActionListener(e -> presenter.discardChanges());
 	}
 
 	public void startPaletteDrag(AbilityItem item, JPanel card, Point startPoint) {

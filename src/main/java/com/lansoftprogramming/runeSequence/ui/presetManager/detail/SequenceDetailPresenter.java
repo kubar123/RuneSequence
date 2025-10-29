@@ -27,6 +27,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private final List<SequenceDetailPanel.SaveListener> saveListeners;
 	private RotationConfig.PresetData currentPreset;
 	private String currentPresetId;
+	private String loadedSequenceName;
+	private String loadedExpression;
+	private List<SequenceElement> loadedElements;
 	private DropPreview currentPreview;
 	private boolean isHighlightActive;
 	private boolean isDragOutsidePanel;
@@ -40,6 +43,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		this.previewElements = new ArrayList<>();
 		this.saveListeners = new ArrayList<>();
 		this.flowView.attachDragController(this);
+		this.loadedSequenceName = "";
+		this.loadedExpression = "";
+		this.loadedElements = new ArrayList<>();
 	}
 
 	void addSaveListener(SequenceDetailPanel.SaveListener listener) {
@@ -62,8 +68,13 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		this.currentPreset = presetData;
 		view.setSequenceName(presetData.getName());
 
-		currentElements = new ArrayList<>(detailService.parseSequenceExpression(presetData.getExpression()));
-		previewElements = new ArrayList<>(currentElements);
+		loadedSequenceName = presetData.getName() != null ? presetData.getName() : "";
+		loadedExpression = presetData.getExpression() != null ? presetData.getExpression() : "";
+
+		List<SequenceElement> parsedElements = detailService.parseSequenceExpression(loadedExpression);
+		loadedElements = parsedElements != null ? new ArrayList<>(parsedElements) : new ArrayList<>();
+		currentElements = new ArrayList<>(loadedElements);
+		previewElements = new ArrayList<>(loadedElements);
 		flowView.renderSequenceElements(currentElements);
 
 		long abilityCount = currentElements.stream().filter(SequenceElement::isAbility).count();
@@ -76,6 +87,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		previewElements.clear();
 		currentPreset = null;
 		currentPresetId = null;
+		loadedSequenceName = "";
+		loadedExpression = "";
+		loadedElements = new ArrayList<>();
 		flowView.renderSequenceElements(currentElements);
 	}
 
@@ -116,11 +130,27 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			currentPreset.setExpression(expression);
 		}
 
+		loadedSequenceName = trimmedName;
+		loadedExpression = expression;
+		loadedElements = new ArrayList<>(currentElements);
+
 		view.setSequenceName(trimmedName);
 		notifySaveListeners(result);
 
 		String successMessage = outcome.getMessage() != null ? outcome.getMessage() : "Sequence saved successfully.";
 		view.showSaveDialog(successMessage, JOptionPane.INFORMATION_MESSAGE);
+	}
+
+	void discardChanges() {
+		if (currentPreset != null) {
+			currentPreset.setName(loadedSequenceName);
+			currentPreset.setExpression(loadedExpression);
+		}
+
+		currentElements = new ArrayList<>(loadedElements);
+		previewElements = new ArrayList<>(loadedElements);
+		view.setSequenceName(loadedSequenceName);
+		flowView.renderSequenceElements(currentElements);
 	}
 
 	void startPaletteDrag(AbilityItem item, JPanel card, Point startPoint) {
