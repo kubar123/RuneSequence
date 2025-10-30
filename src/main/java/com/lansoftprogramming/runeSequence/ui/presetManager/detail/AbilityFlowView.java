@@ -6,6 +6,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneT
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -151,8 +152,8 @@ class AbilityFlowView extends JPanel {
 
 	private int renderAbilityGroup(List<SequenceElement> elements, int startIndex, SequenceElement.Type groupType) {
 		Color groupColor = groupType == SequenceElement.Type.PLUS
-				? new Color(220, 255, 223)
-				: new Color(196, 163, 231);
+				? UiColorPalette.ABILITY_GROUP_AND_BACKGROUND
+				: UiColorPalette.ABILITY_GROUP_OR_BACKGROUND;
 
 		AbilityGroupPanel groupPanel = new AbilityGroupPanel(groupColor);
 
@@ -161,6 +162,7 @@ class AbilityFlowView extends JPanel {
 		if (firstItem != null) {
 			JPanel card = cardFactory.createAbilityCard(firstItem);
 			card.putClientProperty("elementIndex", startIndex);
+			card.putClientProperty("zoneType", zoneForGroupType(groupType));
 			groupPanel.add(card);
 		}
 
@@ -181,6 +183,7 @@ class AbilityFlowView extends JPanel {
 				if (abilityItem != null) {
 					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem);
 					abilityCard.putClientProperty("elementIndex", abilityElementIndex);
+					abilityCard.putClientProperty("zoneType", zoneForGroupType(groupType));
 					groupPanel.add(abilityCard);
 				}
 				currentIndex += 2;
@@ -198,6 +201,7 @@ class AbilityFlowView extends JPanel {
 		if (item != null) {
 			JPanel card = cardFactory.createAbilityCard(item);
 			card.putClientProperty("elementIndex", elementIndex);
+			card.putClientProperty("zoneType", null);
 			add(card);
 		}
 	}
@@ -209,16 +213,7 @@ class AbilityFlowView extends JPanel {
 	}
 
 	private Color getHighlightColor(DropZoneType zoneType) {
-		if (zoneType == null) {
-			return Color.WHITE;
-		}
-
-		return switch (zoneType) {
-			case AND -> new Color(170, 255, 171);
-			case OR -> new Color(158, 99, 220);
-			case NEXT -> new Color(250, 117, 159);
-			default -> Color.WHITE;
-		};
+		return zoneType == null ? Color.WHITE : UiColorPalette.getDropZoneHighlightColor(zoneType);
 	}
 
 	private JPanel createEmptyDropIndicator() {
@@ -268,5 +263,16 @@ class AbilityFlowView extends JPanel {
 				collectAbilityCardsRecursive(child, out);
 			}
 		}
+	}
+
+	// Bridges domain separator type to drag/drop zone semantics so UI and controller stay aligned.
+	private DropZoneType zoneForGroupType(SequenceElement.Type groupType) {
+		if (groupType == SequenceElement.Type.PLUS) {
+			return DropZoneType.AND;
+		}
+		if (groupType == SequenceElement.Type.SLASH) {
+			return DropZoneType.OR;
+		}
+		return null;
 	}
 }

@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.overlay;
 
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,10 +20,10 @@ public class OverlayRenderer {
 
 	// Border types and colors - like piano key highlighting
 	public enum BorderType {
-		CURRENT_GREEN(new Color(0, 255, 0, 220), 4),        // Current abilities - thick bright green
-		NEXT_RED(new Color(255, 0, 0, 200), 3),             // Next abilities - thin red
-		CURRENT_OR_PURPLE(new Color(221, 0, 255, 220), 4),  // Current OR - thick purple
-		NEXT_OR_DARK_PURPLE(new Color(140, 0, 255, 200), 3); // Next OR - thin dark purple
+		CURRENT_GREEN(UiColorPalette.OVERLAY_CURRENT_AND, 4),        // Current abilities - thick bright green
+		NEXT_RED(UiColorPalette.OVERLAY_NEXT_AND, 3),                // Next abilities - thin red
+		CURRENT_OR_PURPLE(UiColorPalette.OVERLAY_CURRENT_OR, 4),     // Current OR - thick purple
+		NEXT_OR_DARK_PURPLE(UiColorPalette.OVERLAY_NEXT_OR, 3);      // Next OR - thin dark purple
 
 		public final Color color;
 		public final int thickness;

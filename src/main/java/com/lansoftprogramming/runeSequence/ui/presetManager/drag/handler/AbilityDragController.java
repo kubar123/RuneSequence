@@ -239,7 +239,7 @@ public class AbilityDragController {
         // One-line drop summary
         logger.info(
             "Drop: item={}, fromPalette={}, commit={}, insertIndex={}, zone={}, targetVisualIdx={}, side={}, insidePanel={}",
-            safeItemLabel(currentDrag.getDraggedItem()),
+            String.valueOf(currentDrag.getDraggedItem()),
             currentDrag.isFromPalette(),
             commit,
             preview.getInsertIndex(),
@@ -254,13 +254,14 @@ public class AbilityDragController {
         currentDrag = null;
     }
 
-    private String safeItemLabel(AbilityItem item) {
-        try {
-            String name = String.valueOf(item);
-            return name;
-        } catch (Exception ex) {
-            return "AbilityItem";
+    private Integer extractElementIndex(Component component) {
+        if (component instanceof JComponent) {
+            Object prop = ((JComponent) component).getClientProperty("elementIndex");
+            if (prop instanceof Integer) {
+                return (Integer) prop;
+            }
         }
+        return null;
     }
 
     /**
@@ -292,13 +293,7 @@ public class AbilityDragController {
                 continue;
             }
 
-            Integer elementIdx = null;
-            if (c instanceof JComponent) {
-                Object prop = ((JComponent) c).getClientProperty("elementIndex");
-                if (prop instanceof Integer) {
-                    elementIdx = (Integer) prop;
-                }
-            }
+            Integer elementIdx = extractElementIndex(c);
             if (elementIdx == null || elementIdx < 0) {
                 continue;
             }
@@ -374,7 +369,7 @@ public class AbilityDragController {
         List<SequenceElement> elementsToCheck = currentDrag != null
             ? currentDrag.getOriginalElements()
             : elements;
-        SequenceElement.Type existingGroupType = detectGroupType(elementsToCheck, targetElementIndex);
+        DropZoneType existingGroupZone = extractGroupZoneFromCard(nearestCard);
 
         String targetAbilityKey = null;
         if (targetElementIndex < elementsToCheck.size()) {
@@ -384,44 +379,57 @@ public class AbilityDragController {
             }
         }
 
-        int currentTargetIndex = -1;
-        if (targetAbilityKey != null) {
-            for (int i = 0; i < elements.size(); i++) {
-                if (elements.get(i).isAbility() && elements.get(i).getValue().equals(targetAbilityKey)) {
-                    currentTargetIndex = i;
-                    break;
-                }
+        int currentTargetIndex = isAbilityAtIndex(elements, targetElementIndex)
+            ? targetElementIndex
+            : findNearestAbilityIndex(elements, targetElementIndex);
+        if (currentTargetIndex == -1 && targetAbilityKey != null) {
+            currentTargetIndex = findAbilityIndexByKey(elements, targetAbilityKey, targetElementIndex);
+            if (releasePhaseLogging && currentTargetIndex != -1 && currentTargetIndex != targetElementIndex) {
+                logger.info("Adjusted target index via key match: preferred={}, resolved={}", targetElementIndex, currentTargetIndex);
             }
         }
-		if (currentTargetIndex == -1) {
-			if (releasePhaseLogging) {
-				logger.info("Preview fallback: unmatched ability key={}, defaulting to index {} (elementsSize={})",
-					targetAbilityKey,
-					targetElementIndex,
-					elements.size()
-				);
-			}
-			currentTargetIndex = Math.min(targetElementIndex, elements.size() - 1);
-		}
+        if (currentTargetIndex == -1 && !elements.isEmpty()) {
+            currentTargetIndex = Math.max(0, Math.min(targetElementIndex, elements.size() - 1));
+            if (releasePhaseLogging) {
+                logger.info("Preview fallback: using clamped index {} (original {}, elementsSize={})",
+                    currentTargetIndex,
+                    targetElementIndex,
+                    elements.size()
+                );
+            }
+        }
+        if (releasePhaseLogging && currentTargetIndex != -1 && currentTargetIndex != targetElementIndex) {
+            logger.info("Aligned target index from {} to {}", targetElementIndex, currentTargetIndex);
+        }
+        if (currentTargetIndex < 0) {
+            currentTargetIndex = 0;
+        }
 
-        GroupBoundaries groupBounds = analyzeGroupBoundaries(elements, currentTargetIndex, existingGroupType);
+        if (existingGroupZone == null) {
+            existingGroupZone = resolveGroupZoneAt(elementsToCheck, currentTargetIndex);
+        }
+        if (existingGroupZone == null) {
+            existingGroupZone = resolveGroupZoneAt(elements, currentTargetIndex);
+        }
+
+        GroupBoundaries groupBounds = analyzeGroupBoundaries(elements, currentTargetIndex, existingGroupZone);
 
         DropZoneType zoneType;
         if (dragPoint.y < topLimit) {
-            zoneType = determineTopZoneType(existingGroupType, currentTargetIndex, groupBounds);
+            zoneType = determineTopZoneType(existingGroupZone, currentTargetIndex, groupBounds);
         } else if (dragPoint.y > bottomLimit) {
-            zoneType = determineBottomZoneType(existingGroupType, currentTargetIndex, groupBounds);
+            zoneType = determineBottomZoneType(existingGroupZone, currentTargetIndex, groupBounds);
         } else {
-            zoneType = determineMiddleZoneType(existingGroupType);
+            zoneType = determineMiddleZoneType(existingGroupZone);
         }
 
 		if (releasePhaseLogging) {
-			logger.info("Zone decision: cursorY={}, topLimit={}, bottomLimit={}, zone={}, groupType={}, targetElementIndex={}, targetVisualIndex={}",
+			logger.info("Zone decision: cursorY={}, topLimit={}, bottomLimit={}, zone={}, groupZone={}, targetElementIndex={}, targetVisualIndex={}",
 				dragPoint.y,
 				topLimit,
 				bottomLimit,
 				zoneType,
-				existingGroupType,
+				existingGroupZone,
 				targetElementIndex,
 				targetVisualIndex
 			);
@@ -436,14 +444,14 @@ public class AbilityDragController {
 		);
 
 		if (releasePhaseLogging) {
-			logger.info("Insert decision: resolvedIndex={}, currentTargetIndex={}, dropSide={}, zone={}, groupBounds=[{},{}], groupType={}, targetKey={}",
+			logger.info("Insert decision: resolvedIndex={}, currentTargetIndex={}, dropSide={}, zone={}, groupBounds=[{},{}], groupZone={}, targetKey={}",
 				insertIndex,
 				currentTargetIndex,
 				dropSide,
 				zoneType,
 				groupBounds.start,
 				groupBounds.end,
-				existingGroupType,
+				existingGroupZone,
 				targetAbilityKey
 			);
 		}
@@ -453,15 +461,16 @@ public class AbilityDragController {
 
     private GroupBoundaries analyzeGroupBoundaries(List<SequenceElement> elements,
                                                    int targetIndex,
-                                                   SequenceElement.Type groupType) {
-        if (groupType == null || targetIndex < 0 || targetIndex >= elements.size()) {
+                                                   DropZoneType zoneType) {
+        SequenceElement.Type separatorType = separatorForZone(zoneType);
+        if (separatorType == null || targetIndex < 0 || targetIndex >= elements.size()) {
             return new GroupBoundaries(-1, -1);
         }
         int start = targetIndex;
         int end = targetIndex;
         for (int i = targetIndex - 1; i >= 0; i--) {
             SequenceElement elem = elements.get(i);
-            if (elem.getType() == groupType) {
+            if (elem.getType() == separatorType) {
                 i--;
                 if (i >= 0 && elements.get(i).isAbility()) {
                     start = i;
@@ -472,7 +481,7 @@ public class AbilityDragController {
         }
         for (int i = targetIndex + 1; i < elements.size(); i++) {
             SequenceElement elem = elements.get(i);
-            if (elem.getType() == groupType) {
+            if (elem.getType() == separatorType) {
                 i++;
                 if (i < elements.size() && elements.get(i).isAbility()) {
                     end = i;
@@ -484,35 +493,35 @@ public class AbilityDragController {
         return new GroupBoundaries(start, end);
     }
 
-    private DropZoneType determineTopZoneType(SequenceElement.Type existingGroupType,
-                                              int currentTargetIndex,
-                                              GroupBoundaries groupBounds) {
-        if (existingGroupType != null && groupBounds.isValid()) {
+    private DropZoneType determineTopZoneType(DropZoneType existingGroupZone,
+                                               int currentTargetIndex,
+                                               GroupBoundaries groupBounds) {
+        if (existingGroupZone != null && groupBounds.isValid()) {
             boolean isGroupStart = (currentTargetIndex == groupBounds.start);
             if (isGroupStart) {
                 return DropZoneType.NEXT;
             }
-            return existingGroupType == SequenceElement.Type.PLUS ? DropZoneType.AND : DropZoneType.OR;
+            return existingGroupZone;
         }
         return DropZoneType.AND;
     }
 
-    private DropZoneType determineBottomZoneType(SequenceElement.Type existingGroupType,
-                                                 int currentTargetIndex,
-                                                 GroupBoundaries groupBounds) {
-        if (existingGroupType != null && groupBounds.isValid()) {
+    private DropZoneType determineBottomZoneType(DropZoneType existingGroupZone,
+                                                  int currentTargetIndex,
+                                                  GroupBoundaries groupBounds) {
+        if (existingGroupZone != null && groupBounds.isValid()) {
             boolean isGroupEnd = (currentTargetIndex == groupBounds.end);
             if (isGroupEnd) {
                 return DropZoneType.NEXT;
             }
-            return existingGroupType == SequenceElement.Type.PLUS ? DropZoneType.AND : DropZoneType.OR;
+            return existingGroupZone;
         }
         return DropZoneType.OR;
     }
 
-    private DropZoneType determineMiddleZoneType(SequenceElement.Type existingGroupType) {
-        if (existingGroupType != null) {
-            return existingGroupType == SequenceElement.Type.PLUS ? DropZoneType.AND : DropZoneType.OR;
+    private DropZoneType determineMiddleZoneType(DropZoneType existingGroupZone) {
+        if (existingGroupZone != null) {
+            return existingGroupZone;
         }
         return DropZoneType.NEXT;
     }
@@ -549,27 +558,103 @@ public class AbilityDragController {
         }
     }
 
-    private SequenceElement.Type detectGroupType(List<SequenceElement> elements, int abilityIndex) {
+    // Reads any cached zone hint from the view layer, sparing repeated element scans during drag.
+    private DropZoneType extractGroupZoneFromCard(Component card) {
+        if (!(card instanceof JComponent)) {
+            return null;
+        }
+        Object prop = ((JComponent) card).getClientProperty("zoneType");
+        if (prop instanceof DropZoneType zoneType) {
+            return zoneType;
+        }
+        if (prop instanceof SequenceElement.Type separatorType) {
+            return zoneForSeparator(separatorType);
+        }
+        return null;
+    }
+
+    // Infers the active zone by inspecting separators around the ability when the UI provides no hint.
+    private DropZoneType resolveGroupZoneAt(List<SequenceElement> elements, int abilityIndex) {
         if (abilityIndex < 0 || abilityIndex >= elements.size()) {
             return null;
         }
         if (abilityIndex + 1 < elements.size()) {
-            SequenceElement next = elements.get(abilityIndex + 1);
-            if (next.isPlus()) {
-                return SequenceElement.Type.PLUS;
-            } else if (next.isSlash()) {
-                return SequenceElement.Type.SLASH;
+            DropZoneType zone = zoneForSeparator(elements.get(abilityIndex + 1).getType());
+            if (zone != null) {
+                return zone;
             }
         }
         if (abilityIndex - 1 >= 0) {
-            SequenceElement prev = elements.get(abilityIndex - 1);
-            if (prev.isPlus()) {
-                return SequenceElement.Type.PLUS;
-            } else if (prev.isSlash()) {
-                return SequenceElement.Type.SLASH;
+            DropZoneType zone = zoneForSeparator(elements.get(abilityIndex - 1).getType());
+            if (zone != null) {
+                return zone;
             }
         }
         return null;
+    }
+
+    // Converts a zone intent into the separator token the expression builder expects.
+    private SequenceElement.Type separatorForZone(DropZoneType zoneType) {
+        if (zoneType == null) {
+            return null;
+        }
+        return switch (zoneType) {
+            case AND -> SequenceElement.Type.PLUS;
+            case OR -> SequenceElement.Type.SLASH;
+            default -> null;
+        };
+    }
+
+    // Mirror mapping for quickly shaping a separator back into a zone decision.
+    private DropZoneType zoneForSeparator(SequenceElement.Type type) {
+        if (type == null) {
+            return null;
+        }
+        return switch (type) {
+            case PLUS -> DropZoneType.AND;
+            case SLASH -> DropZoneType.OR;
+            default -> null;
+        };
+    }
+
+    // Picks the glyph shown to the user when highlighting a group’s zone.
+    private String symbolForZone(DropZoneType zoneType) {
+        if (zoneType == null) {
+            return null;
+        }
+        return switch (zoneType) {
+            case AND -> "+";
+            case OR -> "/";
+            default -> null;
+        };
+    }
+
+    // Resolves duplicate ability keys by favouring the occurrence closest to the visual index we targeted.
+    private int findAbilityIndexByKey(List<SequenceElement> elements, String abilityKey, int preferredIndex) {
+        if (abilityKey == null || elements.isEmpty()) {
+            return -1;
+        }
+        int bestIndex = -1;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int i = 0; i < elements.size(); i++) {
+            SequenceElement element = elements.get(i);
+            if (!element.isAbility() || !abilityKey.equals(element.getValue())) {
+                continue;
+            }
+            int distance = preferredIndex >= 0 ? Math.abs(i - preferredIndex) : 0;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestIndex = i;
+                if (distance == 0) {
+                    break;
+                }
+            }
+        }
+        return bestIndex;
+    }
+
+    private boolean isAbilityAtIndex(List<SequenceElement> elements, int index) {
+        return index >= 0 && index < elements.size() && elements.get(index).isAbility();
     }
 
     private JPanel createFloatingCard(JPanel original) {
@@ -625,10 +710,7 @@ public class AbilityDragController {
 			indicators.hideIndicators();
 
 			// reset so next valid show will log once
-			lastIndicatorVisualIdx = null;
-			lastIndicatorDropSide = null;
-			lastIndicatorZoneType = null;
-			hasLoggedIndicatorShown = false;
+			resetIndicatorState();
 			return;
 		}
 
@@ -653,10 +735,7 @@ public class AbilityDragController {
 
 		if (targetVisualIndex < 0 || targetVisualIndex >= allCards.length) {
 			indicators.hideIndicators();
-			lastIndicatorVisualIdx = null;
-			lastIndicatorDropSide = null;
-			lastIndicatorZoneType = null;
-			hasLoggedIndicatorShown = false;
+			resetIndicatorState();
 			return;
 		}
 
@@ -702,39 +781,63 @@ public class AbilityDragController {
             return;
         }
 
-        List<SequenceElement> elementsToCheck = currentDrag != null
-            ? currentDrag.getOriginalElements()
-            : callback.getCurrentElements();
+        DropZoneType indicatorZone = extractGroupZoneFromCard(targetCard);
+        if (indicatorZone == DropZoneType.NEXT) {
+            indicatorZone = null;
+        }
 
-        Integer elementIdx = null;
-        if (targetCard instanceof JComponent) {
-            Object prop = ((JComponent) targetCard).getClientProperty("elementIndex");
-            if (prop instanceof Integer) {
-                elementIdx = (Integer) prop;
+        if (indicatorZone == null) {
+            List<SequenceElement> elementsToCheck = currentDrag != null
+                ? currentDrag.getOriginalElements()
+                : callback.getCurrentElements();
+
+            Integer elementIdx = extractElementIndex(targetCard);
+            if (elementIdx == null) {
+                return;
             }
-        }
-        if (elementIdx == null) {
-            return;
+
+            indicatorZone = resolveGroupZoneAt(elementsToCheck, elementIdx);
         }
 
-        SequenceElement.Type groupType = detectGroupType(elementsToCheck, elementIdx);
-
-        String topSymbol;
-        String bottomSymbol;
-
-        if (groupType != null) {
-            String groupSymbol = groupType == SequenceElement.Type.PLUS ? "+" : "/";
-            topSymbol = groupSymbol;
-            bottomSymbol = groupSymbol;
-        } else {
-            topSymbol = "+";
-            bottomSymbol = "/";
-        }
+        String groupSymbol = symbolForZone(indicatorZone);
+        String topSymbol = groupSymbol != null ? groupSymbol : "+";
+        String bottomSymbol = groupSymbol != null ? groupSymbol : "/";
 
         indicators.showIndicators(targetCard, topSymbol, bottomSymbol);
     }
 
-    private boolean targetVisualIndexEquals(Integer idx) {
-        return lastIndicatorVisualIdx != null && lastIndicatorVisualIdx.equals(idx);
+    // Ensures subsequent logic anchors on an ability node even when the hint lands on a separator.
+    private int findNearestAbilityIndex(List<SequenceElement> elements, int hintIndex) {
+        if (elements.isEmpty()) {
+            return -1;
+        }
+        int clampedIndex = Math.max(0, Math.min(hintIndex, elements.size() - 1));
+        if (elements.get(clampedIndex).isAbility()) {
+            return clampedIndex;
+        }
+        int left = clampedIndex - 1;
+        int right = clampedIndex + 1;
+        while (left >= 0 || right < elements.size()) {
+            if (left >= 0 && elements.get(left).isAbility()) {
+                return left;
+            }
+            if (right < elements.size() && elements.get(right).isAbility()) {
+                return right;
+            }
+            left--;
+            right++;
+        }
+        return -1;
     }
+
+	private boolean targetVisualIndexEquals(Integer idx) {
+		return lastIndicatorVisualIdx != null && lastIndicatorVisualIdx.equals(idx);
+	}
+
+	private void resetIndicatorState() {
+		lastIndicatorVisualIdx = null;
+		lastIndicatorDropSide = null;
+		lastIndicatorZoneType = null;
+		hasLoggedIndicatorShown = false;
+	}
 }

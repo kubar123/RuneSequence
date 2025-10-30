@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.drag;
 
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import java.awt.*;
@@ -47,7 +48,7 @@ public class DropZoneIndicators {
     private JPanel createInsertionLine() {
         JPanel line = new JPanel();
         line.setOpaque(true);
-        line.setBackground(new Color(50, 50, 50, 200));
+        line.setBackground(UiColorPalette.INSERTION_LINE);
         return line;
     }
 
@@ -81,20 +82,20 @@ public class DropZoneIndicators {
      * @param symbol The symbol ("+" or "/") displayed.
      */
     private void setIndicatorStyle(JLabel indicator, String symbol) {
+        DropZoneType zoneType = mapSymbolToZoneType(symbol);
         Color backgroundColor;
-        Color foregroundColor = Color.BLACK; // Black text for better contrast on light colors
+        Color foregroundColor;
+        Color borderColor;
 
-        if ("+".equals(symbol)) { // AND drop zone
-            backgroundColor = new Color(170, 255, 171, 220); // Light green, semi-transparent
-        } else if ("/".equals(symbol)) { // OR drop zone
-            backgroundColor = new Color(158, 99, 220, 220);  // Purple, semi-transparent
+        if (zoneType != null) {
+            backgroundColor = UiColorPalette.getDropZoneOverlayColor(zoneType);
+            foregroundColor = Color.BLACK; // Black text for better contrast on light colors
+            borderColor = backgroundColor.darker();
         } else {
-            // Default fallback style
             backgroundColor = new Color(50, 50, 50, 220);
             foregroundColor = Color.WHITE;
+            borderColor = new Color(100, 100, 100);
         }
-
-        Color borderColor = backgroundColor.darker();
 
         indicator.setForeground(foregroundColor);
         indicator.setBackground(backgroundColor);
@@ -108,16 +109,17 @@ public class DropZoneIndicators {
      * Gets the color for a zone type.
      */
     private Color getZoneColor(DropZoneType zoneType) {
-        switch (zoneType) {
-            case AND:
-                return new Color(170, 255, 171, 220); // Green
-            case OR:
-                return new Color(158, 99, 220, 220);  // Purple
-            case NEXT:
-                return new Color(250, 117, 159, 220); // Pink
-            default:
-                return new Color(50, 50, 50, 200);    // Gray
+        return UiColorPalette.getDropZoneOverlayColor(zoneType);
+    }
+
+    private DropZoneType mapSymbolToZoneType(String symbol) {
+        if ("+".equals(symbol)) {
+            return DropZoneType.AND;
         }
+        if ("/".equals(symbol)) {
+            return DropZoneType.OR;
+        }
+        return null;
     }
 
     /**
