@@ -31,25 +31,66 @@ public class ExpressionBuilder {
     }
 
     /**
-     * Removes an ability and its associated RIGHT operator.
+     * Removes the ability at the specified element index (if valid).
      */
-    public List<SequenceElement> removeAbility(List<SequenceElement> elements, String abilityKey) {
+    public List<SequenceElement> removeAbilityAt(List<SequenceElement> elements, int abilityElementIndex) {
         List<SequenceElement> result = new ArrayList<>(elements);
+        if (abilityElementIndex < 0 || abilityElementIndex >= result.size()) {
+            return result;
+        }
+        SequenceElement candidate = result.get(abilityElementIndex);
+        if (!candidate.isAbility()) {
+            return result;
+        }
+        removeAbilityAtIndexInternal(result, abilityElementIndex);
+        return result;
+    }
+    // remove ability and normalize adjacent separators/arrows to keep sequence parseable
+    private void removeAbilityAtIndexInternal(List<SequenceElement> result, int abilityIndex) {
+        SequenceElement left = abilityIndex > 0 ? result.get(abilityIndex - 1) : null;
+        SequenceElement right = abilityIndex + 1 < result.size() ? result.get(abilityIndex + 1) : null;
 
-        for (int i = 0; i < result.size(); i++) {
-            if (result.get(i).isAbility() && result.get(i).getValue().equals(abilityKey)) {
-                result.remove(i);
+        boolean leftIsGroup = isGroupSeparator(left);
+        boolean rightIsGroup = isGroupSeparator(right);
+        boolean rightIsArrow = right != null && right.getType() == SequenceElement.Type.ARROW;
 
-                if (i < result.size() && result.get(i).isSeparator()) {
-                    result.remove(i);
+        result.remove(abilityIndex);
+        int cursor = abilityIndex;
+
+        // case 1: ability sat between two group separators → drop the right one to prevent "||"
+        if (rightIsGroup && cursor < result.size() && isGroupSeparator(result.get(cursor))) {
+            result.remove(cursor);
+
+        // case 2: ability bridged arrows or arrow+group → collapse duplicate arrow or stray arrow
+        } else if (rightIsArrow && cursor < result.size() && result.get(cursor).getType() == SequenceElement.Type.ARROW) {
+            if (leftIsGroup) {
+                int leftIndex = cursor - 1;
+
+                // if left neighbor is also a group separator, prefer removing the group to preserve arrow flow
+                if (leftIndex >= 0 && isGroupSeparator(result.get(leftIndex))) {
+                    result.remove(leftIndex);
+                    cursor--;
                 }
-
-                cleanupAfterRemoval(result, i);
-                break;
+            } else {
+                //otherwise drop the right arrow to avoid "-> ->" gaps
+                result.remove(cursor);
             }
         }
 
-        return result;
+        // trim a leading group separator with no ability to its right → prevents dangling group at boundary
+        int leftIndex = cursor - 1;
+        if (leftIndex >= 0 && leftIndex < result.size() && isGroupSeparator(result.get(leftIndex))) {
+            boolean hasRightAbility = cursor < result.size() && result.get(cursor).isAbility();
+            if (!hasRightAbility) {
+                result.remove(leftIndex);
+                // keep cursor aligned after deletion
+                cursor--;
+            }
+        }
+
+        // compute safe cleanup start: clamp to [0, size] so downstream fixups can scan locally
+        int cleanupIndex = result.isEmpty() ? 0 : Math.max(0, Math.min(cursor, result.size()));
+        cleanupAfterRemoval(result, cleanupIndex);
     }
 
     /**
@@ -313,6 +354,13 @@ public class ExpressionBuilder {
         }
 
         logger.debug("  Result: {}", buildExpression(elements));
+    }
+
+    /**
+     * Determines if the element represents a logical group separator.
+     */
+    private boolean isGroupSeparator(SequenceElement element) {
+        return element != null && (element.isPlus() || element.isSlash());
     }
 
     /**

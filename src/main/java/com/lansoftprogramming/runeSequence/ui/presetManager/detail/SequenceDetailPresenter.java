@@ -158,9 +158,26 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	}
 
 	@Override
-	public void onDragStart(AbilityItem item, boolean isFromPalette) {
+	public void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex) {
+		logger.info("Drag start: key={}, abilityIndex={}", item.getKey(), abilityIndex);
 		if (!isFromPalette) {
-			previewElements = expressionBuilder.removeAbility(new ArrayList<>(currentElements), item.getKey());
+			int removalIndex = resolveElementIndexForDrag(item, abilityIndex);
+			logger.info("Drag start resolved removalIndex={} for key={} (abilityIndex={})",
+					removalIndex, item.getKey(), abilityIndex);
+			logAbilityOrder("Before removal", currentElements);
+			if (removalIndex >= 0) {
+				List<SequenceElement> working = new ArrayList<>(currentElements);
+				String beforeExpr = expressionBuilder.buildExpression(working);
+				previewElements = expressionBuilder.removeAbilityAt(working, removalIndex);
+				String afterExpr = expressionBuilder.buildExpression(previewElements);
+				logger.info("Removed ability occurrence: key={}, before='{}', after='{}'",
+						item.getKey(), beforeExpr, afterExpr);
+			} else {
+				logger.warn("Failed to resolve element index for drag start: item={}, abilityIndex={}",
+						item.getKey(), abilityIndex);
+				previewElements = new ArrayList<>(currentElements);
+			}
+			logAbilityOrder("After removal", previewElements);
 		} else {
 			previewElements = new ArrayList<>(currentElements);
 		}
@@ -206,6 +223,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 						currentPreview.getZoneType(),
 						currentPreview.getDropSide()
 				);
+				previewElements = new ArrayList<>(currentElements);
 				updateExpression();
 			} else {
 				currentElements = new ArrayList<>(currentElements);
@@ -267,6 +285,60 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			currentPreset.setExpression(newExpression);
 			logger.debug("Updated expression: {}", newExpression);
 		}
+	}
+
+	private int resolveElementIndexForDrag(AbilityItem item, int abilityIndex) {
+//		if (elementIndex >= 0 && elementIndex < currentElements.size()) {
+//			SequenceElement candidate = currentElements.get(elementIndex);
+//			if (candidate.isAbility() && candidate.getValue().equals(item.getKey())) {
+//				return elementIndex;
+//			}
+//			logger.debug("Element index mismatch:, candidate={}, expectedKey={}", candidate, item.getKey());
+//		}
+
+		if (abilityIndex >= 0) {
+			int abilityCounter = 0;
+			for (int i = 0; i < currentElements.size(); i++) {
+				SequenceElement element = currentElements.get(i);
+				if (!element.isAbility()) {
+					continue;
+				}
+				if (abilityCounter == abilityIndex) {
+					if (!element.getValue().equals(item.getKey())) {
+						logger.warn("Ability index points to mismatched key: expected={}, found={}, abilityIndex={}",
+								item.getKey(), element.getValue(), abilityIndex);
+					}
+					return i;
+				}
+				abilityCounter++;
+			}
+		}
+
+		for (int i = 0; i < currentElements.size(); i++) {
+			SequenceElement element = currentElements.get(i);
+			if (element.isAbility() && element.getValue().equals(item.getKey())) {
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	private void logAbilityOrder(String label, List<SequenceElement> elements) {
+		StringBuilder sb = new StringBuilder(label).append(": ");
+		int counter = 0;
+		for (int i = 0; i < elements.size(); i++) {
+			SequenceElement element = elements.get(i);
+			if (!element.isAbility()) {
+				continue;
+			}
+			if (counter > 0) {
+				sb.append(" | ");
+			}
+			sb.append(counter).append("->").append(element.getValue()).append("(elemIdx=").append(i).append(")");
+			counter++;
+		}
+		logger.info(sb.toString());
 	}
 
 	interface View {

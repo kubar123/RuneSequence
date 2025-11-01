@@ -15,7 +15,9 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Manages card-style drag-and-drop for abilities.
@@ -26,6 +28,7 @@ public class AbilityDragController {
     private static final Logger logger = LoggerFactory.getLogger(AbilityDragController.class);
     private static final int ZONE_HEIGHT = 20;
     private static final int MAX_DROP_DISTANCE = 100;
+    private static final int GROUP_EDGE_TOLERANCE = 8;
 
     private boolean isDragOutsidePanel = false;
     private JLabel trashIconLabel;
@@ -47,7 +50,7 @@ public class AbilityDragController {
     private boolean hasLoggedIndicatorShown = false;
 
     public interface DragCallback {
-        void onDragStart(AbilityItem item, boolean isFromPalette);
+        void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex);
         void onDragMove(AbilityItem draggedItem, Point cursorPos, DropPreview preview);
         void onDragEnd(AbilityItem draggedItem, boolean commit);
         List<SequenceElement> getCurrentElements();
@@ -130,16 +133,39 @@ public class AbilityDragController {
             @Override
             public void mousePressed(MouseEvent e) {
                 int index = -1;
+                int elementIndex = -1;
+                Component[] cardsSnapshot = callback.getAllCards();
+                if (logger.isInfoEnabled()) {
+                    StringBuilder sb = new StringBuilder("Current cards: ");
+                    for (int i = 0; i < cardsSnapshot.length; i++) {
+                        Component c = cardsSnapshot[i];
+                        Integer elemIdx = extractElementIndex(c);
+                        String key = extractAbilityKey(c);
+                        if (i > 0) sb.append(" | ");
+                        sb.append(i)
+                                .append("->")
+                                .append(key != null ? key : "null")
+                                .append("(elemIdx=")
+                                .append(elemIdx)
+                                .append(")");
+                    }
+                    logger.info(sb.toString());
+                }
                 // re-ordering existing sequence cards.
                 if (!isFromPalette) {
-                    Component[] cards = callback.getAllCards();
-                    for (int i = 0; i < cards.length; i++) {
-                        if (cards[i] == card) {
+                    for (int i = 0; i < cardsSnapshot.length; i++) {
+                        if (cardsSnapshot[i] == card) {
                             index = i;
                             break;
                         }
                     }
+                    Object raw = card.getClientProperty("elementIndex");
+                    if (raw instanceof Integer) {
+                        elementIndex = (Integer) raw;
+                    }
                 }
+                logger.info("Start drag detected card index={}, elementIndex={}, abilityKey={}",
+                        index, elementIndex, item.getKey());
                 startDrag(item, card, isFromPalette, index, e.getPoint());
             }
 
@@ -187,7 +213,7 @@ public class AbilityDragController {
             );
         }
 
-        callback.onDragStart(item, isFromPalette);
+        callback.onDragStart(item, isFromPalette, originalIndex);
     }
 
     /**
@@ -264,10 +290,19 @@ public class AbilityDragController {
         return null;
     }
 
+    private String extractAbilityKey(Component component) {
+        if (component instanceof JComponent) {
+            Object prop = ((JComponent) component).getClientProperty("abilityKey");
+            if (prop instanceof String) {
+                return (String) prop;
+            }
+        }
+        return null;
+    }
+
     /**
      * Calculates the drop position and type ("AND", "OR", "NEXT") within the sequence.
      * Uses the nearest card and vertical drag point to determine the precise insertion logic.
-     *
      * elements list by scanning for the target ability, not using the original elementIndex.
      */
     private DropPreview calculateDropPreview(Point dragPoint) {
@@ -282,6 +317,7 @@ public class AbilityDragController {
         List<Component> visualCards = new ArrayList<>();
         List<Integer> elementIndices = new ArrayList<>();
         List<Integer> originalIndices = new ArrayList<>();
+        Map<String, Integer> abilityOccurrences = new HashMap<>();
 
         for (int idx = 0; idx < allCards.length; idx++) {
             Component c = allCards[idx];
@@ -294,12 +330,23 @@ public class AbilityDragController {
             }
 
             Integer elementIdx = extractElementIndex(c);
-            if (elementIdx == null || elementIdx < 0) {
+            String abilityKey = extractAbilityKey(c);
+            if (abilityKey == null) {
+                continue;
+            }
+            int occurrence = abilityOccurrences.getOrDefault(abilityKey, 0);
+            abilityOccurrences.put(abilityKey, occurrence + 1);
+
+            int mappedIndex = mapAbilityToPreviewIndex(elements, abilityKey, occurrence);
+            if (mappedIndex < 0) {
+                if (releasePhaseLogging) {
+                    logger.info("Skipping card {}: could not map key={} occurrence={} into preview elements", idx, abilityKey, occurrence);
+                }
                 continue;
             }
 
             visualCards.add(c);
-            elementIndices.add(elementIdx);
+            elementIndices.add(mappedIndex);
             originalIndices.add(idx);
         }
 
@@ -360,6 +407,8 @@ public class AbilityDragController {
 
         int cardCenterX = nearestBoundsInFlowPanel.x + nearestBoundsInFlowPanel.width / 2;
         DropSide dropSide = dragPoint.x < cardCenterX ? DropSide.LEFT : DropSide.RIGHT;
+        boolean beyondLeftEdge = dragPoint.x < nearestBoundsInFlowPanel.x - GROUP_EDGE_TOLERANCE;
+        boolean beyondRightEdge = dragPoint.x > nearestBoundsInFlowPanel.x + nearestBoundsInFlowPanel.width + GROUP_EDGE_TOLERANCE;
 
         int topLimit = nearestBoundsInFlowPanel.y + ZONE_HEIGHT;
         int bottomLimit = nearestBoundsInFlowPanel.y + nearestBoundsInFlowPanel.height - ZONE_HEIGHT;
@@ -420,7 +469,7 @@ public class AbilityDragController {
         } else if (dragPoint.y > bottomLimit) {
             zoneType = determineBottomZoneType(existingGroupZone, currentTargetIndex, groupBounds);
         } else {
-            zoneType = determineMiddleZoneType(existingGroupZone);
+            zoneType = determineMiddleZoneType(existingGroupZone, currentTargetIndex, groupBounds, dropSide, beyondLeftEdge, beyondRightEdge);
         }
 
 		if (releasePhaseLogging) {
@@ -456,8 +505,8 @@ public class AbilityDragController {
 			);
 		}
 
-		return new DropPreview(insertIndex, zoneType, targetVisualIndex, dropSide);
-	}
+        return new DropPreview(insertIndex, zoneType, targetVisualIndex, dropSide);
+    }
 
     private GroupBoundaries analyzeGroupBoundaries(List<SequenceElement> elements,
                                                    int targetIndex,
@@ -519,11 +568,23 @@ public class AbilityDragController {
         return DropZoneType.OR;
     }
 
-    private DropZoneType determineMiddleZoneType(DropZoneType existingGroupZone) {
-        if (existingGroupZone != null) {
+    private DropZoneType determineMiddleZoneType(DropZoneType existingGroupZone,
+                                                 int currentTargetIndex,
+                                                 GroupBoundaries groupBounds,
+                                                 DropSide dropSide,
+                                                 boolean beyondLeftEdge,
+                                                 boolean beyondRightEdge) {
+        if (existingGroupZone != null && groupBounds.isValid()) {
+            boolean atGroupStart = currentTargetIndex == groupBounds.start;
+            boolean atGroupEnd = currentTargetIndex == groupBounds.end;
+            boolean leavingLeft = atGroupStart && dropSide == DropSide.LEFT && beyondLeftEdge;
+            boolean leavingRight = atGroupEnd && dropSide == DropSide.RIGHT && beyondRightEdge;
+            if (leavingLeft || leavingRight) {
+                return DropZoneType.NEXT;
+            }
             return existingGroupZone;
         }
-        return DropZoneType.NEXT;
+        return existingGroupZone != null ? existingGroupZone : DropZoneType.NEXT;
     }
 
     private int calculateInsertionIndex(List<SequenceElement> elements,
@@ -531,15 +592,11 @@ public class AbilityDragController {
                                         DropSide dropSide,
                                         DropZoneType zoneType,
                                         GroupBoundaries groupBounds) {
-        if (zoneType == DropZoneType.NEXT) {
-            if (groupBounds.isValid()) {
-                if (currentTargetIndex == groupBounds.start && dropSide == DropSide.LEFT) {
-                    return currentTargetIndex;
-                } else if (currentTargetIndex == groupBounds.end && dropSide == DropSide.RIGHT) {
-                    return currentTargetIndex + 1;
-                }
-            }
-            return dropSide == DropSide.LEFT ? currentTargetIndex : currentTargetIndex + 1;
+        if (zoneType == DropZoneType.NEXT && groupBounds.isValid()) {
+            if (currentTargetIndex == groupBounds.start && dropSide == DropSide.LEFT)
+                return currentTargetIndex;
+            if (currentTargetIndex == groupBounds.end && dropSide == DropSide.RIGHT)
+                return currentTargetIndex + 1;
         }
         return dropSide == DropSide.LEFT ? currentTargetIndex : currentTargetIndex + 1;
     }
@@ -566,9 +623,6 @@ public class AbilityDragController {
         Object prop = ((JComponent) card).getClientProperty("zoneType");
         if (prop instanceof DropZoneType zoneType) {
             return zoneType;
-        }
-        if (prop instanceof SequenceElement.Type separatorType) {
-            return zoneForSeparator(separatorType);
         }
         return null;
     }
@@ -651,6 +705,26 @@ public class AbilityDragController {
             }
         }
         return bestIndex;
+    }
+
+    private int mapAbilityToPreviewIndex(List<SequenceElement> elements, String abilityKey, int occurrence) {
+        if (abilityKey == null || occurrence < 0) {
+            return -1;
+        }
+        int matchCount = 0;
+        for (int i = 0; i < elements.size(); i++) {
+            SequenceElement element = elements.get(i);
+            if (!element.isAbility()) {
+                continue;
+            }
+            if (abilityKey.equals(element.getValue())) {
+                if (matchCount == occurrence) {
+                    return i;
+                }
+                matchCount++;
+            }
+        }
+        return -1;
     }
 
     private boolean isAbilityAtIndex(List<SequenceElement> elements, int index) {

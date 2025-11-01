@@ -1,9 +1,9 @@
 package com.lansoftprogramming.runeSequence.application;
 
-import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
-import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
+import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -51,17 +51,16 @@ public class SequenceManager {
 		return true;
 	}
 	/**
-	 * Return required templates mapped to whether they are part of an OR (alternative) term.
-	 * Key = template name, Value = true if the template belongs to an OR term (i.e. alternatives), false otherwise.
+	 * Return the per-occurrence detection requirements (current + next step).
 	 */
-	public synchronized java.util.Map<String, Boolean> getRequiredTemplateFlags() {
+	public synchronized List<ActiveSequence.DetectionRequirement> getDetectionRequirements() {
 		if (activeSequence == null) {
-			System.out.println("SequenceManager: No active sequence (flags)");
-			return java.util.Map.of();
+			System.out.println("SequenceManager: No active sequence (requirements)");
+			return List.of();
 		}
-		java.util.Map<String, Boolean> flags = activeSequence.getRequiredTemplateFlags();
-		System.out.println("SequenceManager.getRequiredTemplateFlags: " + flags);
-		return flags;
+		List<ActiveSequence.DetectionRequirement> requirements = activeSequence.getDetectionRequirements();
+		System.out.println("SequenceManager.getDetectionRequirements: " + requirements);
+		return requirements;
 	}
 
 	public synchronized void processDetection(List<DetectionResult> results) {
@@ -71,7 +70,9 @@ public class SequenceManager {
 		if (activeSequence != null) {
 			// Log each detection result
 			for (DetectionResult result : results) {
+				String abilityKey = activeSequence.getAbilityKeyForInstance(result.templateName);
 				System.out.println("  Detection: " + result.templateName +
+						(abilityKey != null ? " (" + abilityKey + ")" : "") +
 						" found=" + result.found +
 						" confidence=" + result.confidence);
 			}
@@ -107,19 +108,6 @@ public class SequenceManager {
 		namedSequences.put(name, def);
 	}
 
-//	public synchronized boolean activateSequence(String name) {
-//		System.out.println("SequenceManager: Activating sequence: " + name);
-//		SequenceDefinition def = namedSequences.get(name);
-//		if (def == null) {
-//			System.out.println("SequenceManager: Sequence not found: " + name);
-//			System.out.println("Available sequences: " + namedSequences.keySet());
-//			return false;
-//		}
-//
-//		this.activeSequence = new ActiveSequence(def, abilityConfig);
-//		System.out.println("SequenceManager: Sequence activated successfully");
-//		return true;
-//	}
 
 	public synchronized void resetActiveSequence() {
 		System.out.println("SequenceManager: Resetting active sequence");

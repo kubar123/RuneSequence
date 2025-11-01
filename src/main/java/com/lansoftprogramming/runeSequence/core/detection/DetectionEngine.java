@@ -1,15 +1,19 @@
 package com.lansoftprogramming.runeSequence.core.detection;
 
-import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
-import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.application.SequenceManager;
+import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
+import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
+import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -107,12 +111,12 @@ public class DetectionEngine {
 
 			System.out.println("DetectionEngine: Screen captured successfully");
 
-			// Get required templates + whether each is part of an OR (alternative) term
-			java.util.Map<String, Boolean> requiredFlags = sequenceManager.getRequiredTemplateFlags();
+			// Get required template occurrences
+			List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
 
-			System.out.println("DetectionEngine: Required templates (flags): " + requiredFlags);
+			System.out.println("DetectionEngine: Detection requirements: " + requirements);
 
-			if (requiredFlags.isEmpty()) {
+			if (requirements.isEmpty()) {
 
 				System.out.println("DetectionEngine: No templates required");
 				screenMat.close();
@@ -122,17 +126,27 @@ public class DetectionEngine {
 			// Detect all required templates
 
 			System.out.println("DetectionEngine: Starting template detection");
-			List<DetectionResult> detectionResults = new ArrayList<>();
+			List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
+			Map<String, DetectionResult> detectionByAbility = new HashMap<>();
 
-			for (java.util.Map.Entry<String, Boolean> e : requiredFlags.entrySet()) {
+			for (ActiveSequence.DetectionRequirement requirement : requirements) {
+				DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());
+				if (baseResult == null) {
+					System.out.println("  Detecting ability: " + requirement.abilityKey());
+					baseResult = detector.detectTemplate(screenMat, requirement.abilityKey(), false);
+					detectionByAbility.put(requirement.abilityKey(), baseResult);
+					System.out.println("    Base result: found=" + baseResult.found +
+							" confidence=" + baseResult.confidence);
+				} else {
+					System.out.println("  Reusing detection for ability: " + requirement.abilityKey());
+				}
 
-				String templateName = e.getKey();
-				boolean isAlternative = e.getValue() != null && e.getValue();
-				System.out.println("  Detecting: " + templateName + " (isAlternative=" + isAlternative + ")");
-				DetectionResult result = detector.detectTemplate(screenMat, templateName, isAlternative);
-				detectionResults.add(result);
-
-				System.out.println("    Result: found=" + result.found + " confidence=" + result.confidence + " isAlternative=" + result.isAlternative);
+				DetectionResult adapted = adaptDetectionResult(requirement, baseResult);
+				detectionResults.add(adapted);
+				System.out.println("    Occurrence: " + requirement.instanceId() +
+						" found=" + adapted.found +
+						" confidence=" + adapted.confidence +
+						" isAlternative=" + adapted.isAlternative);
 			}
 
 
@@ -175,5 +189,14 @@ public class DetectionEngine {
 
 	public boolean isRunning() {
 		return isRunning;
+	}
+
+	private DetectionResult adaptDetectionResult(ActiveSequence.DetectionRequirement requirement, DetectionResult base) {
+		if (base != null && base.found) {
+			Point locationCopy = base.location != null ? new Point(base.location) : null;
+			Rectangle boundsCopy = base.boundingBox != null ? new Rectangle(base.boundingBox) : null;
+			return DetectionResult.found(requirement.instanceId(), locationCopy, base.confidence, boundsCopy, requirement.isAlternative());
+		}
+		return DetectionResult.notFound(requirement.instanceId(), requirement.isAlternative());
 	}
 }

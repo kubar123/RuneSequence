@@ -42,6 +42,7 @@ class AbilityCardFactory {
 
 		card.add(iconLabel);
 		card.add(nameLabel);
+		card.putClientProperty("abilityKey", item.getKey());
 
 		MouseAdapter dragListener = dragController.createCardDragListener(item, card, false);
 		card.addMouseListener(dragListener);
