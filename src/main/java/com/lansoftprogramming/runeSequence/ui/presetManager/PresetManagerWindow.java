@@ -100,6 +100,7 @@ public class PresetManagerWindow extends JFrame {
 
     private void wireEventHandlers() {
        masterPanel.addAddListener(this::handleAddSequence);
+       masterPanel.addDeleteListener(this::handleDeleteSequence);
 
        masterPanel.addSelectionListener(entry -> {
           if (entry != null) {
@@ -125,6 +126,46 @@ public class PresetManagerWindow extends JFrame {
        String newPresetId = UUID.randomUUID().toString();
 
        detailPanel.startNewSequence(newPresetId, newPreset);
+    }
+
+    private void handleDeleteSequence(SequenceListModel.SequenceEntry entry) {
+       if (entry == null) {
+          JOptionPane.showMessageDialog(this,
+                "Please select a preset to delete.",
+                "No Preset Selected",
+                JOptionPane.INFORMATION_MESSAGE);
+          return;
+       }
+
+       try {
+          RotationConfig rotations = configManager.getRotations();
+          if (rotations == null || rotations.getPresets() == null) {
+             JOptionPane.showMessageDialog(this,
+                   "Rotation data is not available. Unable to delete preset.",
+                   "Delete Failed",
+                   JOptionPane.ERROR_MESSAGE);
+             return;
+          }
+
+          if (rotations.getPresets().remove(entry.getId()) == null) {
+             JOptionPane.showMessageDialog(this,
+                   "Preset could not be located by its identifier.",
+                   "Delete Failed",
+                   JOptionPane.ERROR_MESSAGE);
+             return;
+          }
+
+          configManager.saveRotations();
+          sequenceListModel.loadFromConfig(rotations);
+          masterPanel.clearSelection();
+          detailPanel.clear();
+       } catch (Exception e) {
+          logger.error("Failed to delete preset {}", entry.getId(), e);
+          JOptionPane.showMessageDialog(this,
+                "Failed to delete preset: " + e.getMessage(),
+                "Delete Failed",
+                JOptionPane.ERROR_MESSAGE);
+       }
     }
 
     private void loadSequences() {

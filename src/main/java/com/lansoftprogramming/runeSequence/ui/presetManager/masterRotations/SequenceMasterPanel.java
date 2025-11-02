@@ -27,6 +27,7 @@ public class SequenceMasterPanel extends JPanel {
 	/** Listeners to be notified when the list selection changes. */
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
 	private final List<Runnable> addListeners;
+	private final List<Consumer<SequenceListModel.SequenceEntry>> deleteListeners;
 
 	/**
 	 * Constructs the master panel for sequence management.
@@ -36,6 +37,7 @@ public class SequenceMasterPanel extends JPanel {
 		this.sequenceListModel = sequenceListModel;
 		this.selectionListeners = new ArrayList<>();
 		this.addListeners = new ArrayList<>();
+		this.deleteListeners = new ArrayList<>();
 
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -69,6 +71,8 @@ public class SequenceMasterPanel extends JPanel {
 			deleteButton = new JButton("🗑"); // Fallback to text if icon fails to load
 		}
 
+		deleteButton.addActionListener(e -> notifyDeleteListeners(getSelectedSequenceEntry()));
+
 		importButton = new JButton("Import");
 		exportButton = new JButton("Export");
 
@@ -100,6 +104,10 @@ public class SequenceMasterPanel extends JPanel {
 		addListeners.add(listener);
 	}
 
+	public void addDeleteListener(Consumer<SequenceListModel.SequenceEntry> listener) {
+		deleteListeners.add(listener);
+	}
+
 	public void clearSelection() {
 		sequenceList.clearSelection();
 	}
@@ -116,6 +124,11 @@ public class SequenceMasterPanel extends JPanel {
 		}
 	}
 
+	public SequenceListModel.SequenceEntry getSelectedSequenceEntry() {
+		int selectedIndex = sequenceList.getSelectedIndex();
+		return selectedIndex != -1 ? sequenceListModel.getElementAt(selectedIndex) : null;
+	}
+
 	/**
 	 * Notifies all registered listeners of a selection change.
 	 * @param entry The newly selected sequence entry, or null if selection is cleared.
@@ -129,6 +142,12 @@ public class SequenceMasterPanel extends JPanel {
 	private void notifyAddListeners() {
 		for (Runnable listener : addListeners) {
 			listener.run();
+		}
+	}
+
+	private void notifyDeleteListeners(SequenceListModel.SequenceEntry entry) {
+		for (Consumer<SequenceListModel.SequenceEntry> listener : deleteListeners) {
+			listener.accept(entry);
 		}
 	}
 
