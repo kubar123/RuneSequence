@@ -5,8 +5,8 @@ import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.MatVector;
-import org.bytedeco.opencv.opencv_core.Rect;
 import org.bytedeco.opencv.opencv_core.Point;
+import org.bytedeco.opencv.opencv_core.Rect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,9 +14,6 @@ import java.awt.*;
 import java.util.HashMap;
 import java.util.Map;
 
-/*
- * Use static imports for the OpenCV global functions provided by the JavaCPP presets.
- */
 import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.*;
 
@@ -49,19 +46,13 @@ public class TemplateDetector {
 	 * New overload that accepts isAlternative which will be propagated into DetectionResult.
 	 */
 	public DetectionResult detectTemplate(Mat screen, String templateName, boolean isAlternative) {
-
-		System.out.println("TemplateDetector.detectTemplate: Starting detection for '" + templateName + "' (isAlternative=" + isAlternative + ")");
-
 		Mat template = templateCache.getTemplate(templateName);
 		if (template == null) {
-			logger.warn("Template not found in cache: {}", templateName);
+			logger.error("Template not found in cache: {}", templateName);
 
 			System.out.println("TemplateDetector: Template not found in cache: " + templateName);
 			return DetectionResult.notFound(templateName);
 		}
-
-
-		System.out.println("TemplateDetector: Template found, starting detection...");
 
 		// First, try searching in the last known location
 		if (lastKnownLocations.containsKey(templateName)) {

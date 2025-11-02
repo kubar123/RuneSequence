@@ -145,23 +145,14 @@ public class OverlayRenderer {
 	}
 
 	private void addBorder(DetectionResult result, BorderType borderType) {
-
-		System.out.println("OverlayRenderer.addBorder: " + result.templateName +
-				" found=" + result.found + " boundingBox=" + result.boundingBox);
-
 		if (result == null || !result.found) {
-
-			System.out.println("OverlayRenderer: Skipping border for " + result.templateName + " (not found)");
+			System.out.print("OverlayRenderer: Skipping border for " + result.templateName + " (not found)");
 			return;
 		}
 
-
 		if (result.boundingBox == null) {
-
 			System.err.println("OverlayRenderer: ERROR - found=true but boundingBox=null for " + result.templateName);
-
 			return;
-
 		}
 
 		Rectangle bounds = calculateBorderBounds(result);
@@ -171,7 +162,6 @@ public class OverlayRenderer {
 
 		System.out.println("OverlayRenderer: Successfully added " + borderType + " border for " + result.templateName);
 
-		logger.debug("Added {} border for {} at {}", borderType, result.templateName, bounds);
 	}
 
 	private Rectangle calculateBorderBounds(DetectionResult result) {
