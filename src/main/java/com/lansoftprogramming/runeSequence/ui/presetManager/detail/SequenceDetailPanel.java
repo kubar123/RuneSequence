@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 
 import javax.swing.*;
@@ -14,6 +15,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private final JButton discardButton;
 	private final AbilityFlowView abilityFlowView;
 	private final SequenceDetailPresenter presenter;
+	private ToastManager toastManager;
 
 	public SequenceDetailPanel(SequenceDetailService detailService) {
 		setLayout(new BorderLayout());
@@ -86,6 +88,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		highlightSequenceNameField();
 	}
 
+	public void setToastManager(ToastManager toastManager) {
+		this.toastManager = toastManager;
+	}
+
 	public void highlightSequenceNameField() {
 		SwingUtilities.invokeLater(() -> {
 			sequenceNameField.requestFocusInWindow();
@@ -113,13 +119,24 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	@Override
 	public void showSaveDialog(String message, int messageType) {
+		if (toastManager != null) {
+			switch (messageType) {
+				case JOptionPane.ERROR_MESSAGE -> toastManager.error(message);
+				case JOptionPane.WARNING_MESSAGE -> toastManager.warn(message);
+				case JOptionPane.INFORMATION_MESSAGE -> toastManager.success(message);
+				default -> toastManager.info(message);
+			}
+			return;
+		}
+
 		JOptionPane.showMessageDialog(
-				this,
-				message,
-				"Save Sequence",
-				messageType
+			this,
+			message,
+			"Save Sequence",
+			messageType
 		);
 	}
+
 
 	@Override
 	public JComponent asComponent() {
