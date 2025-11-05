@@ -159,6 +159,16 @@ public class PresetManagerWindow extends JFrame {
             return;
         }
 
+        //Confirmation
+        int confirm = JOptionPane.showConfirmDialog(
+                masterPanel,
+                "Are you sure you want to delete this item?",
+                "Confirm Delete",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+        if (confirm != JOptionPane.YES_OPTION) return;
+
         try {
             RotationConfig rotations = configManager.getRotations();
             if (rotations == null || rotations.getPresets() == null) {
