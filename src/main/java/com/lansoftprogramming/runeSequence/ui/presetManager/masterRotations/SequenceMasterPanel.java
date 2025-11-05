@@ -1,11 +1,13 @@
-// File: gui/component/SequenceMasterPanel.java
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
+
+import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +30,7 @@ public class SequenceMasterPanel extends JPanel {
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
 	private final List<Runnable> addListeners;
 	private final List<Consumer<SequenceListModel.SequenceEntry>> deleteListeners;
+	private ToastManager toastManager;
 
 	/**
 	 * Constructs the master panel for sequence management.
@@ -75,6 +78,8 @@ public class SequenceMasterPanel extends JPanel {
 
 		importButton = new JButton("Import");
 		exportButton = new JButton("Export");
+		exportButton.setEnabled(false);
+		exportButton.addActionListener(e -> copySelectedPresetExpression());
 
 		layoutComponents();
 	}
@@ -110,6 +115,7 @@ public class SequenceMasterPanel extends JPanel {
 
 	public void clearSelection() {
 		sequenceList.clearSelection();
+		updateExportButtonState(false);
 	}
 
 	public void selectSequenceById(String id) {
@@ -121,6 +127,7 @@ public class SequenceMasterPanel extends JPanel {
 		if (index >= 0) {
 			sequenceList.setSelectedIndex(index);
 			sequenceList.ensureIndexIsVisible(index);
+			updateExportButtonState(true);
 		}
 	}
 
@@ -163,9 +170,49 @@ public class SequenceMasterPanel extends JPanel {
 				SequenceListModel.SequenceEntry entry = selectedIndex != -1
 						? sequenceListModel.getElementAt(selectedIndex)
 						: null;
+				updateExportButtonState(entry != null);
 				notifySelectionListeners(entry);
 			}
 		}
+	}
+
+	private void copySelectedPresetExpression() {
+		SequenceListModel.SequenceEntry entry = getSelectedSequenceEntry();
+		if (entry == null || entry.getPresetData() == null) {
+			Toolkit.getDefaultToolkit().beep();
+			if (toastManager != null) {
+				toastManager.info("Please select a preset to export.");
+			}
+			return;
+		}
+
+		String expression = entry.getPresetData().getExpression();
+		if (expression == null) {
+			expression = "";
+		}
+
+		try {
+			StringSelection selection = new StringSelection(expression);
+			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+			if (toastManager != null) {
+				toastManager.success("Copied to clipboard.");
+			}
+		} catch (IllegalStateException clipboardUnavailable) {
+			if (toastManager != null) {
+				toastManager.error("Clipboard is not available. Try again.");
+			}
+		}
+	}
+
+	private void updateExportButtonState(boolean hasSelection) {
+		exportButton.setEnabled(hasSelection);
+	}
+
+	/**
+	 * Optional injection of a ToastManager for UI feedback.
+	 */
+	public void setToastManager(ToastManager toastManager) {
+		this.toastManager = toastManager;
 	}
 
 	/**

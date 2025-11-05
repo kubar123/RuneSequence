@@ -59,7 +59,10 @@ public class PresetManagerWindow extends JFrame {
         loadSequences();
         setVisible(true);
 
-        SwingUtilities.invokeLater(() -> detailPanel.setToastManager(toastManager));
+        SwingUtilities.invokeLater(() -> {
+            detailPanel.setToastManager(toastManager);
+            masterPanel.setToastManager(toastManager);
+        });
     }
 
     private void initializeFrame() {
