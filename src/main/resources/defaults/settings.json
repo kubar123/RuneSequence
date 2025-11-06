@@ -18,5 +18,32 @@
   },
   "rotation": {
     "selectedId": "9c858901-8a57-4791-81fe-4c455b099bc9"
+  },
+  "hotkeys": {
+    "schema": 1,
+    "bindings": [
+      {
+        "id": "detection.start.global",
+        "action": "detection.start",
+        "keys": [
+          [
+            "Ctrl",
+            "F1"
+          ]
+        ],
+        "scope": "global"
+      },
+      {
+        "id": "detection.restart.global",
+        "action": "detection.restart",
+        "keys": [
+          [
+            "Ctrl",
+            "F2"
+          ]
+        ],
+        "scope": "global"
+      }
+    ]
   }
 }
