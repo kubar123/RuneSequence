@@ -13,7 +13,7 @@ import java.util.List;
 public class HotkeyManager {
 	private static final Logger logger = LoggerFactory.getLogger(HotkeyManager.class);
 	private final List<HotkeyListener> listeners = new ArrayList<>();
-	private NativeHotkeyListener nativeListener;  // CHANGED NAME
+	private NativeHotkeyListener nativeListener;
 	private boolean initialized = false;
 
 	public void initialize() {
@@ -21,7 +21,7 @@ public class HotkeyManager {
 		java.util.logging.LogManager.getLogManager().reset();
 		try {
 			GlobalScreen.registerNativeHook();
-			nativeListener = new NativeHotkeyListener();  // CHANGED NAME
+			nativeListener = new NativeHotkeyListener();
 			GlobalScreen.addNativeKeyListener(nativeListener);
 			initialized = true;
 			logger.info("Hotkey system initialized");
@@ -43,7 +43,7 @@ public class HotkeyManager {
 		if (!initialized) return;
 
 		try {
-			GlobalScreen.removeNativeKeyListener(nativeListener);  // CHANGED NAME
+			GlobalScreen.removeNativeKeyListener(nativeListener);
 			GlobalScreen.unregisterNativeHook();
 			initialized = false;
 			logger.info("Hotkey system shut down");
