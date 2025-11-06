@@ -4,6 +4,7 @@ package com.lansoftprogramming.runeSequence.infrastructure.config;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
+import java.util.List;
 
 public class AppSettings {
 	@JsonProperty("version")
@@ -23,6 +24,9 @@ public class AppSettings {
 
 	@JsonProperty("rotation")
 	private RotationSettings rotation = new RotationSettings();
+
+	@JsonProperty("hotkeys")
+	private HotkeySettings hotkeys = new HotkeySettings();
 
 	// Getters and setters
 	public String getVersion() {
@@ -71,6 +75,14 @@ public class AppSettings {
 
 	public void setRotation(RotationSettings rotation) {
 		this.rotation = rotation;
+	}
+
+	public HotkeySettings getHotkeys() {
+		return hotkeys;
+	}
+
+	public void setHotkeys(HotkeySettings hotkeys) {
+		this.hotkeys = hotkeys;
 	}
 
 	public static class RegionSettings {
@@ -199,6 +211,76 @@ public class AppSettings {
 
 		public void setSelectedId(String selectedId) {
 			this.selectedId = selectedId;
+		}
+	}
+
+	public static class HotkeySettings {
+		@JsonProperty("schema")
+		private int schema;
+
+		@JsonProperty("bindings")
+		private List<Binding> bindings;
+
+		public int getSchema() {
+			return schema;
+		}
+
+		public void setSchema(int schema) {
+			this.schema = schema;
+		}
+
+		public List<Binding> getBindings() {
+			return bindings;
+		}
+
+		public void setBindings(List<Binding> bindings) {
+			this.bindings = bindings;
+		}
+
+		public static class Binding {
+			@JsonProperty("id")
+			private String id;
+
+			@JsonProperty("action")
+			private String action;
+
+			@JsonProperty("keys")
+			private List<List<String>> keys;
+
+			@JsonProperty("scope")
+			private String scope;
+
+			public String getId() {
+				return id;
+			}
+
+			public void setId(String id) {
+				this.id = id;
+			}
+
+			public String getAction() {
+				return action;
+			}
+
+			public void setAction(String action) {
+				this.action = action;
+			}
+
+			public List<List<String>> getKeys() {
+				return keys;
+			}
+
+			public void setKeys(List<List<String>> keys) {
+				this.keys = keys;
+			}
+
+			public String getScope() {
+				return scope;
+			}
+
+			public void setScope(String scope) {
+				this.scope = scope;
+			}
 		}
 	}
 }
