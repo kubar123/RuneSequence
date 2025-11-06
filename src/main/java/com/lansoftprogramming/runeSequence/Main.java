@@ -69,12 +69,47 @@ public class Main {
 			hotkeyManager.initialize();
 			hotkeyManager.addListener(sequenceController);
 
-			// Activate our specific debug sequence
-			String debugSequenceName = "debug-limitless";
-			if (sequenceManager.activateSequence(debugSequenceName)) {
-				logger.info("Successfully activated the '{}' debug sequence.", debugSequenceName);
+
+			// Activate selected rotation or fall back to debug sequence
+			// --- Determine rotation to activate ---
+			String fallbackSequenceName = "debug-limitless";
+
+			String selected = configManager.getSettings().getRotation() != null
+					? configManager.getSettings().getRotation().getSelectedId()
+					: null;
+			String sequenceToActivate = fallbackSequenceName;
+
+			// --- Check for selected rotation ---
+			if (selected == null || selected.isBlank()) {
+				logger.warn("No rotation selected in settings. Falling back to '{}'.", fallbackSequenceName);
+			} else if (namedSequences.containsKey(selected)) {
+				sequenceToActivate = selected;
+				logger.info("Activating configured rotation by id '{}'.", selected);
 			} else {
-				logger.error("Failed to activate the '{}' debug sequence. Is it defined in rotations.json?", debugSequenceName);
+				// --- Try to match rotation by name ---
+				String matchedKey = rotationConfig.getPresets().entrySet().stream()
+						.filter(e -> e.getValue().getName() != null)
+						.filter(e -> e.getValue().getName().equalsIgnoreCase(selected))
+						.map(Map.Entry::getKey)
+						.filter(namedSequences::containsKey)
+						.findFirst()
+						.orElse(null);
+
+				if (matchedKey != null) {
+					sequenceToActivate = matchedKey;
+					logger.info("Configured rotation '{}' matched preset '{}'.",
+							selected, rotationConfig.getPresets().get(matchedKey).getName());
+				} else {
+					logger.error("Configured rotation '{}' not found by id or name. Falling back to '{}'.",
+							selected, fallbackSequenceName);
+				}
+			}
+
+			// --- Activate selected or fallback sequence ---
+			if (sequenceManager.activateSequence(sequenceToActivate)) {
+				logger.info("Successfully activated the '{}' sequence.", sequenceToActivate);
+			} else {
+				logger.error("Failed to activate the '{}' sequence. Is it defined in rotations.json?", sequenceToActivate);
 				return;
 			}
 

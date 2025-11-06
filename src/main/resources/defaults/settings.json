@@ -15,5 +15,8 @@
     "intervalMs" : 100,
     "confidenceThreshold" : 0.8,
     "enableOverlay" : true
+  },
+  "rotation": {
+    "selectedId": "9c858901-8a57-4791-81fe-4c455b099bc9"
   }
 }

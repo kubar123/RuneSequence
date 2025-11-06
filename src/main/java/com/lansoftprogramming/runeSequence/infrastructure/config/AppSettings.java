@@ -21,6 +21,9 @@ public class AppSettings {
 	@JsonProperty("detection")
 	private DetectionSettings detection = new DetectionSettings();
 
+	@JsonProperty("rotation")
+	private RotationSettings rotation = new RotationSettings();
+
 	// Getters and setters
 	public String getVersion() {
 		return version;
@@ -60,6 +63,14 @@ public class AppSettings {
 
 	public void setDetection(DetectionSettings detection) {
 		this.detection = detection;
+	}
+
+	public RotationSettings getRotation() {
+		return rotation;
+	}
+
+	public void setRotation(RotationSettings rotation) {
+		this.rotation = rotation;
 	}
 
 	public static class RegionSettings {
@@ -175,6 +186,19 @@ public class AppSettings {
 
 		public void setEnableOverlay(boolean enableOverlay) {
 			this.enableOverlay = enableOverlay;
+		}
+	}
+
+	public static class RotationSettings {
+		@JsonProperty("selectedId")
+		private String selectedId;
+
+		public String getSelectedId() {
+			return selectedId;
+		}
+
+		public void setSelectedId(String selectedId) {
+			this.selectedId = selectedId;
 		}
 	}
 }
