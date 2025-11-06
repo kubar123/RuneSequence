@@ -11,6 +11,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyBindingSource;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
 import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
@@ -65,7 +66,8 @@ public class Main {
 			SequenceController sequenceController = new SequenceController(sequenceManager);
 			sequenceManager.setSequenceController(sequenceController);
 
-			HotkeyManager hotkeyManager = new HotkeyManager();
+			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
+			HotkeyManager hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
 			hotkeyManager.initialize();
 			hotkeyManager.addListener(sequenceController);
 

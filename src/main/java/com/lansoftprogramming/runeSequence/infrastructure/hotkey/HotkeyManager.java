@@ -4,30 +4,49 @@ import org.jnativehook.GlobalScreen;
 import org.jnativehook.NativeHookException;
 import org.jnativehook.keyboard.NativeKeyEvent;
 import org.jnativehook.keyboard.NativeKeyListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class HotkeyManager {
-	private static final Logger logger = LoggerFactory.getLogger(HotkeyManager.class);
+	// listeners are per-instance; the native hook and listener are process-wide
 	private final List<HotkeyListener> listeners = new ArrayList<>();
-	private NativeHotkeyListener nativeListener;
-	private boolean initialized = false;
+	private static volatile boolean nativeInitialized = false;
+	private static volatile NativeHotkeyListener nativeListener;
+	private static final Object HOOK_LOCK = new Object();
+
+	private final Map<HotkeyEvent, List<KeyChord>> hotkeyBindings;
+
+	public HotkeyManager(Map<HotkeyEvent, List<KeyChord>> hotkeyBindings) {
+		this.hotkeyBindings = (hotkeyBindings != null)
+				? hotkeyBindings
+				: Collections.emptyMap();
+	}
 
 	public void initialize() {
-		if (initialized) return;
-		java.util.logging.LogManager.getLogManager().reset();
-		try {
-			GlobalScreen.registerNativeHook();
-			nativeListener = new NativeHotkeyListener();
-			GlobalScreen.addNativeKeyListener(nativeListener);
-			initialized = true;
-			logger.info("Hotkey system initialized");
-		} catch (NativeHookException e) {
-			logger.error("Failed to initialize native hook", e);
-			throw new RuntimeException("Could not initialize hotkey system", e);
+		if (nativeInitialized) return;
+		synchronized (HOOK_LOCK) {
+			if (nativeInitialized) return;
+			try {
+				if (!GlobalScreen.isNativeHookRegistered()) {
+					// silence JNativeHook's own logging
+					java.util.logging.LogManager.getLogManager().reset();
+					GlobalScreen.registerNativeHook();
+				}
+				if (nativeListener == null) {
+					nativeListener = new NativeHotkeyListener(this::notifyListeners, hotkeyBindings);
+					GlobalScreen.addNativeKeyListener(nativeListener);
+				}
+				nativeInitialized = true;
+
+				Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+					try {
+						shutdown();
+					} catch (Exception ignored) {
+					}
+				}));
+			} catch (NativeHookException e) {
+				throw new RuntimeException("Could not initialize hotkey system", e);
+			}
 		}
 	}
 
@@ -40,15 +59,21 @@ public class HotkeyManager {
 	}
 
 	public void shutdown() {
-		if (!initialized) return;
-
-		try {
-			GlobalScreen.removeNativeKeyListener(nativeListener);
-			GlobalScreen.unregisterNativeHook();
-			initialized = false;
-			logger.info("Hotkey system shut down");
-		} catch (NativeHookException e) {
-			logger.error("Error shutting down hotkey system", e);
+		if (!nativeInitialized) return;
+		synchronized (HOOK_LOCK) {
+			if (!nativeInitialized) return;
+			try {
+				if (nativeListener != null) {
+					GlobalScreen.removeNativeKeyListener(nativeListener);
+					nativeListener = null;
+				}
+				if (GlobalScreen.isNativeHookRegistered()) {
+					GlobalScreen.unregisterNativeHook();
+				}
+			} catch (NativeHookException ignored) {
+			} finally {
+				nativeInitialized = false;
+			}
 		}
 	}
 
@@ -59,54 +84,52 @@ public class HotkeyManager {
 					case START_SEQUENCE -> listener.onStartSequence();
 					case RESTART_SEQUENCE -> listener.onRestartSequence();
 				}
-			} catch (Exception e) {
-				logger.error("Error notifying hotkey listener", e);
+			} catch (Exception ignored) {
 			}
 		}
 	}
 
-	public enum HotkeyEvent {
-		START_SEQUENCE,
-		RESTART_SEQUENCE
-	}
+	private static final class NativeHotkeyListener implements NativeKeyListener {
+		private final EnumSet<ModifierKey> activeModifiers = EnumSet.noneOf(ModifierKey.class);
+		private final Notifier notifier;
+		private final Map<HotkeyEvent, List<KeyChord>> bindings;
 
-	public interface HotkeyListener {
-		default void onStartSequence() {}
-		default void onRestartSequence() {}
-	}
-
-	// CHANGED CLASS NAME
-	private class NativeHotkeyListener implements NativeKeyListener {
-		private boolean ctrlPressed = false;
+		NativeHotkeyListener(Notifier notifier, Map<HotkeyEvent, List<KeyChord>> bindings) {
+			this.notifier = notifier;
+			this.bindings = bindings;
+		}
 
 		@Override
 		public void nativeKeyPressed(NativeKeyEvent e) {
-			if (e.getKeyCode() == NativeKeyEvent.VC_CONTROL) {
-				ctrlPressed = true;
-			} else if (ctrlPressed) {
-				switch (e.getKeyCode()) {
-					case NativeKeyEvent.VC_F1 -> {
-						logger.info("CTRL+F1 pressed - Starting sequence");
-						notifyListeners(HotkeyEvent.START_SEQUENCE);
-					}
-					case NativeKeyEvent.VC_F2 -> {
-						logger.info("CTRL+F2 pressed - Restarting sequence");
-						notifyListeners(HotkeyEvent.RESTART_SEQUENCE);
-					}
+			ModifierKey mk = ModifierKey.fromKeyCode(e.getKeyCode());
+			if (mk != null) {
+				activeModifiers.add(mk);
+				return;
+			}
+			KeyChord chord = new KeyChord(activeModifiers, e.getKeyCode());
+			for (Map.Entry<HotkeyEvent, List<KeyChord>> en : bindings.entrySet()) {
+				List<KeyChord> chords = en.getValue();
+				if (chords != null && chords.contains(chord)) {
+					notifier.notify(en.getKey());
 				}
 			}
 		}
 
 		@Override
 		public void nativeKeyReleased(NativeKeyEvent e) {
-			if (e.getKeyCode() == NativeKeyEvent.VC_CONTROL) {
-				ctrlPressed = false;
+			ModifierKey mk = ModifierKey.fromKeyCode(e.getKeyCode());
+			if (mk != null) {
+				activeModifiers.remove(mk);
 			}
 		}
 
 		@Override
 		public void nativeKeyTyped(NativeKeyEvent e) {
-			// Not used
 		}
+	}
+
+	@FunctionalInterface
+	private interface Notifier {
+		void notify(HotkeyEvent event);
 	}
 }

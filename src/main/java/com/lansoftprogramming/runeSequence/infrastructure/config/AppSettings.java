@@ -1,12 +1,16 @@
 package com.lansoftprogramming.runeSequence.infrastructure.config;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.logging.Logger;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class AppSettings {
+	private static final Logger LOGGER = Logger.getLogger(AppSettings.class.getName());
+
 	@JsonProperty("version")
 	private String version = "1.0.0";
 
@@ -78,6 +82,7 @@ public class AppSettings {
 	}
 
 	public HotkeySettings getHotkeys() {
+		LOGGER.info("Accessing hotkey settings.");
 		return hotkeys;
 	}
 
@@ -85,6 +90,8 @@ public class AppSettings {
 		this.hotkeys = hotkeys;
 	}
 
+	// ------------------------------ REGION ------------------------------
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class RegionSettings {
 		@JsonProperty("x")
 		private int x = 0;
@@ -165,6 +172,8 @@ public class AppSettings {
 		}
 	}
 
+	// ------------------------------ DETECTION ------------------------------
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class DetectionSettings {
 		@JsonProperty("intervalMs")
 		private int intervalMs = 100; // 10 FPS
@@ -201,6 +210,8 @@ public class AppSettings {
 		}
 	}
 
+	// ------------------------------ ROTATION ------------------------------
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class RotationSettings {
 		@JsonProperty("selectedId")
 		private String selectedId;
@@ -214,6 +225,8 @@ public class AppSettings {
 		}
 	}
 
+	// ------------------------------ HOTKEYS ------------------------------
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class HotkeySettings {
 		@JsonProperty("schema")
 		private int schema;
@@ -237,26 +250,22 @@ public class AppSettings {
 			this.bindings = bindings;
 		}
 
+		@JsonIgnoreProperties(ignoreUnknown = true)
 		public static class Binding {
-			@JsonProperty("id")
-			private String id;
-
 			@JsonProperty("action")
 			private String action;
 
-			@JsonProperty("keys")
-			private List<List<String>> keys;
+			@JsonProperty("userEnabled")
+			private boolean userEnabled;
+
+			@JsonProperty("global")
+			private List<List<String>> global;
+
+			@JsonProperty("user")
+			private List<List<String>> user;
 
 			@JsonProperty("scope")
 			private String scope;
-
-			public String getId() {
-				return id;
-			}
-
-			public void setId(String id) {
-				this.id = id;
-			}
 
 			public String getAction() {
 				return action;
@@ -266,12 +275,28 @@ public class AppSettings {
 				this.action = action;
 			}
 
-			public List<List<String>> getKeys() {
-				return keys;
+			public boolean isUserEnabled() {
+				return userEnabled;
 			}
 
-			public void setKeys(List<List<String>> keys) {
-				this.keys = keys;
+			public void setUserEnabled(boolean userEnabled) {
+				this.userEnabled = userEnabled;
+			}
+
+			public List<List<String>> getGlobal() {
+				return global;
+			}
+
+			public void setGlobal(List<List<String>> global) {
+				this.global = global;
+			}
+
+			public List<List<String>> getUser() {
+				return user;
+			}
+
+			public void setUser(List<List<String>> user) {
+				this.user = user;
 			}
 
 			public String getScope() {

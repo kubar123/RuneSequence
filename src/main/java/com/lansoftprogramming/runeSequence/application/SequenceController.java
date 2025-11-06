@@ -1,14 +1,14 @@
 package com.lansoftprogramming.runeSequence.application;
 
 
-import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class SequenceController implements HotkeyManager.HotkeyListener {
+public class SequenceController implements HotkeyListener {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceController.class);
 
 	public enum State {
