@@ -9,12 +9,17 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.UnsupportedFlavorException;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * A panel that displays a list of sequences and controls for managing them.
@@ -34,6 +39,8 @@ public class SequenceMasterPanel extends JPanel {
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
 	private final List<Runnable> addListeners;
 	private final List<Consumer<SequenceListModel.SequenceEntry>> deleteListeners;
+	private final List<Consumer<String>> importListeners;
+	private Predicate<String> expressionValidator = s -> false;
 	private ToastManager toastManager;
 
 	/**
@@ -47,6 +54,7 @@ public class SequenceMasterPanel extends JPanel {
 		this.selectionListeners = new ArrayList<>();
 		this.addListeners = new ArrayList<>();
 		this.deleteListeners = new ArrayList<>();
+		this.importListeners = new ArrayList<>();
 
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -83,6 +91,7 @@ public class SequenceMasterPanel extends JPanel {
 		deleteButton.addActionListener(e -> notifyDeleteListeners(getSelectedSequenceEntry()));
 
 		importButton = new JButton("Import");
+		importButton.addActionListener(e -> importFromClipboard());
 		exportButton = new JButton("Export");
 		exportButton.setEnabled(false);
 		exportButton.addActionListener(e -> copySelectedPresetExpression());
@@ -118,6 +127,16 @@ public class SequenceMasterPanel extends JPanel {
 
 	public void addDeleteListener(Consumer<SequenceListModel.SequenceEntry> listener) {
 		deleteListeners.add(listener);
+	}
+
+	public void addImportListener(Consumer<String> listener) {
+		importListeners.add(listener);
+	}
+
+	public void setExpressionValidator(Predicate<String> expressionValidator) {
+		if (expressionValidator != null) {
+			this.expressionValidator = expressionValidator;
+		}
 	}
 
 	public void refreshList() {
@@ -166,6 +185,49 @@ public class SequenceMasterPanel extends JPanel {
 	private void notifyDeleteListeners(SequenceListModel.SequenceEntry entry) {
 		for (Consumer<SequenceListModel.SequenceEntry> listener : deleteListeners) {
 			listener.accept(entry);
+		}
+	}
+
+	private void notifyImportListeners(String expression) {
+		for (Consumer<String> listener : importListeners) {
+			listener.accept(expression);
+		}
+	}
+
+	private void importFromClipboard() {
+		String expression = getClipboardContent();
+		if (expression == null) {
+			return; // Toast shown in getClipboardContent
+		}
+
+		if (expression.trim().isEmpty()) {
+			if (toastManager != null) {
+				toastManager.info("Clipboard is empty.");
+			}
+			return;
+		}
+
+		if (expressionValidator.test(expression)) {
+			notifyImportListeners(expression);
+		} else {
+			if (toastManager != null) {
+				toastManager.error("Invalid ability expression in clipboard.");
+			}
+		}
+	}
+
+	private String getClipboardContent() {
+		try {
+			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+			if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
+				return (String) clipboard.getData(DataFlavor.stringFlavor);
+			}
+			return "";
+		} catch (UnsupportedFlavorException | IOException | IllegalStateException e) {
+			if (toastManager != null) {
+				toastManager.error("Could not read from clipboard.");
+			}
+			return null;
 		}
 	}
 

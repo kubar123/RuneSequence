@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
+import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
@@ -128,8 +129,24 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void wireEventHandlers() {
-        masterPanel.addAddListener(this::handleAddSequence);
-        masterPanel.addDeleteListener(this::handleDeleteSequence);
+		masterPanel.addAddListener(this::handleAddSequence);
+		masterPanel.addDeleteListener(this::handleDeleteSequence);
+
+		masterPanel.setExpressionValidator(expression -> {
+			if (expression == null || expression.isBlank()) {
+				return false;
+			}
+			if (!expression.contains("→") && !expression.contains("->")) {
+				return false;
+			}
+			try {
+				SequenceParser.parse(expression);
+				return true;
+			} catch (Exception e) {
+				return false;
+			}
+		});
+		masterPanel.addImportListener(this::handleImportSequence);
 
         masterPanel.addSelectionListener(entry -> {
             if (entry != null) {
@@ -150,17 +167,29 @@ public class PresetManagerWindow extends JFrame {
         });
     }
 
-    private void handleAddSequence() {
-        masterPanel.clearSelection();
+	private void handleAddSequence() {
+		masterPanel.clearSelection();
 
-        RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
-       newPreset.setName("new sequence");
-       newPreset.setExpression("");
+		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
+	   newPreset.setName("new sequence");
+	   newPreset.setExpression("");
 
-        String newPresetId = UUID.randomUUID().toString();
+		String newPresetId = UUID.randomUUID().toString();
 
-        detailPanel.startNewSequence(newPresetId, newPreset);
-    }
+		detailPanel.startNewSequence(newPresetId, newPreset);
+	}
+
+	private void handleImportSequence(String expression) {
+		masterPanel.clearSelection();
+
+		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
+		newPreset.setName("Imported Sequence");
+		newPreset.setExpression(expression);
+
+		String newPresetId = UUID.randomUUID().toString();
+
+		detailPanel.startNewSequence(newPresetId, newPreset);
+	}
 
     private void handleDeleteSequence(SequenceListModel.SequenceEntry entry) {
         if (entry == null) {
