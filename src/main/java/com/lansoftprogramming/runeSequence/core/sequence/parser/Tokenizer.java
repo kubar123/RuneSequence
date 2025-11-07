@@ -19,10 +19,10 @@ public class Tokenizer {
 		}
 
 		// Stage 1: Add padding around operators and parentheses
-		// Support both Unicode → and ASCII ->
+		// Support both Unicode → and ASCII -> by normalizing to the canonical arrow
 		String paddedExpression = expression
-				.replaceAll("([→+/()])", " $1 ")
-				.replaceAll("(->)", " $1 ");
+				.replace("->", "→")
+				.replaceAll("([→+/()])", " $1 ");
 
 		logger.debug("Tokenizer: Padded expression: '{}'", paddedExpression);
 
@@ -85,7 +85,7 @@ public class Tokenizer {
 
 
 	private boolean isOperatorOrParen(String part) {
-		boolean isOp = part.equals("→") || part.equals("->") || part.equals("+") ||
+		boolean isOp = part.equals("→") || part.equals("+") ||
 				part.equals("/") || part.equals("(") || part.equals(")");
 
 		logger.debug("Tokenizer.isOperatorOrParen('{}'): {}", part, isOp);
@@ -94,7 +94,7 @@ public class Tokenizer {
 
 	private void addOperatorOrParenToken(String part, List<Token> tokens) {
 		switch (part) {
-			case "→", "->", "+", "/" -> tokens.add(new Token.Operator(part));
+			case "→", "+", "/" -> tokens.add(new Token.Operator(part));
 			case "(" -> tokens.add(new Token.LeftParen());
 			case ")" -> tokens.add(new Token.RightParen());
 
