@@ -197,7 +197,7 @@ public class AbilityPalettePanel extends JPanel {
 			scrollPane.setBorder(BorderFactory.createEmptyBorder());
 			scrollPane.setViewportBorder(BorderFactory.createEmptyBorder());
 			scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-			scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+			scrollPane.getVerticalScrollBar().setUnitIncrement(5);
 
 			categoryTabs.addTab(categoryName, scrollPane);
 		}

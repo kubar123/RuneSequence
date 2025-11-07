@@ -63,6 +63,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		scrollPane.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+		scrollPane.getVerticalScrollBar().setUnitIncrement(5);
 		return scrollPane;
 	}
 

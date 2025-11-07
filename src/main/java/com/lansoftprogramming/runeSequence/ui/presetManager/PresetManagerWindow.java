@@ -71,7 +71,7 @@ public class PresetManagerWindow extends JFrame {
     private void initializeFrame() {
         setTitle("Preset Manager");
         setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
-        setSize(1400, 900);
+        setSize(1000, 750);
         setLocationRelativeTo(null);
     }
 
@@ -114,15 +114,15 @@ public class PresetManagerWindow extends JFrame {
                 palettePanel
         );
         horizontalSplit.setResizeWeight(0.25);
-        horizontalSplit.setDividerLocation(0.25);
+        horizontalSplit.setDividerLocation(275);
 
         verticalSplit = new JSplitPane(
                 JSplitPane.VERTICAL_SPLIT,
                 horizontalSplit,
                 detailPanel
         );
-        verticalSplit.setResizeWeight(0.25);
-        verticalSplit.setDividerLocation(0.25);
+        verticalSplit.setResizeWeight(0.5);
+        verticalSplit.setDividerLocation(350);
 
         add(verticalSplit);
     }
