@@ -1,10 +1,12 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
+import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailPanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailService;
+import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SelectedSequenceIndicator;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceListModel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceMasterPanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.palette.AbilityPalettePanel;
@@ -14,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.io.IOException;
 import java.util.UUID;
 
 public class PresetManagerWindow extends JFrame {
@@ -83,7 +86,11 @@ public class PresetManagerWindow extends JFrame {
                 configManager, iconLoader, visualService
             );
 
-            masterPanel = new SequenceMasterPanel(sequenceListModel);
+            SelectedSequenceIndicator selectionIndicator = SelectedSequenceIndicator.forSettings(
+                configManager.getSettings()
+            );
+
+            masterPanel = new SequenceMasterPanel(sequenceListModel, selectionIndicator);
             detailPanel = new SequenceDetailPanel(detailService);
             palettePanel = new AbilityPalettePanel(
                 configManager.getAbilities(),
@@ -127,8 +134,10 @@ public class PresetManagerWindow extends JFrame {
         masterPanel.addSelectionListener(entry -> {
             if (entry != null) {
                 detailPanel.loadSequence(entry.getId(), entry.getPresetData());
+                updateActiveRotation(entry.getId());
             } else {
                 detailPanel.clear();
+                updateActiveRotation(null);
             }
         });
 
@@ -197,6 +206,14 @@ public class PresetManagerWindow extends JFrame {
             RotationConfig rotations = configManager.getRotations();
             sequenceListModel.loadFromConfig(rotations);
             logger.info("Loaded {} sequences", sequenceListModel.getSize());
+
+            AppSettings settings = configManager.getSettings();
+            if (settings != null && settings.getRotation() != null) {
+                String selectedId = settings.getRotation().getSelectedId();
+                if (selectedId != null && !selectedId.isBlank()) {
+                    SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(selectedId));
+                }
+            }
         } catch (Exception e) {
             logger.error("Failed to load sequences", e);
             toastError("Failed to load sequences: " + e.getMessage());
@@ -205,5 +222,35 @@ public class PresetManagerWindow extends JFrame {
 
     public ToastManager toasts() {
         return toastManager;
+    }
+
+    private void updateActiveRotation(String rotationId) {
+        AppSettings settings = configManager.getSettings();
+        if (settings == null) {
+            logger.warn("Skipping active rotation update because settings are unavailable.");
+            return;
+        }
+
+        AppSettings.RotationSettings rotationSettings = settings.getRotation();
+        if (rotationSettings == null) {
+            rotationSettings = new AppSettings.RotationSettings();
+            settings.setRotation(rotationSettings);
+        }
+
+        String currentId = rotationSettings.getSelectedId();
+        boolean changed = (rotationId != null && !rotationId.equals(currentId))
+                || (rotationId == null && currentId != null);
+        rotationSettings.setSelectedId(rotationId);
+
+        if (changed) {
+            try {
+                configManager.saveSettings();
+            } catch (IOException e) {
+                logger.error("Failed to persist active rotation {}", rotationId, e);
+                toastError("Failed to set active rotation: " + e.getMessage());
+            }
+        }
+
+        masterPanel.refreshList();
     }
 }

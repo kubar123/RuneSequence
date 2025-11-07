@@ -3,6 +3,8 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -11,6 +13,7 @@ import java.awt.datatransfer.StringSelection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -25,6 +28,7 @@ public class SequenceMasterPanel extends JPanel {
 	private final JButton deleteButton;
 	private final JButton importButton;
 	private final JButton exportButton;
+	private final SelectedSequenceIndicator selectedSequenceIndicator;
 
 	/** Listeners to be notified when the list selection changes. */
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
@@ -36,8 +40,10 @@ public class SequenceMasterPanel extends JPanel {
 	 * Constructs the master panel for sequence management.
 	 * @param sequenceListModel The data model for the list of sequences.
 	 */
-	public SequenceMasterPanel(SequenceListModel sequenceListModel) {
-		this.sequenceListModel = sequenceListModel;
+	public SequenceMasterPanel(SequenceListModel sequenceListModel,
+	                           SelectedSequenceIndicator selectedSequenceIndicator) {
+		this.sequenceListModel = Objects.requireNonNull(sequenceListModel, "sequenceListModel cannot be null");
+		this.selectedSequenceIndicator = Objects.requireNonNull(selectedSequenceIndicator, "selectedSequenceIndicator cannot be null");
 		this.selectionListeners = new ArrayList<>();
 		this.addListeners = new ArrayList<>();
 		this.deleteListeners = new ArrayList<>();
@@ -47,7 +53,7 @@ public class SequenceMasterPanel extends JPanel {
 
 		sequenceList = new JList<>(sequenceListModel);
 		sequenceList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		sequenceList.setCellRenderer(new SequenceListCellRenderer());
+		sequenceList.setCellRenderer(new SequenceListCellRenderer(this.selectedSequenceIndicator));
 		sequenceList.addListSelectionListener(new SequenceSelectionHandler());
 
 		addButton = new JButton("+");
@@ -111,6 +117,10 @@ public class SequenceMasterPanel extends JPanel {
 
 	public void addDeleteListener(Consumer<SequenceListModel.SequenceEntry> listener) {
 		deleteListeners.add(listener);
+	}
+
+	public void refreshList() {
+		sequenceList.repaint();
 	}
 
 	public void clearSelection() {
@@ -218,8 +228,27 @@ public class SequenceMasterPanel extends JPanel {
 	/**
 	 * Custom renderer to control the appearance of each item in the sequence list.
 	 */
-	private static class SequenceListCellRenderer implements ListCellRenderer<SequenceListModel.SequenceEntry> {
-		private final DefaultListCellRenderer defaultRenderer = new DefaultListCellRenderer();
+	private static class SequenceListCellRenderer extends JPanel implements ListCellRenderer<SequenceListModel.SequenceEntry> {
+		private final JLabel textLabel = new JLabel();
+		private final JLabel iconLabel = new JLabel();
+		private final SelectedSequenceIndicator selectedIndicator;
+		private final EmptyBorder padding = new EmptyBorder(5, 10, 5, 10);
+		private final Border focusBorder = UIManager.getBorder("List.focusCellHighlightBorder");
+		private final Border noFocusBorder = new EmptyBorder(1, 1, 1, 1);
+
+		private SequenceListCellRenderer(SelectedSequenceIndicator selectedIndicator) {
+			super(new BorderLayout());
+			this.selectedIndicator = selectedIndicator;
+			setOpaque(true);
+
+			textLabel.setOpaque(false);
+			iconLabel.setOpaque(false);
+			iconLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+			iconLabel.setBorder(new EmptyBorder(0, 0, 0, 10));
+
+			add(textLabel, BorderLayout.CENTER);
+			add(iconLabel, BorderLayout.EAST);
+		}
 
 		@Override
 		public Component getListCellRendererComponent(
@@ -229,19 +258,29 @@ public class SequenceMasterPanel extends JPanel {
 				boolean isSelected,
 				boolean cellHasFocus) {
 
-			// Use the default renderer to handle selection colors, etc.
-			JLabel label = (JLabel) defaultRenderer.getListCellRendererComponent(
-					list, value, index, isSelected, cellHasFocus
-			);
+			String name = value != null ? value.getPresetData().getName() : "";
+			textLabel.setText(name != null ? name : "");
+			textLabel.setFont(list.getFont());
+			textLabel.setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
 
-			if (value != null) {
-				// Display the preset name instead of the object's toString().
-				label.setText(value.getPresetData().getName());
-			}
+			Icon selectedIcon = value != null ? selectedIndicator.iconFor(value.getId()) : null;
+			iconLabel.setIcon(selectedIcon);
+			Icon columnIcon = selectedIndicator.getSelectedIcon();
+			int reservedWidth = columnIcon != null ? columnIcon.getIconWidth() + 10 : 20;
+			iconLabel.setPreferredSize(new Dimension(reservedWidth,
+					list.getFixedCellHeight() > 0 ? list.getFixedCellHeight() : textLabel.getPreferredSize().height));
 
-			// Add padding for better visual spacing.
-			label.setBorder(new EmptyBorder(5, 10, 5, 10));
-			return label;
+			setBackground(isSelected ? list.getSelectionBackground() : list.getBackground());
+			setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
+
+			Border outer = cellHasFocus && focusBorder != null ? focusBorder : noFocusBorder;
+			setBorder(new CompoundBorder(outer, padding));
+
+			setToolTipText(value != null && selectedIndicator.isSelected(value.getId())
+					? "Currently selected rotation"
+					: null);
+
+			return this;
 		}
 	}
 }
