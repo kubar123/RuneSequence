@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.palette;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityCategoryConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailPanel;
+import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import org.slf4j.Logger;
@@ -279,7 +280,7 @@ public class AbilityPalettePanel extends JPanel {
 			this.cardMap = new LinkedHashMap<>();
 
 			setBorder(new EmptyBorder(10, 10, 10, 10));
-			setLayout(new FlowLayout(FlowLayout.LEFT, 5, 5));
+			setLayout(new WrapLayout(FlowLayout.LEFT, 5, 5));
 
 			// Create ability cards
 			for (AbilityItem item : abilities) {

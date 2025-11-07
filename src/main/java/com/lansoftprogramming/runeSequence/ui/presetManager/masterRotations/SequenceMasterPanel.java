@@ -101,7 +101,7 @@ public class SequenceMasterPanel extends JPanel {
 		controlsPanel.add(exportButton);
 
 		JScrollPane listScrollPane = new JScrollPane(sequenceList);
-		listScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+		listScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 
 		add(controlsPanel, BorderLayout.NORTH);
 		add(listScrollPane, BorderLayout.CENTER);
