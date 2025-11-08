@@ -18,9 +18,13 @@ public class Tokenizer {
 //			logger.debug("  Char[{}]: '{}' (code={})", i, c, (int) c);
 		}
 
+		// Handle "spec" as a special suffix, converting "[ability] spec" to "[ability] + spec"
+		String processedExpression = expression.replaceAll("(?i)\\s+spec\\b", " + spec");
+		logger.debug("Tokenizer: Expression after spec processing: '{}'", processedExpression);
+
 		// Stage 1: Add padding around operators and parentheses
 		// Support both Unicode → and ASCII -> by normalizing to the canonical arrow
-		String paddedExpression = expression
+		String paddedExpression = processedExpression
 				.replace("->", "→")
 				.replaceAll("([→+/()])", " $1 ");
 
