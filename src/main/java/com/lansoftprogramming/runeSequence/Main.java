@@ -1,18 +1,23 @@
 package com.lansoftprogramming.runeSequence;
 
 import com.formdev.flatlaf.FlatDarkLaf;
-import com.lansoftprogramming.runeSequence.capture.ScreenCapture;
-import com.lansoftprogramming.runeSequence.config.ConfigManager;
-import com.lansoftprogramming.runeSequence.config.RotationConfig;
-import com.lansoftprogramming.runeSequence.detection.DetectionEngine;
-import com.lansoftprogramming.runeSequence.detection.OverlayRenderer;
-import com.lansoftprogramming.runeSequence.detection.TemplateDetector;
-import com.lansoftprogramming.runeSequence.gui.Taskbar;
-import com.lansoftprogramming.runeSequence.gui.actions.SettingsAction;
-import com.lansoftprogramming.runeSequence.hotkey.HotkeyManager;
-import com.lansoftprogramming.runeSequence.hotkey.SequenceController;
-import com.lansoftprogramming.runeSequence.sequence.SequenceManager;
-import com.lansoftprogramming.runeSequence.sequence.SequenceParser;
+import com.lansoftprogramming.runeSequence.application.SequenceController;
+import com.lansoftprogramming.runeSequence.application.SequenceManager;
+import com.lansoftprogramming.runeSequence.application.TemplateCache;
+import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
+import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
+import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
+import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyBindingSource;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
+import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
+import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
+import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
+import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
+import com.lansoftprogramming.runeSequence.ui.taskbar.Taskbar;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +54,7 @@ public class Main {
 			}
 
 			// Parse all presets from the config file
-			Map<String, com.lansoftprogramming.runeSequence.sequence.SequenceDefinition> namedSequences = rotationConfig.getPresets().entrySet().stream()
+			Map<String, SequenceDefinition> namedSequences = rotationConfig.getPresets().entrySet().stream()
 					.collect(Collectors.toMap(
 							Map.Entry::getKey,
 							entry -> SequenceParser.parse(entry.getValue().getExpression())
@@ -61,16 +66,52 @@ public class Main {
 			SequenceController sequenceController = new SequenceController(sequenceManager);
 			sequenceManager.setSequenceController(sequenceController);
 
-			HotkeyManager hotkeyManager = new HotkeyManager();
+			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
+			HotkeyManager hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
 			hotkeyManager.initialize();
 			hotkeyManager.addListener(sequenceController);
 
-			// Activate our specific debug sequence
-			String debugSequenceName = "debug-limitless";
-			if (sequenceManager.activateSequence(debugSequenceName)) {
-				logger.info("Successfully activated the '{}' debug sequence.", debugSequenceName);
+
+			// Activate selected rotation or fall back to debug sequence
+			// --- Determine rotation to activate ---
+			String fallbackSequenceName = "debug-limitless";
+
+			String selected = configManager.getSettings().getRotation() != null
+					? configManager.getSettings().getRotation().getSelectedId()
+					: null;
+			String sequenceToActivate = fallbackSequenceName;
+
+			// --- Check for selected rotation ---
+			if (selected == null || selected.isBlank()) {
+				logger.warn("No rotation selected in settings. Falling back to '{}'.", fallbackSequenceName);
+			} else if (namedSequences.containsKey(selected)) {
+				sequenceToActivate = selected;
+				logger.info("Activating configured rotation by id '{}'.", selected);
 			} else {
-				logger.error("Failed to activate the '{}' debug sequence. Is it defined in rotations.json?", debugSequenceName);
+				// --- Try to match rotation by name ---
+				String matchedKey = rotationConfig.getPresets().entrySet().stream()
+						.filter(e -> e.getValue().getName() != null)
+						.filter(e -> e.getValue().getName().equalsIgnoreCase(selected))
+						.map(Map.Entry::getKey)
+						.filter(namedSequences::containsKey)
+						.findFirst()
+						.orElse(null);
+
+				if (matchedKey != null) {
+					sequenceToActivate = matchedKey;
+					logger.info("Configured rotation '{}' matched preset '{}'.",
+							selected, rotationConfig.getPresets().get(matchedKey).getName());
+				} else {
+					logger.error("Configured rotation '{}' not found by id or name. Falling back to '{}'.",
+							selected, fallbackSequenceName);
+				}
+			}
+
+			// --- Activate selected or fallback sequence ---
+			if (sequenceManager.activateSequence(sequenceToActivate)) {
+				logger.info("Successfully activated the '{}' sequence.", sequenceToActivate);
+			} else {
+				logger.error("Failed to activate the '{}' sequence. Is it defined in rotations.json?", sequenceToActivate);
 				return;
 			}
 
@@ -93,6 +134,8 @@ public class Main {
 				taskbar.initialize();
 
 				// Add a settings option to the context menu
+				taskbar.addMenuItem("Preset Manager", new PresetManagerAction(configManager));
+				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
 				taskbar.addMenuItem("Settings", new SettingsAction());
 				taskbar.addSeparator();
 			});
@@ -115,13 +158,11 @@ public class Main {
 
 	public static void populateTemplateCache() {
 		logger.info("Initializing TemplateCache...");
-		// Use the simpler constructor to fix the compilation error.
 		templateCache = new TemplateCache(APP_NAME);
 	}
 
 	public static void populateSettings() {
 		logger.info("Initializing ConfigManager...");
-		// Use the correct constructor with no arguments.
 		configManager = new ConfigManager();
 		try {
 			configManager.initialize();

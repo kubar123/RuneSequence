@@ -1,639 +1,875 @@
 {
-  "utility" : {
-    "triggers_gcd" : false,
-    "cast_duration" : 0,
-    "cooldown" : 0,
-    "detection_threshold" : 0.0
-  },
-  "smokecloud" : {
-    "triggers_gcd" : true,
-    "cast_duration" : 0,
-    "cooldown" : 15,
-    "detection_threshold" : 0.3
-  },
-  "Limitless": {
+  "EXAMPLE": {
+    "triggers_gcd": false,
+    "cast_duration": 0,
     "cooldown": 0,
-    "triggers_gcd": false,
     "detection_threshold": 0.9
   },
-  "Quake":{
+  "smokecloud": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 0,
+    "cooldown": 15
   },
-  "Adrenaline_renewal":{
-    "triggers_gcd": false,
-    "detection_threshold": 0.8
+  "Adrenaline_renewal": {
+    "triggers_gcd": false
   },
-  "Punish":{
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "Slice": {
+    "common_name": "Slice",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
   },
-  "Shatter":{
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "Backhand": {
+    "common_name": "Backhand",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
   },
-  "aggression": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "anti": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "asphyx": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "assault": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "backhand": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "balancedstrike": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "barge": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "cade": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "bash": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "zerk": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "bindingshot": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "bd": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "bloat": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "bloodsiphon": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "bloodtendrils": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "bombard": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "Cease_cease": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "chain": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "chaosroar": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "cleave": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "comb": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "commandphantom": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "commandzombie": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "commandskeleton": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "commandghost": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "conc": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "conjurephantom": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "conjurezombie": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "conjureskeleton": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "conjurearmy": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "conjureghost": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "corruptblast": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "corruptshot": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "dazing": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "deadshot": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "deathskulls": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "deathsswift": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "debil": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "deci": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "deep": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "demonslayer": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "demoralise": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "destroy": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "deto": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "devo": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "dismember": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "dive": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "divert": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "dbreath": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "dragonslayer": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "eatfood": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "escape": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "eofspec": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "fingerofdeath": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "flurry": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
+  "Slaughter": {
+    "common_name": "Slaughter",
+    "type": "Threshold",
+    "level": 1,
+    "triggers_gcd": true
   },
   "fbackhand": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "frag": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "freedom": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "frenzy": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "fury": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "gbarge": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "gchain": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "gconc": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-
-  },
-  "mds": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "gdeathsswift": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "gflurry": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "gfury": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "grico": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "gsonicwave": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "gsunshine": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "guthixsblessing": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "havoc": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "horror": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "cane": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "iceasylum": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "immort": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "impact": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "incend": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "incite": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "ingen": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "kick": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "limitless": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "livingdeath": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "magmatempest": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "magmatempesttarget": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "massacre": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "meta": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "meteorstrike": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "naturalinstinct": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "necroauto": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "needle": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "omni": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "onsl": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Forceful Backhand",
+    "type": "Threshold",
+    "level": 15,
+    "triggers_gcd": true
   },
   "overpower": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "piercing": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "prep": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "voke": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "pulverise": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "punish": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "quake": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "quiverslot1": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "quiverslot2": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "rapid": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "reflect": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "regenerate": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "rejuvenate": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "reprisal": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "res": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "revenge": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "ricochet": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "rout": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "sacrifice": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "stw": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "sever": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "shadowtend": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "shatter": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "shock": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "siphon": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "slaughter": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "slice": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Overpower",
+    "type": "Ultimate",
+    "level": 2,
+    "triggers_gcd": true
   },
   "smash": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Smash",
+    "type": "Basic",
+    "level": 20,
+    "triggers_gcd": true
   },
-  "smoketendrils": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-
+  "barge": {
+    "common_name": "Barge",
+    "type": "Basic",
+    "level": 30,
+    "triggers_gcd": true
   },
-  "snap": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "gbarge": {
+    "common_name": "Greater Barge",
+    "type": "Basic",
+    "level": 30,
+    "triggers_gcd": true
   },
-  "snipe": {
+  "flurry": {
+    "common_name": "Flurry",
+    "type": "Threshold",
+    "level": 37,
     "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 4
+    "cast_duration": 8
   },
-  "sonicwave": {
+  "gflurry": {
+    "common_name": "Greater Flurry",
+    "type": "Threshold",
+    "level": 37,
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 8
   },
-  "soulsap": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "sever": {
+    "common_name": "Sever",
+    "type": "Basic",
+    "level": 45,
+    "triggers_gcd": true
   },
-  "soulstrike": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "havoc": {
+    "common_name": "Havoc",
+    "type": "Basic",
+    "level": 5,
+    "triggers_gcd": true
   },
-  "spectralscythe": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "cane": {
+    "common_name": "Hurricane",
+    "type": "Threshold",
+    "level": 55,
+    "triggers_gcd": true
   },
-  "spectralscythe2": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "bd": {
+    "common_name": "Bladed Dive",
+    "type": "Basic",
+    "level": 65,
+    "triggers_gcd": true
   },
-  "spectralscythe3": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "massacre": {
+    "common_name": "Massacre",
+    "type": "Ultimate",
+    "level": 66,
+    "triggers_gcd": true
+  },
+  "bloodtendrils": {
+    "common_name": "Blood Tendrils",
+    "type": "Threshold",
+    "level": 75,
+    "triggers_gcd": true
+  },
+  "meteorstrike": {
+    "common_name": "Meteor Strike",
+    "type": "Ultimate",
+    "level": 81,
+    "triggers_gcd": true
+  },
+  "balancedstrike": {
+    "common_name": "Balanced Strike",
+    "type": "Ultimate",
+    "level": 85,
+    "triggers_gcd": true
+  },
+  "dismember": {
+    "common_name": "Dismember",
+    "type": "Basic",
+    "level": 14,
+    "triggers_gcd": true
+  },
+  "fury": {
+    "common_name": "Fury",
+    "type": "Basic",
+    "level": 24,
+    "triggers_gcd": true
+  },
+  "gfury": {
+    "common_name": "Greater Fury",
+    "type": "Basic",
+    "level": 24,
+    "triggers_gcd": true
+  },
+  "kick": {
+    "common_name": "Kick",
+    "type": "Basic",
+    "level": 3,
+    "triggers_gcd": true
   },
   "stomp": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Stomp",
+    "type": "Threshold",
+    "level": 3,
+    "triggers_gcd": true
   },
-  "stormshards": {
+  "destroy": {
+    "common_name": "Destroy",
+    "type": "Threshold",
+    "level": 37,
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 8
   },
-  "sunshine": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+  "quake": {
+    "common_name": "Quake",
+    "type": "Threshold",
+    "level": 37,
+    "triggers_gcd": true
   },
-  "surge": {
+  "zerk": {
+    "common_name": "Berserk",
+    "type": "Ultimate",
+    "level": 42,
+    "triggers_gcd": true
+  },
+  "cleave": {
+    "common_name": "Cleave",
+    "type": "Basic",
+    "level": 48,
+    "triggers_gcd": true
+  },
+  "assault": {
+    "common_name": "Assault",
+    "type": "Threshold",
+    "level": 55,
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 8
+  },
+  "deci": {
+    "common_name": "Decimate",
+    "type": "Basic",
+    "level": 67,
+    "triggers_gcd": true
+  },
+  "punish": {
+    "common_name": "Punish",
+    "type": "Basic",
+    "level": 8,
+    "triggers_gcd": true
+  },
+  "pulverise": {
+    "common_name": "Pulverise",
+    "type": "Ultimate",
+    "level": 81,
+    "triggers_gcd": true
+  },
+  "frenzy": {
+    "common_name": "Frenzy",
+    "type": "Ultimate",
+    "level": 86,
+    "triggers_gcd": true,
+    "cast_duration": 8
+  },
+  "chaosroar": {
+    "common_name": "Chaos Roar",
+    "type": "Basic",
+    "level": 92,
+    "triggers_gcd": true
+  },
+  "bindingshot": {
+    "common_name": "Binding Shot",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "piercing": {
+    "common_name": "Piercing Shot",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "snap": {
+    "common_name": "Snap Shot",
+    "type": "Threshold",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "demoralise": {
+    "common_name": "Demoralise",
+    "type": "Basic",
+    "level": 10,
+    "triggers_gcd": true
+  },
+  "needle": {
+    "common_name": "Needle Strike",
+    "type": "Basic",
+    "level": 12,
+    "triggers_gcd": true
+  },
+  "rout": {
+    "common_name": "Rout",
+    "type": "Threshold",
+    "level": 15,
+    "triggers_gcd": true
+  },
+  "deadshot": {
+    "common_name": "Deadshot",
+    "type": "Ultimate",
+    "level": 2,
+    "triggers_gcd": true
+  },
+  "frag": {
+    "common_name": "Fragmentation Shot",
+    "type": "Basic",
+    "level": 20,
+    "triggers_gcd": true
   },
   "tight": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Tight Bindings",
+    "type": "Threshold",
+    "level": 3,
+    "triggers_gcd": true
   },
-  "touchofdeath": {
+  "rapid": {
+    "common_name": "Rapid Fire",
+    "type": "Threshold",
+    "level": 37,
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 8
   },
-  "transfigure": {
+  "ricochet": {
+    "common_name": "Ricochet",
+    "type": "Basic",
+    "level": 45,
+    "triggers_gcd": true
+  },
+  "grico": {
+    "common_name": "Greater Ricochet",
+    "type": "Basic",
+    "level": 45,
+    "triggers_gcd": true
+  },
+  "snipe": {
+    "common_name": "Snipe",
+    "type": "Basic",
+    "level": 5,
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 4
+  },
+  "bombard": {
+    "common_name": "Bombardment",
+    "type": "Threshold",
+    "level": 55,
+    "triggers_gcd": true
+  },
+  "stw": {
+    "common_name": "Salt the Wound",
+    "type": "Threshold",
+    "level": 65,
+    "triggers_gcd": true
+  },
+  "incend": {
+    "common_name": "Incendiary Shot",
+    "type": "Ultimate",
+    "level": 66,
+    "triggers_gcd": true
+  },
+  "corruptshot": {
+    "common_name": "Corruption Shot",
+    "type": "Basic",
+    "level": 70,
+    "triggers_gcd": true
+  },
+  "shadowtend": {
+    "common_name": "Shadow Tendrils",
+    "type": "Threshold",
+    "level": 75,
+    "triggers_gcd": true
+  },
+  "dazing": {
+    "common_name": "Dazing Shot",
+    "type": "Basic",
+    "level": 8,
+    "triggers_gcd": true
+  },
+  "mds": {
+    "common_name": "Greater Dazing Shot",
+    "type": "Basic",
+    "level": 8,
+    "triggers_gcd": true
+  },
+  "unload": {
+    "common_name": "Unload",
+    "type": "Ultimate",
+    "level": 81,
+    "triggers_gcd": true,
+    "cast_duration": 8
+  },
+  "deathsswift": {
+    "common_name": "Death's Swiftness",
+    "type": "Ultimate",
+    "level": 85,
+    "triggers_gcd": true
+  },
+  "gdeathsswift": {
+    "common_name": "Greater Death's Swiftness",
+    "type": "Ultimate",
+    "level": 85,
+    "triggers_gcd": true
+  },
+  "quiverslot1": {
+    "triggers_gcd": true
+  },
+  "quiverslot2": {
+    "triggers_gcd": true
   },
   "tsunami": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Tsunami",
+    "type": "Ultimate",
+    "level": 81
   },
-  "tuskas": {
+  "gsunshine": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Greater Sunshine",
+    "type": "Ultimate",
+    "level": 85
   },
-  "undeadslayer": {
+  "sunshine": {
     "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "unload": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9,
-    "cast_duration" : 8
-  },
-  "sbsstandards": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "volleyofsouls": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "spec": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
-  },
-  "wm": {
-    "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "common_name": "Sunshine",
+    "type": "Ultimate",
+    "level": 85
   },
   "wrack": {
+    "common_name": "Wrack",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "impact": {
+    "common_name": "Impact",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "asphyx": {
+    "common_name": "Asphyxiate",
+    "type": "Threshold",
+    "level": 0,
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 8
   },
   "wrackandruin": {
+    "common_name": "Wrack and Ruin",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "shock": {
+    "common_name": "Shock",
+    "type": "Basic",
+    "level": 10,
+    "triggers_gcd": true
+  },
+  "conc": {
+    "common_name": "Concentrated Blast",
+    "type": "Basic",
+    "level": 12,
     "triggers_gcd": true,
-    "detection_threshold": 0.9
+    "cast_duration": 8
+  },
+  "gconc": {
+    "common_name": "Greater Concentrated Blast",
+    "type": "Basic",
+    "level": 12,
+    "triggers_gcd": true,
+    "cast_duration": 8
+  },
+  "horror": {
+    "common_name": "Horror",
+    "type": "Threshold",
+    "level": 15,
+    "triggers_gcd": true
+  },
+  "omni": {
+    "common_name": "Omnipower",
+    "type": "Ultimate",
+    "level": 2,
+    "triggers_gcd": true
+  },
+  "comb": {
+    "common_name": "Combust",
+    "type": "Basic",
+    "level": 20,
+    "triggers_gcd": true
+  },
+  "deep": {
+    "common_name": "Deep Impact",
+    "type": "Threshold",
+    "level": 3,
+    "triggers_gcd": true
+  },
+  "deto": {
+    "common_name": "Detonate",
+    "type": "Threshold",
+    "level": 37,
+    "triggers_gcd": true
+  },
+  "chain": {
+    "common_name": "Chain",
+    "type": "Basic",
+    "level": 45,
+    "triggers_gcd": true
+  },
+  "gchain": {
+    "common_name": "Greater Chain",
+    "type": "Basic",
+    "level": 45,
+    "triggers_gcd": true
+  },
+  "dbreath": {
+    "common_name": "Dragon Breath",
+    "type": "Basic",
+    "level": 5,
+    "triggers_gcd": true
+  },
+  "wm": {
+    "common_name": "Wild Magic",
+    "type": "Threshold",
+    "level": 55,
+    "triggers_gcd": true
+  },
+  "goldentouch": {
+    "common_name": "Golden Touch",
+    "type": "Basic",
+    "level": 55,
+    "triggers_gcd": true
+  },
+  "meta": {
+    "common_name": "Metamorphosis",
+    "type": "Ultimate",
+    "level": 66,
+    "triggers_gcd": true
+  },
+  "magmatempest": {
+    "common_name": "Magma Tempest",
+    "type": "Basic",
+    "level": 66,
+    "triggers_gcd": true
+  },
+  "corruptblast": {
+    "common_name": "Corruption Blast",
+    "type": "Basic",
+    "level": 70,
+    "triggers_gcd": true
+  },
+  "smoketendrils": {
+    "common_name": "Smoke Tendrils",
+    "type": "Threshold",
+    "level": 75,
+    "triggers_gcd": true,
+    "cast_duration": 8
+  },
+  "gsonicwave": {
+    "common_name": "Greater Sonic Wave",
+    "type": "Basic",
+    "level": 75,
+    "triggers_gcd": true
+  },
+  "sonicwave": {
+    "common_name": "Sonic Wave",
+    "type": "Basic",
+    "level": 8,
+    "triggers_gcd": true
+  },
+  "necroauto": {
+    "common_name": "Necromancy",
+    "type": "Other",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "touchofdeath": {
+    "common_name": "Touch of Death",
+    "type": "Basic",
+    "level": 13,
+    "triggers_gcd": true
+  },
+  "conjureskeleton": {
+    "common_name": "Conjure Skeleton Warrior",
+    "type": "Other",
+    "level": 2,
+    "triggers_gcd": true
+  },
+  "commandskeleton": {
+    "common_name": "Command Skeleton Warrior",
+    "type": "Other",
+    "level": 20,
+    "triggers_gcd": true
+  },
+  "deathskulls": {
+    "common_name": "Death Skulls",
+    "type": "Ultimate",
+    "level": 28,
+    "triggers_gcd": true
+  },
+  "bloodsiphon": {
+    "common_name": "Blood Siphon",
+    "type": "Other",
+    "level": 36,
+    "triggers_gcd": true,
+    "cast_duration": 8
+  },
+  "conjurezombie": {
+    "common_name": "Conjure Putrid Zombie",
+    "type": "Other",
+    "level": 40,
+    "triggers_gcd": true
+  },
+  "conjureghost": {
+    "common_name": "Conjure Vengeful Ghost",
+    "type": "Other",
+    "level": 40,
+    "triggers_gcd": true
+  },
+  "bloat": {
+    "common_name": "Bloat",
+    "type": "Other",
+    "level": 48,
+    "triggers_gcd": true
+  },
+  "soulsap": {
+    "common_name": "Soul Sap",
+    "type": "Basic",
+    "level": 54,
+    "triggers_gcd": true
+  },
+  "soulstrike": {
+    "common_name": "Soul Strike",
+    "type": "Other",
+    "level": 54,
+    "triggers_gcd": true
+  },
+  "commandzombie": {
+    "common_name": "Command Putrid Zombie",
+    "type": "Other",
+    "level": 60,
+    "triggers_gcd": true
+  },
+  "commandghost": {
+    "common_name": "Command Vengeful Ghost",
+    "type": "Other",
+    "level": 60,
+    "triggers_gcd": true
+  },
+  "spectralscythe": {
+    "common_name": "Spectral Scythe",
+    "type": "Other",
+    "level": 62,
+    "triggers_gcd": true
+  },
+  "volleyofsouls": {
+    "common_name": "Volley of Souls",
+    "type": "Other",
+    "level": 66,
+    "triggers_gcd": true
+  },
+  "spectralscythe2": {
+    "common_name": "Spectral Scythe",
+    "type": "Other",
+    "level": 70,
+    "triggers_gcd": true
+  },
+  "conjurephantom": {
+    "common_name": "Conjure Phantom Guardian",
+    "type": "Other",
+    "level": 70,
+    "triggers_gcd": true
+  },
+  "livingdeath": {
+    "common_name": "Living Death",
+    "type": "Ultimate",
+    "level": 76,
+    "triggers_gcd": true
+  },
+  "fingerofdeath": {
+    "common_name": "Finger of Death",
+    "type": "Other",
+    "level": 8,
+    "triggers_gcd": true
+  },
+  "spectralscythe3": {
+    "common_name": "Spectral Scythe",
+    "type": "Other",
+    "level": 80,
+    "triggers_gcd": true
+  },
+  "commandphantom": {
+    "common_name": "Command Phantom Guardian",
+    "type": "Other",
+    "level": 80,
+    "triggers_gcd": true
+  },
+  "conjurearmy": {
+    "common_name": "Conjure Undead Army",
+    "type": "Other",
+    "level": 99,
+    "triggers_gcd": true
+  },
+  "cease": {
+    "common_name": "Cease",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "devo": {
+    "common_name": "Devotion",
+    "type": "Threshold",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "revenge": {
+    "common_name": "Revenge",
+    "type": "Threshold",
+    "level": 15,
+    "triggers_gcd": true
+  },
+  "voke": {
+    "common_name": "Provoke",
+    "type": "Basic",
+    "level": 24,
+    "triggers_gcd": true
+  },
+  "immort": {
+    "common_name": "Immortality",
+    "type": "Ultimate",
+    "level": 29,
+    "triggers_gcd": true
+  },
+  "anti": {
+    "common_name": "Anticipation",
+    "type": "Basic",
+    "level": 3,
+    "triggers_gcd": true
+  },
+  "freedom": {
+    "common_name": "Freedom",
+    "type": "Basic",
+    "level": 34,
+    "triggers_gcd": true
+  },
+  "reflect": {
+    "common_name": "Reflect",
+    "type": "Threshold",
+    "level": 37,
+    "triggers_gcd": true
+  },
+  "res": {
+    "common_name": "Resonance",
+    "type": "Basic",
+    "level": 48,
+    "triggers_gcd": true
+  },
+  "divert": {
+    "common_name": "Divert",
+    "type": "Basic",
+    "level": 48,
+    "triggers_gcd": true
+  },
+  "rejuvenate": {
+    "common_name": "Rejuvenate",
+    "type": "Ultimate",
+    "level": 52,
+    "triggers_gcd": true
+  },
+  "debil": {
+    "common_name": "Debilitate",
+    "type": "Threshold",
+    "level": 55,
+    "triggers_gcd": true
+  },
+  "prep": {
+    "common_name": "Preparation",
+    "type": "Basic",
+    "level": 67,
+    "triggers_gcd": true
+  },
+  "barricade": {
+    "common_name": "Barricade",
+    "type": "Ultimate",
+    "level": 81,
+    "triggers_gcd": true
+  },
+  "naturalinstinct": {
+    "common_name": "Natural Instinct",
+    "type": "Ultimate",
+    "level": 85,
+    "triggers_gcd": true
+  },
+  "eatfood": {
+    "common_name": "Eat Food",
+    "type": "Basic",
+    "level": 0,
+    "triggers_gcd": true
+  },
+  "sacrifice": {
+    "common_name": "Sacrifice",
+    "type": "Basic",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "transfigure": {
+    "common_name": "Transfigure",
+    "type": "Ultimate",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "ingen": {
+    "common_name": "Ingenuity of the Humans",
+    "type": "Basic",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "limitless": {
+    "common_name": "Limitless",
+    "type": "Basic",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "dragonslayer": {
+    "common_name": "Dragon Slayer",
+    "type": "Basic",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "demonslayer": {
+    "common_name": "Demon Slayer",
+    "type": "Basic",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "undeadslayer": {
+    "common_name": "Undead Slayer",
+    "type": "Basic",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "eofspec": {
+    "common_name": "Essence of Finality",
+    "type": "Basic",
+    "level": 1,
+    "triggers_gcd": true
+  },
+  "aggression": {
+    "common_name": "Aggressive Stance",
+    "type": "Basic",
+    "level": 10,
+    "triggers_gcd": true
+  },
+  "siphon": {
+    "common_name": "Siphon",
+    "type": "Basic",
+    "level": 20,
+    "triggers_gcd": true
+  },
+  "incite": {
+    "common_name": "Incite",
+    "type": "Basic",
+    "level": 24,
+    "triggers_gcd": true
+  },
+  "tuskas": {
+    "common_name": "Tuska's Wrath",
+    "type": "Basic",
+    "level": 50,
+    "triggers_gcd": true
+  },
+  "shatter": {
+    "common_name": "Shatter",
+    "type": "Threshold",
+    "level": 70,
+    "triggers_gcd": true
+  },
+  "stormshards": {
+    "common_name": "Storm Shards",
+    "type": "Basic",
+    "level": 70,
+    "triggers_gcd": true
+  },
+  "guthixsblessing": {
+    "common_name": "Guthix's Blessing",
+    "type": "Ultimate",
+    "level": 85,
+    "triggers_gcd": true
+  },
+  "reprisal": {
+    "common_name": "Reprisal",
+    "type": "Threshold",
+    "level": 85,
+    "triggers_gcd": true
+  },
+  "onsl": {
+    "common_name": "Onslaught",
+    "type": "Ultimate",
+    "level": 90,
+    "triggers_gcd": true
+  },
+  "iceasylum": {
+    "common_name": "Ice Asylum",
+    "type": "Ultimate",
+    "level": 91,
+    "triggers_gcd": true
+  },
+  "dive": {
+    "triggers_gcd": true
+  },
+  "escape": {
+    "triggers_gcd": true
+  },
+  "surge": {
+    "triggers_gcd": true
+  },
+  "spec": {
+    "triggers_gcd": true
   }
-
 }

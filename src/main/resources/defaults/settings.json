@@ -10,10 +10,52 @@
     "screenHeight": 1400,
     "timestamp": "2025-09-03T12:06:33.670Z"
   },
-  "updated": "2025-09-03T12:06:33.747Z",
+  "updated": "2025-11-06T09:07:49.788305300Z",
   "detection" : {
     "intervalMs" : 100,
     "confidenceThreshold" : 0.8,
     "enableOverlay" : true
+  },
+  "rotation": {
+    "selectedId": "9c858901-8a57-4791-81fe-4c455b099bc9"
+  },
+  "hotkeys": {
+    "schema": 1,
+    "bindings": [
+      {
+        "action": "detection.start",
+        "userEnabled": true,
+        "global": [
+          [
+            "Ctrl",
+            "F1"
+          ]
+        ],
+        "user": [
+          [
+            "Alt",
+            "u"
+          ]
+        ],
+        "scope": "global"
+      },
+      {
+        "action": "detection.restart",
+        "userEnabled": true,
+        "global": [
+          [
+            "Ctrl",
+            "F2"
+          ]
+        ],
+        "user": [
+          [
+            "Alt",
+            "p"
+          ]
+        ],
+        "scope": "global"
+      }
+    ]
   }
 }
