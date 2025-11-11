@@ -4,12 +4,16 @@ import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 public class SequenceManager {
+
+	private static final Logger logger = LoggerFactory.getLogger(SequenceManager.class);
 
 	private final AbilityConfig abilityConfig;
 	private final Map<String, SequenceDefinition> namedSequences;
@@ -28,11 +32,11 @@ public class SequenceManager {
 	// -------------------------
 
 	public synchronized boolean activateSequence(String name) {
-		System.out.println("SequenceManager: Activating sequence: " + name);
+		logger.info("Activating sequence: {}", name);
 		SequenceDefinition def = namedSequences.get(name);
 		if (def == null) {
-			System.out.println("SequenceManager: Sequence not found: " + name);
-			System.out.println("Available sequences: " + namedSequences.keySet());
+			logger.warn("Sequence not found: {}", name);
+			logger.debug("Available sequences: {}", namedSequences.keySet());
 			return false;
 		}
 
@@ -47,7 +51,7 @@ public class SequenceManager {
 			activeSequence.stepTimer.pause();
 		}
 
-		System.out.println("SequenceManager: Sequence activated successfully");
+		logger.info("Sequence '{}' activated successfully.", name);
 		return true;
 	}
 	/**
@@ -55,78 +59,79 @@ public class SequenceManager {
 	 */
 	public synchronized List<ActiveSequence.DetectionRequirement> getDetectionRequirements() {
 		if (activeSequence == null) {
-			System.out.println("SequenceManager: No active sequence (requirements)");
+			logger.debug("No active sequence when requesting detection requirements.");
 			return List.of();
 		}
 		List<ActiveSequence.DetectionRequirement> requirements = activeSequence.getDetectionRequirements();
-		System.out.println("SequenceManager.getDetectionRequirements: " + requirements);
+		logger.trace("Detection requirements: {}", requirements);
 		return requirements;
 	}
 
 	public synchronized void processDetection(List<DetectionResult> results) {
 
-		System.out.println("SequenceManager.processDetection called with " + results.size() + " results");
+		logger.debug("Processing {} detection results.", results.size());
 
 		if (activeSequence != null) {
 			// Log each detection result
 			for (DetectionResult result : results) {
 				String abilityKey = activeSequence.getAbilityKeyForInstance(result.templateName);
-				System.out.println("  Detection: " + result.templateName +
-						(abilityKey != null ? " (" + abilityKey + ")" : "") +
-						" found=" + result.found +
-						" confidence=" + result.confidence);
+				logger.trace("Detection {}{} found={} confidence={}",
+						result.templateName,
+						abilityKey != null ? " (" + abilityKey + ")" : "",
+						result.found,
+						result.confidence);
 			}
 
 			activeSequence.processDetections(results);
 		} else {
-			System.out.println("SequenceManager: No active sequence to process detections");
+			logger.warn("No active sequence available to process detections.");
 		}
 	}
 
 	public synchronized List<DetectionResult> getCurrentAbilities() {
 		if (activeSequence == null) {
-			System.out.println("SequenceManager.getCurrentAbilities: No active sequence");
+			logger.debug("getCurrentAbilities requested but no active sequence.");
 			return List.of();
 		}
 		List<DetectionResult> current = activeSequence.getCurrentAbilities();
-		System.out.println("SequenceManager.getCurrentAbilities: " + current.size() + " abilities");
+		logger.trace("Current abilities count: {}", current.size());
 		return current;
 	}
 
 	public synchronized List<DetectionResult> getNextAbilities() {
 		if (activeSequence == null) {
-			System.out.println("SequenceManager.getNextAbilities: No active sequence");
+			logger.debug("getNextAbilities requested but no active sequence.");
 			return List.of();
 		}
 		List<DetectionResult> next = activeSequence.getNextAbilities();
-		System.out.println("SequenceManager.getNextAbilities: " + next.size() + " abilities");
+		logger.trace("Next abilities count: {}", next.size());
 		return next;
 	}
 
 	public synchronized List<String> getActiveSequenceAbilityKeys() {
 		if (activeSequence == null) {
-			System.out.println("SequenceManager.getActiveSequenceAbilityKeys: No active sequence");
+			logger.debug("getActiveSequenceAbilityKeys requested but no active sequence.");
 			return List.of();
 		}
 		List<String> keys = activeSequence.getAllAbilityKeys();
-		System.out.println("SequenceManager.getActiveSequenceAbilityKeys: " + keys.size() + " abilities");
+		logger.trace("Active sequence ability keys count: {}", keys.size());
 		return keys;
 	}
 
 	public synchronized void addNamedSequence(String name, SequenceDefinition def) {
-		System.out.println("SequenceManager: Adding named sequence: " + name);
+		logger.info("Adding named sequence: {}", name);
 		namedSequences.put(name, def);
 	}
 
 
 	public synchronized void resetActiveSequence() {
-		System.out.println("SequenceManager: Resetting active sequence");
+		logger.info("Resetting active sequence.");
 		if (activeSequence != null) activeSequence.reset();
 	}
 
 	public synchronized boolean hasActiveSequence() {
 		boolean hasActive = activeSequence != null;
-		System.out.println("SequenceManager.hasActiveSequence: " + hasActive);
+		logger.debug("hasActiveSequence -> {}", hasActive);
 		return hasActive;
 	}
 }

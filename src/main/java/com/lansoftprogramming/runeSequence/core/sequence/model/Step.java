@@ -1,7 +1,9 @@
 package com.lansoftprogramming.runeSequence.core.sequence.model;
 
-import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
+import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +11,7 @@ import java.util.Map;
 
 public class Step {
 
+	private static final Logger logger = LoggerFactory.getLogger(Step.class);
 	private final List<Term> terms;
 
 	public Step(List<Term> terms) {
@@ -35,14 +38,12 @@ public class Step {
 	private void collectDetectable(Alternative alt, AbilityConfig abilityCfg, List<String> out) {
 		if (alt.isToken()) {
 			String tokenName = alt.getToken();
-			System.out.println("Checking token: '" + tokenName + "'");
 
 			if (abilityCfg.getAbility(tokenName) != null) {
 				out.add(tokenName);
-				System.out.println("Added token: '" + tokenName + "'");
+				logger.trace("Added token '{}'", tokenName);
 			} else {
-				System.out.println("Token not found in AbilityConfig: '" + tokenName + "'");
-				System.out.println("Available abilities: " + abilityCfg.getAbilities().keySet());
+				logger.debug("Token '{}' not found in AbilityConfig. Available abilities: {}", tokenName, abilityCfg.getAbilities().keySet());
 			}
 		} else {
 			// Handle subgroup - recursively process ALL steps, not just first
@@ -56,37 +57,13 @@ public class Step {
 		}
 	}
 
-	public void debugStep(AbilityConfig abilityCfg) {
-		System.out.println("=== DEBUG STEP ===");
-		System.out.println("Terms count: " + terms.size());
-
-		for (int i = 0; i < terms.size(); i++) {
-			Term term = terms.get(i);
-			System.out.println("Term[" + i + "] alternatives: " + term.getAlternatives().size());
-
-			for (int j = 0; j < term.getAlternatives().size(); j++) {
-				Alternative alt = term.getAlternatives().get(j);
-				System.out.println("  Alt[" + j + "] isToken: " + alt.isToken());
-				if (alt.isToken()) {
-					System.out.println("    Token: '" + alt.getToken() + "'");
-					System.out.println("    Exists in config: " + (abilityCfg.getAbility(alt.getToken()) != null));
-				}
-			}
-		}
-
-		// TODO: The config is no longer available here, this method may need to be moved
-		// or the config passed in from a higher level for debugging.
-		// List<String> detectableTokens = getDetectableTokens(abilityCfg);
-		// System.out.println("Detectable tokens: " + detectableTokens);
-		System.out.println("=================");
-	}
 
 	/**
 	 * For overlay: flatten alternatives into DetectionResults using lastDetections
 	 */
 	public List<DetectionResult> flattenDetections(Map<String, DetectionResult> lastDetections) {
 
-		System.out.println("Step.flattenDetections: Processing " + terms.size() + " terms");
+		logger.trace("Flattening detections for {} terms.", terms.size());
 		List<DetectionResult> out = new ArrayList<>();
 
 		for (Term t : terms) {
@@ -98,14 +75,15 @@ public class Step {
 		}
 
 
-		System.out.println("Step.flattenDetections: Returning " + out.size() + " results");
+		logger.trace("Flatten detections returning {} results.", out.size());
 		return out;
 	}
 
-	// FIXED: Handle subgroups properly - process ALL steps, not just first
-	private void collectDetections(Alternative alt, Map<String, DetectionResult> lastDetections, List<DetectionResult> out, boolean parentTermIsAlternative) {
+	//Handle subgroups properly - process ALL steps, not just first
+	private void collectDetections(Alternative alt, Map<String, DetectionResult> lastDetections, List<DetectionResult>
+			out, boolean parentTermIsAlternative) {
 
-		System.out.println("Step.collectDetections: Processing alternative, isToken=" + alt.isToken() + ", parentTermIsAlternative=" + parentTermIsAlternative);
+		logger.trace("Processing alternative isToken={} parentTermIsAlternative={}", alt.isToken(), parentTermIsAlternative);
 
 		if (alt.isToken()) {
 			String tokenName = alt.getToken();
@@ -135,28 +113,20 @@ public class Step {
 			}
 			out.add(r);
 
-			System.out.println("  Added token result: " + tokenName + " found=" + r.found + " isAlternative=" + r.isAlternative);
+			logger.trace("Added token result '{}' found={} isAlternative={}", tokenName, r.found, r.isAlternative);
 		} else {
 			// FIXED: Process ALL steps in the subgroup, not just the first
 
-			System.out.println("  Processing subgroup with " + alt.getSubgroup().getSteps().size() + " steps");
+			logger.trace("Processing subgroup with {} steps.", alt.getSubgroup().getSteps().size());
 
 
 			for (Step step : alt.getSubgroup().getSteps()) {
-
-				System.out.println("    Processing subgroup step with " + step.getTerms().size() + " terms");
-
 				for (Term term : step.getTerms()) {
-
 					boolean termIsAlternative = term.getAlternatives().size() > 1;
 					for (Alternative alternative : term.getAlternatives()) {
-
 						collectDetections(alternative, lastDetections, out, termIsAlternative);
-
 					}
-
 				}
-
 			}
 		}
 	}

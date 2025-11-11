@@ -69,47 +69,38 @@ public class DetectionEngine {
 	}
 
 	private void processFrame() {
-		System.out.println("DetectionEngine: State=" + sequenceController.getState());
-		// SAFETY: Check overlay data before rendering
-		System.out.println("DetectionEngine: About to update overlays...");
+		logger.debug("Processing frame in state={}", sequenceController.getState());
+		// SAFETY: Check overlay data before rendering so stale overlays are avoided
 		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
 		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
 
-		System.out.println("Current abilities count: " + currentAbilities.size());
+		logger.trace("Current abilities count: {}", currentAbilities.size());
 		for (DetectionResult r : currentAbilities) {
-			System.out.println("  Current: " + r.templateName + " found=" + r.found +
-					" boundingBox=" + r.boundingBox);
+			logger.trace("Current ability {} found={} boundingBox={}", r.templateName, r.found, r.boundingBox);
 		}
 
-		System.out.println("Next abilities count: " + nextAbilities.size());
+		logger.trace("Next abilities count: {}", nextAbilities.size());
 		for (DetectionResult r : nextAbilities) {
-			System.out.println("  Next: " + r.templateName + " found=" + r.found +
-					" boundingBox=" + r.boundingBox);
+			logger.trace("Next ability {} found={} boundingBox={}", r.templateName, r.found, r.boundingBox);
 		}
 
 		try {
 			// Update overlays
 			updateOverlays();
-			System.out.println("DetectionEngine: Overlays updated successfully");
+			logger.trace("Overlays updated successfully.");
 		} catch (Exception e) {
-			System.err.println("DetectionEngine: OVERLAY CRASH: " + e.getMessage());
-			e.printStackTrace();
+			logger.error("Overlay update failed.", e);
 			throw e;
 		}
-		System.out.println("DetectionEngine.processFrame: Starting");
-
 		try {
 			long startTime = System.nanoTime();
 
 			Mat screenMat = screenCapture.captureScreen();
 			if (screenMat == null || screenMat.empty()) {
 
-				System.out.println("DetectionEngine: Screen capture failed");
+				logger.warn("Screen capture failed; skipping frame.");
 				return;
 			}
-
-
-			System.out.println("DetectionEngine: Screen captured successfully");
 
 			// Pre-cache locations for entire sequence so ROI searches are ready
 			List<String> abilitiesToCache = sequenceManager.getActiveSequenceAbilityKeys();
@@ -118,43 +109,38 @@ public class DetectionEngine {
 			// Get required template occurrences
 			List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
 
-			System.out.println("DetectionEngine: Detection requirements: " + requirements);
+			logger.trace("Detection requirements: {}", requirements);
 
 			if (requirements.isEmpty()) {
-
-				System.out.println("DetectionEngine: No templates required");
 				screenMat.close();
 				return;
 			}
 
 			// Detect all required templates
 
-			System.out.println("DetectionEngine: Starting template detection");
+			logger.debug("Starting template detection for {} requirements.", requirements.size());
 			List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
 			Map<String, DetectionResult> detectionByAbility = new HashMap<>(preloadedDetections);
 
 			for (ActiveSequence.DetectionRequirement requirement : requirements) {
 				DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());
 				if (baseResult == null) {
-					System.out.println("  Detecting ability: " + requirement.abilityKey());
+					logger.trace("Detecting ability {}", requirement.abilityKey());
 					baseResult = detector.detectTemplate(screenMat, requirement.abilityKey(), false);
 					detectionByAbility.put(requirement.abilityKey(), baseResult);
-					System.out.println("    Base result: found=" + baseResult.found +
-							" confidence=" + baseResult.confidence);
+					logger.trace("Base result: found={} confidence={}", baseResult.found, baseResult.confidence);
 				} else {
-					System.out.println("  Reusing detection for ability: " + requirement.abilityKey());
+					logger.trace("Reusing cached detection for ability {}", requirement.abilityKey());
 				}
 
 				DetectionResult adapted = adaptDetectionResult(requirement, baseResult);
 				detectionResults.add(adapted);
-				System.out.println("    Occurrence: " + requirement.instanceId() +
-						" found=" + adapted.found +
-						" confidence=" + adapted.confidence +
-						" isAlternative=" + adapted.isAlternative);
+				logger.trace("Occurrence {} found={} confidence={} isAlternative={}", requirement.instanceId(),
+						adapted.found, adapted.confidence, adapted.isAlternative);
 			}
 
 
-			System.out.println("DetectionEngine: Detection complete, " + detectionResults.size() + " results");
+			logger.debug("Detection complete with {} results.", detectionResults.size());
 
 			// Process results through sequence manager
 			sequenceManager.processDetection(detectionResults);
@@ -171,8 +157,6 @@ public class DetectionEngine {
 
 		} catch (Exception e) {
 
-			System.err.println("DetectionEngine.processFrame ERROR: " + e.getMessage());
-			e.printStackTrace();
 			logger.error("Error in detection frame", e);
 		}
 	}
@@ -186,7 +170,7 @@ public class DetectionEngine {
 		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
 
 
-		System.out.println("DetectionEngine.updateOverlays: current=" + currentAbilities.size() + " next=" + nextAbilities.size());
+		logger.trace("Updating overlays: current={} next={}", currentAbilities.size(), nextAbilities.size());
 
 		overlay.updateOverlays(currentAbilities, nextAbilities);
 	}
