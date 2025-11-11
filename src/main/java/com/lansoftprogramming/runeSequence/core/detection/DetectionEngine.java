@@ -27,6 +27,9 @@ public class DetectionEngine {
 	private final OverlayRenderer overlay;
 	private final int detectionIntervalMs;
 	private final SequenceController sequenceController;
+	private SequenceController.State lastSequenceState;
+	private List<String> cachedAbilityKeyOrder = List.of();
+	private boolean needsAbilityPrecache = true;
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
@@ -40,6 +43,7 @@ public class DetectionEngine {
 		this.overlay = overlay;
 		this.detectionIntervalMs = detectionIntervalMs;
 		this.sequenceController = sequenceController;
+		this.lastSequenceState = sequenceController != null ? sequenceController.getState() : SequenceController.State.READY;
 	}
 
 	public void start() {
@@ -65,11 +69,16 @@ public class DetectionEngine {
 			scheduler.shutdown();
 		}
 		overlay.clearOverlays();
+		needsAbilityPrecache = true;
+		cachedAbilityKeyOrder = List.of();
+		lastSequenceState = sequenceController != null ? sequenceController.getState() : SequenceController.State.READY;
 		logger.info("Detection engine stopped");
 	}
 
 	private void processFrame() {
-		logger.debug("Processing frame in state={}", sequenceController.getState());
+		SequenceController.State currentState = sequenceController.getState();
+		logger.debug("Processing frame in state={}", currentState);
+		trackSequenceState(currentState);
 		// SAFETY: Check overlay data before rendering so stale overlays are avoided
 		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
 		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
@@ -103,8 +112,7 @@ public class DetectionEngine {
 			}
 
 			// Pre-cache locations for entire sequence so ROI searches are ready
-			List<String> abilitiesToCache = sequenceManager.getActiveSequenceAbilityKeys();
-			Map<String, DetectionResult> preloadedDetections = detector.cacheAbilityLocations(screenMat, abilitiesToCache);
+			Map<String, DetectionResult> preloadedDetections = maybePrimeAbilityCache(screenMat);
 
 			// Get required template occurrences
 			List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
@@ -186,5 +194,45 @@ public class DetectionEngine {
 			return DetectionResult.found(requirement.instanceId(), locationCopy, base.confidence, boundsCopy, requirement.isAlternative());
 		}
 		return DetectionResult.notFound(requirement.instanceId(), requirement.isAlternative());
+	}
+
+	private void trackSequenceState(SequenceController.State current) {
+		if (sequenceController == null || current == null) {
+			return;
+		}
+		if (current != lastSequenceState) {
+			logger.debug("Sequence state changed from {} to {}", lastSequenceState, current);
+			if (current == SequenceController.State.RUNNING) {
+				needsAbilityPrecache = true;
+			}
+			lastSequenceState = current;
+		}
+	}
+
+	private Map<String, DetectionResult> maybePrimeAbilityCache(Mat screenMat) {
+		if (screenMat == null || screenMat.empty()) {
+			return Map.of();
+		}
+
+		List<String> abilityKeys = sequenceManager.getActiveSequenceAbilityKeys();
+		if (abilityKeys.isEmpty()) {
+			cachedAbilityKeyOrder = List.of();
+			needsAbilityPrecache = true;
+			return Map.of();
+		}
+
+		if (!abilityKeys.equals(cachedAbilityKeyOrder)) {
+			cachedAbilityKeyOrder = List.copyOf(abilityKeys);
+			needsAbilityPrecache = true;
+		}
+
+		if (!needsAbilityPrecache) {
+			return Map.of();
+		}
+
+		logger.debug("Priming ability cache for {} abilities.", abilityKeys.size());
+		Map<String, DetectionResult> preloaded = detector.cacheAbilityLocations(screenMat, abilityKeys);
+		needsAbilityPrecache = false;
+		return preloaded;
 	}
 }

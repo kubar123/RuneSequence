@@ -113,13 +113,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 		List<DetectionResult> next = buildDetectionsForStep(currentStepIndex + 1);
 		System.out.println("ActiveSequence.getNextAbilities: " + next.size() + " abilities");
-
-		for (DetectionResult result : next) {
-			String abilityKey = getAbilityKeyForInstance(result.templateName);
-			System.out.println("  Next ability: " + result.templateName +
-					(abilityKey != null ? " (" + abilityKey + ")" : "") +
-					" found=" + result.found);
-		}
+		
 		return next;
 	}
 
