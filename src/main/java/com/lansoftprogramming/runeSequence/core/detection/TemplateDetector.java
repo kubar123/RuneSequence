@@ -11,8 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.*;
@@ -40,6 +39,33 @@ public class TemplateDetector {
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
 		// Backwards-compatible entrypoint: default isAlternative to false
 		return detectTemplate(screen, templateName, false);
+	}
+
+	public Map<String, DetectionResult> cacheAbilityLocations(Mat screen, Collection<String> abilityKeys) {
+		if (screen == null || screen.empty() || abilityKeys == null || abilityKeys.isEmpty()) {
+			return Collections.emptyMap();
+		}
+
+		LinkedHashSet<String> uniqueKeys = new LinkedHashSet<>(abilityKeys);
+		Map<String, DetectionResult> results = new HashMap<>();
+
+		for (String abilityKey : uniqueKeys) {
+			if (abilityKey == null || abilityKey.isEmpty()) {
+				continue;
+			}
+			if (!templateCache.hasTemplate(abilityKey)) {
+				logger.debug("Skipping pre-cache for {} because no template is loaded", abilityKey);
+				continue;
+			}
+			if (lastKnownLocations.containsKey(abilityKey)) {
+				continue;
+			}
+
+			DetectionResult result = detectTemplate(screen, abilityKey);
+			results.put(abilityKey, result);
+		}
+
+		return results;
 	}
 
 	/**

@@ -266,6 +266,16 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		}
 	}
 
+	public List<String> getAllAbilityKeys() {
+		LinkedHashSet<String> keys = new LinkedHashSet<>();
+		for (List<AbilityInstance> perStep : stepInstances) {
+			for (AbilityInstance instance : perStep) {
+				keys.add(instance.abilityKey);
+			}
+		}
+		return List.copyOf(keys);
+	}
+
 	private void logStepInstances() {
 		for (int i = 0; i < stepInstances.size(); i++) {
 			System.out.println("ActiveSequence.stepInstances[" + i + "]=" + stepInstances.get(i));

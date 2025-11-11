@@ -103,6 +103,16 @@ public class SequenceManager {
 		return next;
 	}
 
+	public synchronized List<String> getActiveSequenceAbilityKeys() {
+		if (activeSequence == null) {
+			System.out.println("SequenceManager.getActiveSequenceAbilityKeys: No active sequence");
+			return List.of();
+		}
+		List<String> keys = activeSequence.getAllAbilityKeys();
+		System.out.println("SequenceManager.getActiveSequenceAbilityKeys: " + keys.size() + " abilities");
+		return keys;
+	}
+
 	public synchronized void addNamedSequence(String name, SequenceDefinition def) {
 		System.out.println("SequenceManager: Adding named sequence: " + name);
 		namedSequences.put(name, def);

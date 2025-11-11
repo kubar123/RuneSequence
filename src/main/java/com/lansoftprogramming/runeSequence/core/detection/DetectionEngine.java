@@ -111,6 +111,10 @@ public class DetectionEngine {
 
 			System.out.println("DetectionEngine: Screen captured successfully");
 
+			// Pre-cache locations for entire sequence so ROI searches are ready
+			List<String> abilitiesToCache = sequenceManager.getActiveSequenceAbilityKeys();
+			Map<String, DetectionResult> preloadedDetections = detector.cacheAbilityLocations(screenMat, abilitiesToCache);
+
 			// Get required template occurrences
 			List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
 
@@ -127,7 +131,7 @@ public class DetectionEngine {
 
 			System.out.println("DetectionEngine: Starting template detection");
 			List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
-			Map<String, DetectionResult> detectionByAbility = new HashMap<>();
+			Map<String, DetectionResult> detectionByAbility = new HashMap<>(preloadedDetections);
 
 			for (ActiveSequence.DetectionRequirement requirement : requirements) {
 				DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());

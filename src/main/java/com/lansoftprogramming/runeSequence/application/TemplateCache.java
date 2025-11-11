@@ -128,6 +128,10 @@ public class TemplateCache {
 		return data != null ? data.getTemplate() : null;
 	}
 
+	public boolean hasTemplate(String abilityName) {
+		return cache.containsKey(abilityName);
+	}
+
 	public int getCacheSize() {
 		return cache.size();
 	}
