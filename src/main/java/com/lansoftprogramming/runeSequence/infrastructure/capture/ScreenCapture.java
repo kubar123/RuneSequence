@@ -1,9 +1,9 @@
 package com.lansoftprogramming.runeSequence.infrastructure.capture;
 
+import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.OpenCVFrameConverter;
-//import org.opencv.core.Mat;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.Rect;
 import org.slf4j.Logger;
@@ -19,8 +19,9 @@ public class ScreenCapture {
 	private OpenCVFrameConverter.ToMat converter;
 	private Rectangle captureRegion;
 	private Rectangle screenBounds;
-	private AtomicBoolean isInitialized = new AtomicBoolean(false);
+	private final AtomicBoolean isInitialized = new AtomicBoolean(false);
 	private String platform;
+	private final boolean supportsNativeRegionCapture;
 
 	// Platform-specific capture formats
 	private static final String WINDOWS_FORMAT = "gdigrab";
@@ -28,22 +29,27 @@ public class ScreenCapture {
 	private static final String MACOS_FORMAT = "avfoundation";
 
 	public ScreenCapture() {
+		this(null);
+	}
+
+	public ScreenCapture(AppSettings settings) {
 		detectPlatform();
+		supportsNativeRegionCapture = isNativeRegionCaptureSupported();
 		initializeScreenBounds();
 		converter = new OpenCVFrameConverter.ToMat();
 
-		// Set default to full screen
-		captureRegion = new Rectangle(screenBounds);
+		captureRegion = determineInitialRegion(settings != null ? settings.getRegion() : null);
 
-		logger.info("ScreenCapture initialized for {}: {}x{}",
-				platform, screenBounds.width, screenBounds.height);
+		logger.info("ScreenCapture initialized for {}: capture={} within screen {}x{}",
+				platform, captureRegion, screenBounds.width, screenBounds.height);
 	}
 
 	/**
-	 * Initialize FFmpeg grabber - always captures full screen
+	 * Initialize FFmpeg grabber with the active capture region
 	 */
-	private void initializeGrabber() throws Exception {
+	private synchronized void initializeGrabber() throws Exception {
 		if (grabber != null) {
+			grabber.stop();
 			grabber.close();
 		}
 
@@ -59,14 +65,13 @@ public class ScreenCapture {
 		// GPU acceleration options
 		enableHardwareAcceleration();
 
-		// Always capture full screen - crop in OpenCV
-		grabber.setImageWidth(screenBounds.width);
-		grabber.setImageHeight(screenBounds.height);
+		configureCaptureRegion();
 
 		grabber.start();
 		isInitialized.set(true);
 
-		logger.info("FFmpeg grabber started: {}x{}", screenBounds.width, screenBounds.height);
+		logger.info("FFmpeg grabber started for region {} (nativeRegionCapture={}?)",
+				captureRegion, supportsNativeRegionCapture && !isFullScreen());
 	}
 
 	/**
@@ -90,12 +95,14 @@ public class ScreenCapture {
 				return new Mat();
 			}
 
-			// Crop to region if not full screen
-			if (isFullScreen()) {
-				return fullScreenMat.clone();
-			} else {
-				return cropMatToRegion(fullScreenMat);
+			boolean needsCropping = shouldCropFrame();
+			if (!needsCropping) {
+				Mat clone = fullScreenMat.clone();
+				fullScreenMat.release();
+				return clone;
 			}
+
+			return cropMatToRegion(fullScreenMat);
 
 		} catch (Exception e) {
 			logger.error("Screen capture failed", e);
@@ -132,27 +139,19 @@ public class ScreenCapture {
 	}
 
 	/**
-	 * Set capture region - no restart needed, OpenCV crops
+	 * Set capture region and reconfigure the grabber if required
 	 */
-	public void setRegion(Rectangle region) {
-		if (region == null) {
-			// Reset to full screen
-			captureRegion = new Rectangle(screenBounds);
-		} else {
-			// Validate region bounds
-			Rectangle clampedRegion = new Rectangle(region);
-			clampedRegion = clampedRegion.intersection(screenBounds);
-
-			if (clampedRegion.isEmpty()) {
-				logger.warn("Invalid region {}, using full screen", region);
-				captureRegion = new Rectangle(screenBounds);
-			} else {
-				captureRegion = clampedRegion;
-			}
-		}
+	public synchronized void setRegion(Rectangle region) {
+		Rectangle newRegion = clampRegion(region);
+		Rectangle previous = captureRegion;
+		captureRegion = newRegion;
 
 		logger.debug("Capture region set to: {}", captureRegion);
-		// No restart needed - cropping happens in OpenCV
+
+		boolean regionChanged = previous != null && !previous.equals(captureRegion);
+		if (regionChanged && supportsNativeRegionCapture && isInitialized.get()) {
+			restartGrabber();
+		}
 	}
 
 	/**
@@ -294,6 +293,80 @@ public class ScreenCapture {
 
 		} catch (Exception e) {
 			logger.error("Error during shutdown", e);
+		}
+	}
+
+	private boolean isNativeRegionCaptureSupported() {
+		return "Windows".equals(platform) || "Linux".equals(platform);
+	}
+
+	private Rectangle determineInitialRegion(AppSettings.RegionSettings regionSettings) {
+		if (regionSettings == null) {
+			return new Rectangle(screenBounds);
+		}
+
+		Rectangle desired = regionSettings.toRectangle();
+		return clampRegion(desired);
+	}
+
+	private Rectangle clampRegion(Rectangle region) {
+		if (region == null) {
+			return new Rectangle(screenBounds);
+		}
+
+		Rectangle clamped = new Rectangle(region);
+		clamped = clamped.intersection(screenBounds);
+		if (clamped.isEmpty() || clamped.width <= 0 || clamped.height <= 0) {
+			logger.warn("Invalid region {}, falling back to full screen", region);
+			return new Rectangle(screenBounds);
+		}
+		return clamped;
+	}
+
+	private void configureCaptureRegion() {
+		Rectangle region = isFullScreen() ? screenBounds : captureRegion;
+		grabber.setImageWidth(region.width);
+		grabber.setImageHeight(region.height);
+
+		if (isFullScreen()) {
+			grabber.setOption("video_size", region.width + "x" + region.height);
+			return;
+		}
+
+		if (!supportsNativeRegionCapture) {
+			logger.info("Platform {} does not support native region capture; will crop in software", platform);
+			grabber.setOption("video_size", screenBounds.width + "x" + screenBounds.height);
+			return;
+		}
+
+		switch (platform) {
+			case "Windows":
+				grabber.setOption("video_size", region.width + "x" + region.height);
+				grabber.setOption("offset_x", String.valueOf(region.x));
+				grabber.setOption("offset_y", String.valueOf(region.y));
+				break;
+			case "Linux":
+				grabber.setOption("video_size", region.width + "x" + region.height);
+				grabber.setOption("grab_x", String.valueOf(region.x));
+				grabber.setOption("grab_y", String.valueOf(region.y));
+				break;
+			default:
+				logger.info("Native region capture not configured for platform {}, defaulting to cropping", platform);
+				break;
+		}
+	}
+
+	private boolean shouldCropFrame() {
+		return !isFullScreen() && !supportsNativeRegionCapture;
+	}
+
+	private void restartGrabber() {
+		try {
+			initializeGrabber();
+			logger.info("Capture region updated, grabber restarted for new bounds {}", captureRegion);
+		} catch (Exception e) {
+			logger.error("Failed to restart grabber after region update", e);
+			isInitialized.set(false);
 		}
 	}
 }

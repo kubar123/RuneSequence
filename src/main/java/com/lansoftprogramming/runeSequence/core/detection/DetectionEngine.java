@@ -105,6 +105,7 @@ public class DetectionEngine {
 			long startTime = System.nanoTime();
 
 			Mat screenMat = screenCapture.captureScreen();
+			Rectangle captureRegion = screenCapture.getRegion();
 			if (screenMat == null || screenMat.empty()) {
 
 				logger.warn("Screen capture failed; skipping frame.");
@@ -141,7 +142,7 @@ public class DetectionEngine {
 					logger.trace("Reusing cached detection for ability {}", requirement.abilityKey());
 				}
 
-				DetectionResult adapted = adaptDetectionResult(requirement, baseResult);
+				DetectionResult adapted = adaptDetectionResult(requirement, baseResult, captureRegion);
 				detectionResults.add(adapted);
 				logger.trace("Occurrence {} found={} confidence={} isAlternative={}", requirement.instanceId(),
 						adapted.found, adapted.confidence, adapted.isAlternative);
@@ -187,10 +188,20 @@ public class DetectionEngine {
 		return isRunning;
 	}
 
-	private DetectionResult adaptDetectionResult(ActiveSequence.DetectionRequirement requirement, DetectionResult base) {
+	private DetectionResult adaptDetectionResult(ActiveSequence.DetectionRequirement requirement,
+	                                           DetectionResult base,
+	                                           Rectangle captureRegion) {
+		int offsetX = captureRegion != null ? captureRegion.x : 0;
+		int offsetY = captureRegion != null ? captureRegion.y : 0;
 		if (base != null && base.found) {
 			Point locationCopy = base.location != null ? new Point(base.location) : null;
 			Rectangle boundsCopy = base.boundingBox != null ? new Rectangle(base.boundingBox) : null;
+			if (locationCopy != null) {
+				locationCopy.translate(offsetX, offsetY);
+			}
+			if (boundsCopy != null) {
+				boundsCopy.translate(offsetX, offsetY);
+			}
 			return DetectionResult.found(requirement.instanceId(), locationCopy, base.confidence, boundsCopy, requirement.isAlternative());
 		}
 		return DetectionResult.notFound(requirement.instanceId(), requirement.isAlternative());

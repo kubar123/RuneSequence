@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.infrastructure.config;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.awt.*;
 import java.time.Instant;
 import java.util.List;
 import java.util.logging.Logger;
@@ -169,6 +170,10 @@ public class AppSettings {
 
 		public void setTimestamp(Instant timestamp) {
 			this.timestamp = timestamp;
+		}
+
+		public Rectangle toRectangle() {
+			return new Rectangle(x, y, width, height);
 		}
 	}
 
