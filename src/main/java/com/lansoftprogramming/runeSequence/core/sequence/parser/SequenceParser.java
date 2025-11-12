@@ -39,7 +39,10 @@ public class SequenceParser {
 
 		Tokenizer tokenizer = new Tokenizer();
 		List<Token> tokens = tokenizer.tokenize(input);
-		return new SequenceParser(tokens).parseExpression();
+		SequenceParser parser = new SequenceParser(tokens);
+		SequenceDefinition definition = parser.parseExpression();
+		parser.ensureFullyConsumed();
+		return definition;
 	}
 
 	private SequenceDefinition parseExpression() {
@@ -61,6 +64,7 @@ public class SequenceParser {
 			terms.add(parseTerm());
 		}
 
+		validateTermOrdering(terms);
 		return new Step(terms);
 	}
 
@@ -83,6 +87,7 @@ public class SequenceParser {
 			return new Alternative(inner);
 		} else {
 			Token.Ability abilityToken = consume(Token.Ability.class);
+			validateAbilityName(abilityToken.name());
 			return new Alternative(abilityToken.name());
 		}
 	}
@@ -118,5 +123,30 @@ public class SequenceParser {
 
 	private boolean eof() {
 		return pos >= tokens.size();
+	}
+
+	private void ensureFullyConsumed() {
+		if (!eof()) {
+			Token unexpected = peek();
+			throw new IllegalStateException("Unexpected token " + (unexpected != null ? unexpected.getClass().getSimpleName() : "EOF") + " at position " + pos);
+		}
+	}
+
+	private void validateTermOrdering(List<Term> terms) {
+		if (terms.size() < 3) {
+			return;
+		}
+
+		for (int i = 1; i < terms.size() - 1; i++) {
+			if (terms.get(i).getAlternatives().size() > 1) {
+				throw new IllegalStateException("Cannot nest alternatives between '+' operators without parentheses near term index " + i);
+			}
+		}
+	}
+
+	private void validateAbilityName(String name) {
+		if (name != null && name.indexOf(' ') >= 0 && name.matches("[A-Za-z0-9 ]+")) {
+			throw new IllegalStateException("Missing operator between abilities near '" + name + "'");
+		}
 	}
 }
