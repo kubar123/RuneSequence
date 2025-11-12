@@ -77,26 +77,11 @@ public class DetectionEngine {
 
 	private void processFrame() {
 		SequenceController.State currentState = sequenceController.getState();
-		logger.debug("Processing frame in state={}", currentState);
 		trackSequenceState(currentState);
-		// SAFETY: Check overlay data before rendering so stale overlays are avoided
-		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
-		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
-
-		logger.trace("Current abilities count: {}", currentAbilities.size());
-		for (DetectionResult r : currentAbilities) {
-			logger.trace("Current ability {} found={} boundingBox={}", r.templateName, r.found, r.boundingBox);
-		}
-
-		logger.trace("Next abilities count: {}", nextAbilities.size());
-		for (DetectionResult r : nextAbilities) {
-			logger.trace("Next ability {} found={} boundingBox={}", r.templateName, r.found, r.boundingBox);
-		}
-
+		// SAFETY: refresh overlays before each detection pass so stale frames do not linger
 		try {
 			// Update overlays
 			updateOverlays();
-			logger.trace("Overlays updated successfully.");
 		} catch (Exception e) {
 			logger.error("Overlay update failed.", e);
 			throw e;
@@ -118,38 +103,25 @@ public class DetectionEngine {
 			// Get required template occurrences
 			List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
 
-			logger.trace("Detection requirements: {}", requirements);
-
 			if (requirements.isEmpty()) {
 				screenMat.close();
 				return;
 			}
 
 			// Detect all required templates
-
-			logger.debug("Starting template detection for {} requirements.", requirements.size());
 			List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
 			Map<String, DetectionResult> detectionByAbility = new HashMap<>(preloadedDetections);
 
 			for (ActiveSequence.DetectionRequirement requirement : requirements) {
 				DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());
 				if (baseResult == null) {
-					logger.trace("Detecting ability {}", requirement.abilityKey());
 					baseResult = detector.detectTemplate(screenMat, requirement.abilityKey(), false);
 					detectionByAbility.put(requirement.abilityKey(), baseResult);
-					logger.trace("Base result: found={} confidence={}", baseResult.found, baseResult.confidence);
-				} else {
-					logger.trace("Reusing cached detection for ability {}", requirement.abilityKey());
 				}
 
 				DetectionResult adapted = adaptDetectionResult(requirement, baseResult, captureRegion);
 				detectionResults.add(adapted);
-				logger.trace("Occurrence {} found={} confidence={} isAlternative={}", requirement.instanceId(),
-						adapted.found, adapted.confidence, adapted.isAlternative);
 			}
-
-
-			logger.debug("Detection complete with {} results.", detectionResults.size());
 
 			// Process results through sequence manager
 			sequenceManager.processDetection(detectionResults);
@@ -161,7 +133,7 @@ public class DetectionEngine {
 
 			long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
 			if (elapsedMs > 100) {
-				logger.debug("Frame processing took {}ms", elapsedMs);
+				logger.warn("Frame processing exceeded budget: {}ms", elapsedMs);
 			}
 
 		} catch (Exception e) {
@@ -178,8 +150,6 @@ public class DetectionEngine {
 		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
 		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
 
-
-		logger.trace("Updating overlays: current={} next={}", currentAbilities.size(), nextAbilities.size());
 
 		overlay.updateOverlays(currentAbilities, nextAbilities);
 	}
@@ -212,7 +182,6 @@ public class DetectionEngine {
 			return;
 		}
 		if (current != lastSequenceState) {
-			logger.debug("Sequence state changed from {} to {}", lastSequenceState, current);
 			if (current == SequenceController.State.RUNNING) {
 				needsAbilityPrecache = true;
 			}
@@ -241,7 +210,6 @@ public class DetectionEngine {
 			return Map.of();
 		}
 
-		logger.debug("Priming ability cache for {} abilities.", abilityKeys.size());
 		Map<String, DetectionResult> preloaded = detector.cacheAbilityLocations(screenMat, abilityKeys);
 		needsAbilityPrecache = false;
 		return preloaded;

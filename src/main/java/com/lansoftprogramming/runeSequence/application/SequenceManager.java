@@ -37,11 +37,9 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	// -------------------------
 
 	public synchronized boolean activateSequence(String name) {
-		logger.info("Activating sequence: {}", name);
 		SequenceDefinition def = namedSequences.get(name);
 		if (def == null) {
 			logger.warn("Sequence not found: {}", name);
-			logger.debug("Available sequences: {}", namedSequences.keySet());
 			return false;
 		}
 
@@ -56,7 +54,6 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			activeSequence.stepTimer.pause();
 		}
 
-		logger.info("Sequence '{}' activated successfully.", name);
 		return true;
 	}
 	/**
@@ -64,81 +61,53 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	 */
 	public synchronized List<ActiveSequence.DetectionRequirement> getDetectionRequirements() {
 		if (activeSequence == null) {
-			logger.debug("No active sequence when requesting detection requirements.");
 			return List.of();
 		}
-		List<ActiveSequence.DetectionRequirement> requirements = activeSequence.getDetectionRequirements();
-		logger.trace("Detection requirements: {}", requirements);
-		return requirements;
+		return activeSequence.getDetectionRequirements();
 	}
 
 	public synchronized void processDetection(List<DetectionResult> results) {
 
-		logger.debug("Processing {} detection results.", results.size());
 		// Keep latch state synced to latest detections before step timers react
 		gcdLatchTracker.onFrame(results);
 
 		if (activeSequence != null) {
-			// Log each detection result
-			for (DetectionResult result : results) {
-				String abilityKey = activeSequence.getAbilityKeyForInstance(result.templateName);
-				logger.trace("Detection {}{} found={} confidence={}",
-						result.templateName,
-						abilityKey != null ? " (" + abilityKey + ")" : "",
-						result.found,
-						result.confidence);
-			}
-
 			activeSequence.processDetections(results);
-		} else {
-			logger.warn("No active sequence available to process detections.");
 		}
 	}
 
 	public synchronized List<DetectionResult> getCurrentAbilities() {
 		if (activeSequence == null) {
-			logger.debug("getCurrentAbilities requested but no active sequence.");
 			return List.of();
 		}
-		List<DetectionResult> current = activeSequence.getCurrentAbilities();
-		logger.trace("Current abilities count: {}", current.size());
-		return current;
+		return activeSequence.getCurrentAbilities();
 	}
 
 	public synchronized List<DetectionResult> getNextAbilities() {
 		if (activeSequence == null) {
-			logger.debug("getNextAbilities requested but no active sequence.");
 			return List.of();
 		}
-		List<DetectionResult> next = activeSequence.getNextAbilities();
-		logger.trace("Next abilities count: {}", next.size());
-		return next;
+		return activeSequence.getNextAbilities();
 	}
 
 	public synchronized List<String> getActiveSequenceAbilityKeys() {
 		if (activeSequence == null) {
-			logger.debug("getActiveSequenceAbilityKeys requested but no active sequence.");
 			return List.of();
 		}
-		List<String> keys = activeSequence.getAllAbilityKeys();
-		logger.trace("Active sequence ability keys count: {}", keys.size());
-		return keys;
+		return activeSequence.getAllAbilityKeys();
 	}
 
 	public synchronized void addNamedSequence(String name, SequenceDefinition def) {
-		logger.info("Adding named sequence: {}", name);
 		namedSequences.put(name, def);
 	}
 
 
 	public synchronized void resetActiveSequence() {
-		logger.info("Resetting active sequence.");
 		if (activeSequence != null) activeSequence.reset();
 	}
 
 	public synchronized boolean hasActiveSequence() {
 		boolean hasActive = activeSequence != null;
-		logger.debug("hasActiveSequence -> {}", hasActive);
 		return hasActive;
 	}
 
@@ -336,4 +305,5 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			}
 		}
 	}
+
 }
