@@ -42,7 +42,7 @@ public class Main {
 			populateTemplateCache();
 
 			// 3. Initialize core components
-			ScreenCapture screenCapture = new ScreenCapture();
+			ScreenCapture screenCapture = new ScreenCapture(configManager.getSettings());
 			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
 			OverlayRenderer overlayRenderer = new OverlayRenderer();
 
