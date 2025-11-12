@@ -1,182 +1,138 @@
 # Technical Deep-Dive Documentation
 
-This document provides a low-level, implementation-focused explanation of the RuneSequence project, tracing data flow and execution logic.
-
-**Note on Inferred & Missing Components:** This analysis is based on the provided source files. The following critical components are referenced but missing, and their functionality has been inferred:
--   **`OverlayRenderer.java`**: Injected into `DetectionEngine`. It's responsible for drawing borders on screen, likely using a transparent `JWindow`.
--   **`Alternative.java`**: A node in the sequence AST used by `Term.java` and `Step.java`. It would handle `OR` logic (`/`), single tokens, and parenthesized groups.
--   **Sequence Expression Parser**: Logic to parse string expressions from `RotationConfig` (e.g., `"A -> B+C"`) into a `SequenceDefinition` object (the AST) is absent. This parser is the missing link between the config files and the sequence execution logic.
+This document provides a low-level, implementation-focused explanation of the RuneSequence project, tracing data flow and execution logic based on the current codebase.
 
 ---
 
-## 1. Execution Flow: Application Startup & Initialization
+## 1. Startup and Wiring
 
-The startup sequence is orchestrated by static methods in `Main` and is responsible for preparing all configuration and data assets before the detection loop begins.
+The application bootstraps in `Main` by loading configuration and templates, wiring the detection and sequence subsystems, and initializing a small Swing UI.
 
-### 1.1. `Main.main()` -> `populateSettings()`
-1.  **Entry Point**: `main()` first calls `populateSettings()`.
-2.  **ConfigManager Instantiation**: A `new ConfigManager()` is created. Its constructor determines the OS-specific root config directory (`%APPDATA%`, `~/Library/Application Support`, or `~/.config`) and constructs `Path` objects for `settings.json`, `rotations.json`, and `abilities.json` within a `RuneSequence` subdirectory. It also creates a Jackson `ObjectMapper` instance configured to handle Java Time (`Instant`) and pretty-print JSON.
-3.  **Initialization**: `configManager.initialize()` is called.
-    -   It ensures the `RuneSequence` config directory exists.
-    -   For each config file (`settings`, `rotations`, `abilities`), it runs a `loadOrCreate...()` method. This method checks if the file exists. If it does, it's deserialized using `objectMapper.readValue()`.
-    -   **First Run Logic**: If a file does *not* exist, the `loadDefault...()` method is called. This uses `getClass().getClassLoader().getResourceAsStream()` to load a default version from the project's internal resources (e.g., `defaults/settings.json`), deserializes it, and then immediately saves it to the config directory.
-4.  **State Population**: After `initialize()`, the `ConfigManager` instance holds three populated config objects: `AppSettings`, `RotationConfig`, and `AbilityConfig`. `Main` retrieves the `AppSettings` object and stores it in its own static `settings` field.
+### 1.1 Configuration (`ConfigManager.initialize`)
+- Creates the per-user config directory at an OS-appropriate location under `RuneSequence/`.
+- Extracts default assets on first run:
+  - Copies `defaults/Abilities` into `RuneSequence/Abilities/` if missing, then pre-generates size variants using OpenCV via `OpenCvImageProcessor` with a `mask.png` alpha mask. Output subfolders use sizes from `ScalingConverter.getAllSizes()` (e.g., 30, 34, 36, 42, 45, 52, 60).
+- Loads or creates JSON configs using Jackson (`ObjectMapper` with JavaTime + pretty-print):
+  - `settings.json` → `AppSettings` (region, detection interval, selected rotation, hotkeys).
+  - `rotations.json` → `RotationConfig` (named presets with expressions).
+  - `abilities.json` → `AbilityConfig` (per-ability metadata, thresholds). If an older schema is detected, backs up and regenerates from defaults.
+  - `ability_categories.json` → `AbilityCategoryConfig`.
 
-### 1.2. `Main.main()` -> `populateTemplateCache()`
-1.  **Instantiation**: `main()` next calls `populateTemplateCache()`, which creates `new TemplateCache("RuneSequence")`.
-2.  **Cache Initialization**: The `TemplateCache` constructor immediately calls its own `initialize()` method.
-    -   It determines the path to the ability images, which is structured and specific: `[AppDataPath]/RuneSequence/Abilities/[scalingInt]`. The `scalingInt` is retrieved from the static `ScalingConverter.getScaling()` method, which maps the screen scaling percentage to an image size (e.g., 100 -> 30).
-    -   `Files.list()` is used to stream the paths of all files in that directory.
-    -   For each image file, `cacheTemplate()` is called.
-        -   `opencv_imgcodecs.imread(path, IMREAD_UNCHANGED)` loads the image file into an OpenCV `Mat`, crucially preserving all 4 channels (BGRA) if they exist.
-        -   A `new TemplateData(name, mat)` is created. The `TemplateData` constructor **clones** the `Mat` (`template.clone()`). This is a critical step to ensure the `Mat` in the cache has its own memory, preventing corruption or premature release.
-        -   The original `mat` from `imread` is immediately closed (`mat.close()`) to release its memory.
-        -   The `TemplateData` object is placed into the `cache`, which is a `ConcurrentHashMap`.
-3.  **Final Sleep**: `Main` calls `Thread.sleep(1000)`. Given the synchronous nature of the cache loading, this is likely unnecessary and may be a remnant from a previous asynchronous implementation.
+### 1.2 Template Cache (`TemplateCache`)
+- `TemplateCache` loads ability icon templates from `RuneSequence/Abilities/<size>` where `<size>` comes from `ScalingConverter.getScaling(percent)`. The default constructor uses 100% → `30/`.
+- Each file loads with `opencv_imgcodecs.imread(..., IMREAD_UNCHANGED)`. The `TemplateData` wrapper clones the `Mat` so the original can be closed immediately.
 
----
-
-## 2. Execution Flow: The Real-Time Detection Loop
-
-This flow begins when the (assumed) GUI or another controller instantiates and starts the `DetectionEngine`.
-
-### 2.1. `DetectionEngine.start()`
-1.  A `newSingleThreadScheduledExecutor` is created to run the detection logic on a dedicated background thread named "DetectionEngine".
-2.  `scheduler.scheduleAtFixedRate(this::processFrame, ...)` is called. The rate is pulled from `configManager.getDetectionInterval()`. This initiates the main loop.
-
-### 2.2. A Single Tick: `DetectionEngine.processFrame()`
-This method executes at every interval of the scheduler.
-1.  **Screen Capture**: `screenCapture.captureScreen()` is called.
-    -   **Lazy Init**: On the very first call, `initializeGrabber()` is invoked. It creates an `FFmpegFrameGrabber`, sets the format (`gdigrab`, `x11grab`, `avfoundation`) and input source (`desktop`, `:0.0`, `1`) based on the detected OS. It also attempts to enable hardware acceleration (`dxva2`, `vaapi`, `videotoolbox`).
-    -   **Grab & Convert**: `grabber.grab()` captures a `Frame`, which is then converted by `OpenCVFrameConverter.ToMat` into a full-screen OpenCV `Mat`.
-    -   **Cropping**: A `new Mat(fullScreenMat, roi)` is created, where `roi` is a `Rect` object representing the user-defined capture region. This creates a new `Mat` header pointing to a sub-region of the full-screen `Mat`'s data. The result is then **cloned** to create a new, independent `Mat` of just the cropped area, and the full-screen `Mat` is released.
-2.  **Get Required Templates**: `detectAbilities()` calls `sequenceManager.getRequiredTemplates()`.
-    -   This is delegated to `activeSequence.getRequiredTemplates()`.
-    -   This method gets the current `Step` and the next `Step` from the `SequenceDefinition`. It calls `getDetectableTokens()` on both.
-    -   `Step.getDetectableTokens()` recursively traverses its child `Term`s and (missing) `Alternative`s to build a `List<String>` of all unique ability names that need to be found in the current game state.
-3.  **Template Detection**: The engine loops through the list of required template names.
-    -   For each name, `detector.detectTemplate(screenMat, templateName)` is called.
-    -   `imageCache.getTemplate()` retrieves the cached `Mat` for that ability.
-    -   `findBestMatch()` is invoked. This is the core vision logic:
-        -   **Alpha Masking**: It checks if the template `Mat` has 4 channels. If so, it calls `opencv_imgproc.split()`. The 4th channel (`Mat` at index 3) is stored as the `mask`. The first 3 channels (BGR) are `merge`d back into a new 3-channel `Mat` called `workingTemplate`.
-        -   **Matching**: `opencv_imgproc.matchTemplate()` is called with the screen, `workingTemplate`, the `mask`, and the `TM_SQDIFF_NORMED` method. The mask ensures that transparent pixels in the template are ignored during matching.
-        -   **Result Analysis**: `opencv_imgproc.minMaxLoc()` finds the point of lowest difference. Since `TM_SQDIFF_NORMED` returns values from 0 (perfect match) to 1 (worst match), the confidence is calculated as `1.0 - minVal.get()`.
-        -   A `DetectionResult` object is returned.
-4.  **Sequence State Update**: A list of *found* `DetectionResult`s is passed to `sequenceManager.processDetection()`.
-    -   This is delegated to `activeSequence.processDetections()`.
-    -   The results are stored in the `lastDetections` map.
-    -   `stepTimer.isStepSatisfied()` is called. It simply checks if `System.currentTimeMillis() - stepStartTimeMs >= stepDurationMs`.
-    -   If the timer condition is met, `activeSequence.advanceStep()` is called. This increments `currentStepIndex` and calls `stepTimer.startStep()` for the new step.
-        -   `stepTimer.startStep()` calls `calculateStepDuration()`. This method iterates through all tokens in the new step, retrieves their cooldown data from `AbilityConfig`, and calculates the maximum required duration in milliseconds. This duration becomes the new `stepDurationMs`.
-5.  **Resource Cleanup**: `screenMat.close()` is called to release the memory of the captured screen region, preventing a memory leak within the loop.
----
-
-## 3. Key Algorithms & Data Structures
-
-### `TemplateDetector`: Alpha-Masked Template Matching
-The ability to match non-rectangular icons is the most critical vision algorithm. It is achieved by:
-1.  Loading PNGs with `IMREAD_UNCHANGED` to preserve the 4th (alpha) channel.
-2.  When a 4-channel `Mat` is detected, it is `split`.
-3.  The alpha channel is used as a `mask` in `matchTemplate`. This tells OpenCV to only score the pixels where the mask is non-zero, effectively ignoring the transparent parts of the template.
-4.  The other three (BGR) channels are `merge`d back into a temporary `Mat` to be used as the actual template image in the matching function.
-
-### `Sequence...` classes: An Abstract Syntax Tree (AST)
-The `sequence` package defines a tree structure that directly mirrors the ability expression grammar.
--   **`SequenceDefinition`**: Root node, holds a `List<Step>`.
--   **`Step`**: Represents `->` separation (sequence). Holds a `List<Term>`.
--   **`Term`**: Represents `+` separation (AND logic). Holds a `List<Alternative>`.
--   **`Alternative` (inferred)**: Represents `/` separation (OR logic) or a single token.
-This AST allows the `DetectionEngine` and `ActiveSequence` to recursively query which abilities are relevant at any given time (`getDetectableTokens`) without complex string parsing in the main loop.
-
-### `StepTimer`: Cooldown and Duration Management
-This class is not a simple timer. It implements game-specific timing logic.
-1.  When a step starts, `calculateStepDuration` is called.
-2.  It iterates through every ability token in the `Step`'s AST.
-3.  For each ability, it looks up its properties (cooldown, GCD status) in `AbilityConfig`.
-4.  It calculates the duration in game ticks (0.6s) and finds the maximum duration required by any ability in that step.
-5.  This calculated duration becomes the wait time, ensuring the sequence cannot advance faster than the in-game global cooldowns or ability cooldowns allow.
+### 1.3 Core Components (`Main.main`)
+- Initializes:
+  - `ScreenCapture(appSettings)` with platform-tuned FFmpeg settings and optional region cropping.
+  - `TemplateDetector(templateCache, abilityConfig)` which supports alpha-masked matching and per-ability thresholds.
+  - `OverlayRenderer` which draws transparent, click-through borders over detections.
+- Parses all rotation presets from `RotationConfig` using `SequenceParser.parse(expression)` into `SequenceDefinition` ASTs.
+  - Grammar: Expression uses `→` to separate steps, `+` to require multiple terms in a step, `/` for alternatives, and parentheses for grouping. The tokenizer normalizes ASCII `->` to `→` and rewrites trailing `" spec"` to `+ spec`.
+- Builds the runtime:
+  - `SequenceManager` manages the active `ActiveSequence` and step timers.
+  - `SequenceController` exposes a small state machine (READY → ARMED → RUNNING) and integrates hotkeys.
+  - `HotkeyManager` loads user bindings from settings and notifies `SequenceController`.
+- Selects a rotation to activate:
+  - Prefers `settings.rotation.selectedId` as a preset id; if missing, attempts to match by preset name; else falls back to `debug-limitless`.
+- Starts the `DetectionEngine` with configured interval; initializes a system tray UI with actions (Preset Manager, Select Region, Settings), and installs a shutdown hook to cleanly stop detection, overlay, and cache.
 
 ---
 
-## 4. Detection Engine Improvements
+## 2. Real-Time Detection Loop (`DetectionEngine`)
 
-The detection engine has been enhanced with several new features to improve accuracy and performance, addressing the need for both high precision and real-time responsiveness.
+The engine runs on a dedicated single-thread scheduler at `settings.detection.intervalMs`.
 
-### 4.1. Per-Ability Detection Thresholds
+### 2.1 Frame Processing (`processFrame`)
+- Syncs with `SequenceController` state; refreshes overlays defensively before and after each pass.
+- Captures a `Mat` via `ScreenCapture`. If a region is configured, frames are either captured natively in-region (Windows/Linux) or cropped in software (macOS or platforms without native region capture).
+- Pre-caches ability locations opportunistically using `TemplateDetector.cacheAbilityLocations(...)` when the active sequence changes or transitions to RUNNING.
+- Builds per-occurrence detection requirements from `ActiveSequence` for the current and next step. Each requirement carries:
+  - `instanceId` (e.g., `limitless#0`),
+  - `abilityKey` (template name),
+  - `isAlternative` (true if part of an OR group).
+- For each requirement, uses any preloaded result or calls `detector.detectTemplate(...)`. Results are adapted back into global screen coordinates when region capture is active.
+- Sends all results to `SequenceManager.processDetection`, then updates overlays.
+- Measures time budget; logs a warning if a pass exceeds 100ms.
 
-**Motivation:**
-A global detection threshold is insufficient for a varied set of templates. Some abilities, especially those with very small visual footprints (e.g., under 40x40 pixels), can be easily confused with other screen elements. These require an extremely high similarity threshold (e.g., 99%) to prevent false positives. Conversely, larger, more distinct icons might be reliably detected with a slightly more lenient threshold. Per-ability thresholds provide the granular control needed to tune detection for each specific template.
+---
 
-**Implementation:**
-The `detection_threshold` is now a configurable, optional property within each ability's entry in `abilities.json`.
+## 3. Template Matching (`TemplateDetector` + `TemplateCache`)
 
-*   **Configuration:**
-    ```json
-    "Limitless": {
-      "cooldown": 0,
-      "triggers_gcd": false,
-      "detection_threshold": 0.99
-    },
-    "big_ability": {
-      "triggers_gcd": true,
-      "cast_duration": 4.0,
-      "cooldown": 30
-      // No threshold defined, will use default
-    }
-    ```
+### 3.1 Alpha-aware Matching
+- If a template has 4 channels (BGRA), its alpha channel is split and used as a mask; RGB channels are merged back to BGR before matching.
+- If the screen is BGRA and the template is BGR, the screen is converted to BGR (`COLOR_BGRA2BGR`) to ensure consistent channel counts.
 
-*   **Logic:** The `TemplateDetector` class retrieves the appropriate threshold using the `getThresholdForTemplate` helper method before performing a match.
-    ```java
-    private double getThresholdForTemplate(String templateName) {
-        // Access the loaded config
-        AbilityConfig.AbilityData abilityData = configManager.getAbilities().getAbility(templateName);
+### 3.2 Matching Strategy
+- Uses OpenCV `matchTemplate` with `TM_SQDIFF_NORMED` (smaller is better). Confidence is computed as `1 - minVal` and compared against a threshold.
+- Per-ability thresholds come from `AbilityConfig` (`detection_threshold`); defaults to `0.99` when not specified:
+  ```java
+  private double getThresholdForTemplate(String templateName) {
+      AbilityConfig.AbilityData abilityData = abilityConfig.getAbility(templateName);
+      if (abilityData != null && abilityData.getDetectionThreshold() != null) {
+          return abilityData.getDetectionThreshold();
+      }
+      return 0.99; // Default high threshold
+  }
+  ```
 
-        // Check if the ability and its threshold are defined
-        if (abilityData != null && abilityData.getDetectionThreshold() != null) {
-            return abilityData.getDetectionThreshold();
-        }
+### 3.3 ROI Reuse (Last Known Location)
+- Maintains `lastKnownLocations` per ability. First attempts a fast search in a padded ROI around the previous hit (±10px each side). Falls back to full-frame search if not found. Successful matches update the cache.
 
-        // Fallback to a high default for reliability
-        return 0.99;
-    }
-    ```
-    This logic ensures that if a threshold is explicitly set, it is respected. If it is omitted, the system defaults to a safe, high-confidence value of `0.99`.
+---
 
-### 4.2. Last Known Location Optimization
+## 4. Sequence Model, Parser, and Runtime
 
-**Motivation:**
-The detection loop runs on a fixed interval (e.g., every 400ms). In many cases, UI elements like ability icons do not move between frames. Performing a full-screen search in every cycle is computationally expensive and redundant. This optimization drastically reduces the search area for templates that have already been found, freeing up CPU resources and reducing latency.
+### 4.1 AST and Grammar
+- AST nodes: `SequenceDefinition` (list of `Step`), `Step` (list of `Term`), `Term` (list of `Alternative`), `Alternative` (token or subgroup).
+- Grammar enforced by `SequenceParser` and `Tokenizer`:
+  - Expression := Step (`→` Step)*
+  - Step := Term (`+` Term)*
+  - Term := Alternative (`/` Alternative)*
+  - Alternative := Ability | `(` Expression `)`
+- Tokenizer details: normalizes `->` to `→`; treats `/`, `+`, `(`, `)` as separators; rewrites trailing `spec` to `+ spec`.
 
-**Implementation:**
-The `TemplateDetector` now maintains an internal cache of the last successfully found location for each template.
+### 4.2 Ability Instances and Requirements (`ActiveSequence`)
+- Each ability occurrence is indexed as `abilityKey#N` so identical abilities in the same or subsequent steps remain distinct.
+- `getDetectionRequirements()` returns the union of requirements for the current and next step, preserving `isAlternative` for OR-terms.
+- `processDetections(...)` stores the latest per-instance results and advances steps when timers permit.
 
-*   **Cache:** A `Map<String, Rectangle> lastKnownLocations` is used to store the bounding box of the last match for each `templateName`.
+### 4.3 Step Timing (`StepTimer`)
+- Step duration is the max over abilities of `max(cast_duration, gcdTicks, cooldown)` where default GCD is 3 ticks.
+- Ticks are converted to milliseconds at 600ms/tick. Timers pause/resume based on sequence RUNNING/READY state.
 
-*   **Optimized Search Logic:** The `detectTemplate` method's logic was modified:
-    1.  **Check Cache:** Before a full-screen search, it checks if `lastKnownLocations` contains the `templateName`.
-    2.  **Region-Based Search:** If a location is cached, it creates a new, slightly larger `Rectangle` around the cached one. A padding of 10 pixels is added to each side to create a 20x20 pixel larger search area. This accounts for minor UI shifts or rendering variations.
-    3.  `detectTemplateInRegion()` is called to perform a highly-localized (and therefore very fast) search.
-    4.  **Cache Update & Return:** If the template is found in this padded region, its new location is updated in the cache, and the result is returned immediately, skipping the full-screen search.
-    5.  **Fallback:** If the template is not found in the cached region (or if no cache entry exists), the detector proceeds with the original full-screen search using `findBestMatch()`. If this search is successful, its location is added to the cache.
+### 4.4 State Machine and Latch (`SequenceController` + `SequenceManager`)
+- `SequenceController` states: READY → ARMED → RUNNING.
+  - Start hotkey moves READY → ARMED. Restart hotkey resets sequence and returns to READY.
+- `SequenceManager` contains `GcdLatchTracker` which arms on the first solid detections of GCD abilities, then:
+  - Waits for those abilities to vanish (cooldown),
+  - Then to return, at which point it calls `onLatchDetected()` to enter RUNNING and start timers without added delay.
 
-### 4.3. Future Improvements - Pipelined Screen Capture
+---
 
-**Motivation:**
-The current detection cycle is sequential: `Capture -> Detect -> Draw`. While the "Last Known Location" optimization reduces the *duration* of the "Detect" step, the process remains synchronous. The application is idle during screen capture, and the capture hardware is idle during detection. Pipelining would allow these operations to overlap, maximizing hardware utilization and improving the application's temporal resolution (its ability to detect changes closer to when they happen).
+## 5. Overlay Rendering (`OverlayRenderer`)
 
-**Proposed Implementation:**
-A multi-threaded producer-consumer model would be an effective solution.
+- Uses a full-screen transparent `JWindow` and custom `JPanel` to draw anti-aliased rectangles.
+- Colors and thickness from `UiColorPalette`:
+  - Current AND: bright green; Current OR: purple (driven by `DetectionResult.isAlternative`).
+  - Next: red for single-next; dark purple when multiple next abilities are present.
+- Borders expand slightly beyond the detected bounding box for visibility. Overlays refresh every frame; `clearOverlays()` hides the window when empty.
 
-*   **Producer Thread (Capture):** A dedicated thread would be responsible solely for screen capture. Its loop would consist of:
-    1.  Capture a frame.
-    2.  Place the frame into a shared, thread-safe queue (e.g., a `java.util.concurrent.ArrayBlockingQueue` of size 1 or 2). A small queue size is crucial to ensure freshness.
+---
 
-*   **Consumer Thread (Detection):** The main `DetectionEngine` thread would become the consumer. Its loop would be:
-    1.  Take a frame from the queue, waiting if none is available.
-    2.  Perform detection on that frame.
+## 6. Screen Capture (`ScreenCapture`)
 
-*   **Benefits:** This decouples the capture rate from the detection rate. The capture thread can run at the maximum speed of the hardware (e.g., 60 FPS), always providing the most recent frame to the detection thread. This significantly reduces the effective latency from screen event to detection.
+- Backend: `FFmpegFrameGrabber` with platform formats: Windows `gdigrab`, Linux `x11grab`, macOS `avfoundation`.
+- Enables low-latency options (`framerate`, `probesize`, `fflags=nobuffer`, `flags=low_delay`) and attempts hardware acceleration (DXVA2/VAAPI/VideoToolbox).
+- Region capture:
+  - Windows/Linux: configures native ROI via FFmpeg options.
+  - macOS/unknown: captures full screen and crops to the desired ROI in software.
 
-*   **Potential Challenges:**
-    *   **Thread Safety:** The queue implementation must be thread-safe.
-    *   **Frame Freshness:** If the detection process is slower than the capture rate, the queue could fill with stale frames. A strategy to handle this would be to use a queue of size 1 and have the producer always discard the old frame and overwrite it with the new one (`queue.clear(); queue.put(frame)`). This ensures the detector always works on the most recent possible frame.
+---
+
+## 7. Performance Notes and Future Work
+
+- ROI reuse and per-ability thresholds reduce false positives and CPU.
+- Pre-caching ability locations when a sequence activates improves first-frame responsiveness.
+- Future: pipeline capture and detection using a bounded queue (size 1–2) to minimize end-to-end latency while ensuring frame freshness.
+
