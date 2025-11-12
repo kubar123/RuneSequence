@@ -13,6 +13,7 @@ public class SequenceController implements HotkeyListener {
 
 	public enum State {
 		READY,    // Showing current/next, waiting for start
+		ARMED,    // Watching for visual latch before starting timers
 		RUNNING,  // Active sequence with timers
 		PAUSED    // Currently unused but ready for future
 	}
@@ -29,8 +30,9 @@ public class SequenceController implements HotkeyListener {
 	public void onStartSequence() {
 		synchronized (this) {
 			if (currentState == State.READY) {
-				setState(State.RUNNING);
-				logger.info("Sequence started - GCD timers active");
+				// Arm until detections recycle
+				setState(State.ARMED);
+				logger.info("Sequence armed - waiting for abilities to recycle before running");
 			}
 		}
 	}
@@ -50,6 +52,18 @@ public class SequenceController implements HotkeyListener {
 
 	public synchronized boolean isRunning() {
 		return currentState == State.RUNNING;
+	}
+	public synchronized boolean isArmed() {
+		return currentState == State.ARMED;
+	}
+
+	public void onLatchDetected() {
+		synchronized (this) {
+			if (currentState == State.ARMED) {
+				setState(State.RUNNING);
+				logger.info("Latch detected - sequence running");
+			}
+		}
 	}
 
 	private synchronized void setState(State newState) {
