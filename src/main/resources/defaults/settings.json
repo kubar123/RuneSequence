@@ -57,5 +57,8 @@
         "scope": "global"
       }
     ]
+  },
+  "ui": {
+    "iconSize": 30
   }
 }

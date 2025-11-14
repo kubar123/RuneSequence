@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.application;
 
+import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ScalingConverter;
 import org.bytedeco.opencv.global.opencv_imgcodecs;
 import org.bytedeco.opencv.opencv_core.Mat;
@@ -10,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -23,22 +23,35 @@ public class TemplateCache {
 	private static final Logger logger = LoggerFactory.getLogger(TemplateCache.class);
 	private final Map<String, TemplateData> cache = new ConcurrentHashMap<>();
 	private final ExecutorService backgroundLoader = Executors.newCachedThreadPool();
-	private final int scaleInt;
-	private final String appName;
 	private final Path imagePath;
 
-	public TemplateCache(String appName, int scalingPercent) {
-		this.appName = appName;
-		this.scaleInt = ScalingConverter.getScaling(scalingPercent);
-		this.imagePath = getAppDataPath();
+	public TemplateCache(Path imagePath) {
+		this.imagePath = imagePath;
 		initialize();
 	}
 
+	public TemplateCache(String appName, int scalingPercent) {
+		this(resolveDefaultImagePath(appName, scalingPercent));
+	}
+
 	public TemplateCache(String appName) {
-		this.appName = appName;
-		this.scaleInt = ScalingConverter.getScaling(100); // default
-		this.imagePath = getAppDataPath();
-		initialize();
+		this(appName, 100); // default
+	}
+
+	private static Path resolveDefaultImagePath(String appName, int scalingPercent) {
+		Integer resolvedSize = ScalingConverter.getScaling(scalingPercent);
+		if (resolvedSize == null) {
+			logger.warn("Unknown scaling percent {}. Falling back to default size 30.", scalingPercent);
+			resolvedSize = 30;
+		}
+		Path abilitiesFolder = resolveAbilityFolder(appName);
+		return resolvedSize > 0 ? abilitiesFolder.resolve(String.valueOf(resolvedSize)) : abilitiesFolder;
+	}
+
+	private static Path resolveAbilityFolder(String appName) {
+		return ConfigManager.getAppDataPath()
+				.resolve(appName)
+				.resolve("Abilities");
 	}
 
 	public static class TemplateData {
@@ -140,19 +153,5 @@ public class TemplateCache {
 		cache.values().forEach(TemplateData::close);
 		cache.clear();
 		backgroundLoader.shutdown();
-	}
-
-	private Path getAppDataPath() {
-		String abilityFolderName = "Abilities";
-		String os = System.getProperty("os.name").toLowerCase();
-		if (os.contains("win")) {
-			return Paths.get(System.getenv("APPDATA"), this.appName, abilityFolderName, scaleInt + "");
-		} else if (os.contains("mac")) {
-			return Paths.get(System.getProperty("user.home"), "Library", "Application Support", appName,
-					abilityFolderName, scaleInt + "");
-		} else {
-			return Paths.get(System.getProperty("user.home"), "." + appName.toLowerCase(), abilityFolderName,
-					scaleInt + "");
-		}
 	}
 }

@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.Comparator;
 
 public class ConfigManager {
 	private static final Logger logger = LoggerFactory.getLogger(ConfigManager.class);
@@ -200,6 +201,43 @@ public class ConfigManager {
 
 	public Path getConfigDir() {
 		return configDir;
+	}
+
+	public Path getAbilityImagePath() {
+		return abilityImagePath;
+	}
+
+	/**
+	 * Resolves the best-matching ability icon folder for the requested size.
+	 * Prefers exact matches but will fall back to the nearest numeric folder name.
+	 *
+	 * @param iconSize desired icon size in pixels
+	 * @return the resolved folder path, or null if none exists
+	 */
+	public Path resolveAbilityIconFolder(int iconSize) {
+		if (!Files.isDirectory(abilityImagePath)) {
+			return null;
+		}
+
+		Path exact = abilityImagePath.resolve(String.valueOf(iconSize));
+		if (Files.isDirectory(exact)) {
+			return exact;
+		}
+
+		try (var children = Files.list(abilityImagePath)) {
+			return children
+					.filter(Files::isDirectory)
+					.map(path -> path.getFileName().toString())
+					.filter(name -> name.matches("\\d+"))
+					.map(Integer::parseInt)
+					.sorted(Comparator.comparingInt(size -> Math.abs(size - iconSize)))
+					.findFirst()
+					.map(size -> abilityImagePath.resolve(String.valueOf(size)))
+					.orElse(null);
+		} catch (IOException e) {
+			logger.debug("Unable to resolve ability icon folder for size {}", iconSize, e);
+			return null;
+		}
 	}
 
 	public boolean isFirstRun() {

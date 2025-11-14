@@ -24,6 +24,8 @@ public class AbilityIconLoader {
 	private final Path abilityImagePath;
 	private final int iconSize;
 	private final Map<String, ImageIcon> iconCache;
+	private final Path resolvedSizeFolder; // expected to be provided by callers
+	private final int resolvedFolderSize;
 	private ImageIcon placeholderIcon;
 
 	public AbilityIconLoader(Path abilityImagePath) {
@@ -31,9 +33,20 @@ public class AbilityIconLoader {
 	}
 
 	public AbilityIconLoader(Path abilityImagePath, int iconSize) {
+		this(abilityImagePath, iconSize, null);
+	}
+
+	/**
+	 * @param abilityImagePath base directory containing ability icons
+	 * @param iconSize desired UI icon size
+	 * @param resolvedSizeFolder folder containing pre-sized icons, or null when unavailable
+	 */
+	public AbilityIconLoader(Path abilityImagePath, int iconSize, Path resolvedSizeFolder) {
 		this.abilityImagePath = abilityImagePath;
 		this.iconSize = iconSize;
 		this.iconCache = new HashMap<>();
+		this.resolvedSizeFolder = resolvedSizeFolder;
+		this.resolvedFolderSize = parseFolderSize(resolvedSizeFolder);
 	}
 
 	/**
@@ -64,6 +77,26 @@ public class AbilityIconLoader {
 	 */
 	private ImageIcon loadIconFromDisk(String abilityKey) {
 		try {
+			// Prefer preprocessed images inside the size-named subfolder in AppData if present
+			Path sizedImageFile = null;
+			if (resolvedSizeFolder != null && Files.isDirectory(resolvedSizeFolder)) {
+				sizedImageFile = resolvedSizeFolder.resolve(abilityKey + ".png");
+			}
+
+			if (sizedImageFile != null && Files.exists(sizedImageFile)) {
+				BufferedImage img = ImageIO.read(sizedImageFile.toFile());
+				if (img != null) {
+					// If the resolved folder size does not exactly match the requested iconSize,
+					// rescale so we still respect the configured size.
+					if (resolvedFolderSize > 0 && resolvedFolderSize != iconSize) {
+						Image scaledImg = img.getScaledInstance(iconSize, iconSize, Image.SCALE_SMOOTH);
+						return new ImageIcon(scaledImg);
+					}
+					return new ImageIcon(img);
+				}
+			}
+
+			// Fallback to base folder and scale at runtime
 			Path imageFile = abilityImagePath.resolve(abilityKey + ".png");
 			if (Files.exists(imageFile)) {
 				BufferedImage img = ImageIO.read(imageFile.toFile());
@@ -77,6 +110,17 @@ public class AbilityIconLoader {
 		}
 
 		return getPlaceholderIcon();
+	}
+
+	private int parseFolderSize(Path folder) {
+		if (folder == null) {
+			return -1;
+		}
+		try {
+			return Integer.parseInt(folder.getFileName().toString());
+		} catch (NumberFormatException ignored) {
+			return -1;
+		}
 	}
 
 	/**

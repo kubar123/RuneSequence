@@ -33,6 +33,9 @@ public class AppSettings {
 	@JsonProperty("hotkeys")
 	private HotkeySettings hotkeys = new HotkeySettings();
 
+	@JsonProperty("ui")
+	private UiSettings ui = new UiSettings();
+
 	// Getters and setters
 	public String getVersion() {
 		return version;
@@ -89,6 +92,14 @@ public class AppSettings {
 
 	public void setHotkeys(HotkeySettings hotkeys) {
 		this.hotkeys = hotkeys;
+	}
+
+	public UiSettings getUi() {
+		return ui;
+	}
+
+	public void setUi(UiSettings ui) {
+		this.ui = ui;
 	}
 
 	// ------------------------------ REGION ------------------------------
@@ -311,6 +322,21 @@ public class AppSettings {
 			public void setScope(String scope) {
 				this.scope = scope;
 			}
+		}
+	}
+
+	// ------------------------------ UI ------------------------------
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	public static class UiSettings {
+		@JsonProperty("iconSize")
+		private int iconSize = 45; // default icon size in pixels
+
+		public int getIconSize() {
+			return iconSize;
+		}
+
+		public void setIconSize(int iconSize) {
+			this.iconSize = iconSize;
 		}
 	}
 }

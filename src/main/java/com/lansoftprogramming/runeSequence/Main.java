@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -136,7 +137,7 @@ public class Main {
 				// Add a settings option to the context menu
 				taskbar.addMenuItem("Preset Manager", new PresetManagerAction(configManager));
 				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
-				taskbar.addMenuItem("Settings", new SettingsAction());
+				taskbar.addMenuItem("Settings", new SettingsAction(configManager));
 				taskbar.addSeparator();
 			});
 
@@ -158,7 +159,12 @@ public class Main {
 
 	public static void populateTemplateCache() {
 		logger.info("Initializing TemplateCache...");
-		templateCache = new TemplateCache(APP_NAME);
+
+		// TODO: Image detection templates must stay in the base ability directory; the scaled
+		// subfolders (/30, /45, /60, etc.) are only for the UI and can break matching if used.
+		Path iconFolder = configManager.getAbilityImagePath();
+
+		templateCache = new TemplateCache(iconFolder);
 	}
 
 	public static void populateSettings() {

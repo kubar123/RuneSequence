@@ -20,7 +20,8 @@ The application bootstraps in `Main` by loading configuration and templates, wir
 
 ### 1.2 Template Cache (`TemplateCache`)
 - `TemplateCache` loads ability icon templates from `RuneSequence/Abilities/<size>` where `<size>` comes from `ScalingConverter.getScaling(percent)`. The default constructor uses 100% → `30/`.
-- Each file loads with `opencv_imgcodecs.imread(..., IMREAD_UNCHANGED)`. The `TemplateData` wrapper clones the `Mat` so the original can be closed immediately.
+- Each file loads with `opencv_imgcodecs.imread(..., IMREAD_UNCHANGED)`. The `TemplateData` wrapper clones the `Mat` so
+  the original can be closed immediately.[long_description.md](long_description.md)
 
 ### 1.3 Core Components (`Main.main`)
 - Initializes:
@@ -135,4 +136,3 @@ The engine runs on a dedicated single-thread scheduler at `settings.detection.in
 - ROI reuse and per-ability thresholds reduce false positives and CPU.
 - Pre-caching ability locations when a sequence activates improves first-frame responsiveness.
 - Future: pipeline capture and detection using a bounded queue (size 1–2) to minimize end-to-end latency while ensuring frame freshness.
-
