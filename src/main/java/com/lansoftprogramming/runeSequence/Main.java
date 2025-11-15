@@ -16,6 +16,7 @@ import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
 import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
+import com.lansoftprogramming.runeSequence.ui.taskbar.PrimeAbilityCacheAction;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
 import com.lansoftprogramming.runeSequence.ui.taskbar.Taskbar;
 import org.slf4j.Logger;
@@ -122,10 +123,10 @@ public class Main {
 					templateDetector,
 					sequenceManager,
 					overlayRenderer,
-					configManager.getDetectionInterval(),
-					sequenceController
+					configManager.getDetectionInterval()
 			);
 
+			detectionEngine.primeActiveSequence();
 			detectionEngine.start();
 
 			// Initialize GUI on the Event Dispatch Thread
@@ -137,6 +138,7 @@ public class Main {
 				// Add a settings option to the context menu
 				taskbar.addMenuItem("Preset Manager", new PresetManagerAction(configManager));
 				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
+				taskbar.addMenuItem("Prime Ability Cache", new PrimeAbilityCacheAction(detectionEngine));
 				taskbar.addMenuItem("Settings", new SettingsAction(configManager));
 				taskbar.addSeparator();
 			});
@@ -160,9 +162,16 @@ public class Main {
 	public static void populateTemplateCache() {
 		logger.info("Initializing TemplateCache...");
 
-		// TODO: Image detection templates must stay in the base ability directory; the scaled
-		// subfolders (/30, /45, /60, etc.) are only for the UI and can break matching if used.
-		Path iconFolder = configManager.getAbilityImagePath();
+		int requestedSize = 30;
+		if (configManager.getSettings() != null && configManager.getSettings().getUi() != null) {
+			requestedSize = configManager.getSettings().getUi().getIconSize();
+		}
+
+		Path iconFolder = configManager.resolveAbilityIconFolder(requestedSize);
+		if (iconFolder == null) {
+			logger.warn("Unable to resolve ability folder for icon size {}. Falling back to base directory.", requestedSize);
+			iconFolder = configManager.getAbilityImagePath();
+		}
 
 		templateCache = new TemplateCache(iconFolder);
 	}

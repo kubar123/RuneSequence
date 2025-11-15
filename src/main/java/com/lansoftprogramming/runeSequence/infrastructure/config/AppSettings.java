@@ -329,7 +329,7 @@ public class AppSettings {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class UiSettings {
 		@JsonProperty("iconSize")
-		private int iconSize = 45; // default icon size in pixels
+		private int iconSize = 30; // default icon size in pixels
 
 		public int getIconSize() {
 			return iconSize;

@@ -1,6 +1,5 @@
 package com.lansoftprogramming.runeSequence.core.detection;
 
-import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.application.SequenceManager;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
@@ -26,24 +25,18 @@ public class DetectionEngine {
 	private final SequenceManager sequenceManager;
 	private final OverlayRenderer overlay;
 	private final int detectionIntervalMs;
-	private final SequenceController sequenceController;
-	private SequenceController.State lastSequenceState;
-	private List<String> cachedAbilityKeyOrder = List.of();
-	private boolean needsAbilityPrecache = true;
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
-	                       int detectionIntervalMs, SequenceController sequenceController) {
+	                       int detectionIntervalMs) {
 		this.screenCapture = screenCapture;
 		this.detector = detector;
 		this.sequenceManager = sequenceManager;
 		this.overlay = overlay;
 		this.detectionIntervalMs = detectionIntervalMs;
-		this.sequenceController = sequenceController;
-		this.lastSequenceState = sequenceController != null ? sequenceController.getState() : SequenceController.State.READY;
 	}
 
 	public void start() {
@@ -69,81 +62,72 @@ public class DetectionEngine {
 			scheduler.shutdown();
 		}
 		overlay.clearOverlays();
-		needsAbilityPrecache = true;
-		cachedAbilityKeyOrder = List.of();
-		lastSequenceState = sequenceController != null ? sequenceController.getState() : SequenceController.State.READY;
 		logger.info("Detection engine stopped");
 	}
 
 	private void processFrame() {
-		SequenceController.State currentState = sequenceController.getState();
-		trackSequenceState(currentState);
-		// SAFETY: refresh overlays before each detection pass so stale frames do not linger
 		try {
-			// Update overlays
 			updateOverlays();
 		} catch (Exception e) {
 			logger.error("Overlay update failed.", e);
 			throw e;
 		}
+
 		try {
 			long startTime = System.nanoTime();
-
 			Mat screenMat = screenCapture.captureScreen();
-			Rectangle captureRegion = screenCapture.getRegion();
 			if (screenMat == null || screenMat.empty()) {
-
 				logger.warn("Screen capture failed; skipping frame.");
 				return;
 			}
 
-			// Pre-cache locations for entire sequence so ROI searches are ready
-			Map<String, DetectionResult> preloadedDetections = maybePrimeAbilityCache(screenMat);
-
-			// Get required template occurrences
-			List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
-
-			if (requirements.isEmpty()) {
-				screenMat.close();
-				return;
-			}
-
-			// Detect all required templates
-			List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
-			Map<String, DetectionResult> detectionByAbility = new HashMap<>(preloadedDetections);
-
-			for (ActiveSequence.DetectionRequirement requirement : requirements) {
-				DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());
-				if (baseResult == null) {
-					baseResult = detector.detectTemplate(screenMat, requirement.abilityKey(), false);
-					detectionByAbility.put(requirement.abilityKey(), baseResult);
+			try {
+				Rectangle captureRegion = screenCapture.getRegion();
+				List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
+				if (logger.isDebugEnabled()) {
+					logger.debug("Frame requirements ({}): {}", requirements.size(), describeRequirements(requirements));
+				}
+				if (requirements.isEmpty()) {
+					return;
 				}
 
-				DetectionResult adapted = adaptDetectionResult(requirement, baseResult, captureRegion);
-				detectionResults.add(adapted);
+				List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
+				Map<String, DetectionResult> detectionByAbility = new HashMap<>();
+
+				for (ActiveSequence.DetectionRequirement requirement : requirements) {
+					DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());
+					if (baseResult == null) {
+						long detectionStart = System.nanoTime();
+						baseResult = detector.detectTemplate(screenMat, requirement.abilityKey(), false);
+						detectionByAbility.put(requirement.abilityKey(), baseResult);
+						if (logger.isDebugEnabled()) {
+							long detectionElapsedMicros = (System.nanoTime() - detectionStart) / 1_000;
+							logger.debug("Detection '{}' took {}µs (found={}).",
+									requirement.abilityKey(), detectionElapsedMicros, baseResult.found);
+						}
+					} else if (logger.isDebugEnabled()) {
+						logger.debug("Reused cached detection for '{}'.", requirement.abilityKey());
+					}
+
+					DetectionResult adapted = adaptDetectionResult(requirement, baseResult, captureRegion);
+					detectionResults.add(adapted);
+				}
+
+				sequenceManager.processDetection(detectionResults);
+				updateOverlays();
+
+				long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
+				if (elapsedMs > 1300) {
+					logger.warn("Frame processing exceeded budget: {}ms", elapsedMs);
+				}
+			} finally {
+				screenMat.close();
 			}
-
-			// Process results through sequence manager
-			sequenceManager.processDetection(detectionResults);
-
-			// Update overlays
-			updateOverlays();
-
-			screenMat.close(); // Prevent memory leak
-
-			long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
-			if (elapsedMs > 100) {
-				logger.warn("Frame processing exceeded budget: {}ms", elapsedMs);
-			}
-
 		} catch (Exception e) {
-
 			logger.error("Error in detection frame", e);
 		}
 	}
 
-	/*##*/ // Remove old detectAbilities method - it was causing the bug
-	// The old method only passed results if found=true, but we need ALL results
 
 	private void updateOverlays() {
 
@@ -177,41 +161,46 @@ public class DetectionEngine {
 		return DetectionResult.notFound(requirement.instanceId(), requirement.isAlternative());
 	}
 
-	private void trackSequenceState(SequenceController.State current) {
-		if (sequenceController == null || current == null) {
+	public void primeActiveSequence() {
+		List<String> abilityKeys = sequenceManager.getActiveSequenceAbilityKeys();
+		if (abilityKeys.isEmpty()) {
+			logger.warn("Unable to prime ability cache - no active sequence.");
 			return;
 		}
-		if (current != lastSequenceState) {
-			if (current == SequenceController.State.RUNNING) {
-				needsAbilityPrecache = true;
+
+		Mat screenMat = null;
+		try {
+			screenMat = screenCapture.captureScreen();
+			if (screenMat == null || screenMat.empty()) {
+				logger.warn("Screen capture failed while priming ability cache.");
+				return;
 			}
-			lastSequenceState = current;
+
+			Map<String, DetectionResult> preloaded = detector.cacheAbilityLocations(screenMat, abilityKeys);
+			logger.info("Primed ability cache for {} templates ({} hits).", abilityKeys.size(), preloaded.size());
+		} catch (Exception e) {
+			logger.error("Failed to prime ability cache.", e);
+		} finally {
+			if (screenMat != null) {
+				screenMat.close();
+			}
 		}
 	}
 
-	private Map<String, DetectionResult> maybePrimeAbilityCache(Mat screenMat) {
-		if (screenMat == null || screenMat.empty()) {
-			return Map.of();
+	private String describeRequirements(List<ActiveSequence.DetectionRequirement> requirements) {
+		StringBuilder builder = new StringBuilder();
+		for (int i = 0; i < requirements.size(); i++) {
+			ActiveSequence.DetectionRequirement req = requirements.get(i);
+			builder.append(req.instanceId())
+					.append("->")
+					.append(req.abilityKey());
+			if (req.isAlternative()) {
+				builder.append("[ALT]");
+			}
+			if (i < requirements.size() - 1) {
+				builder.append(", ");
+			}
 		}
-
-		List<String> abilityKeys = sequenceManager.getActiveSequenceAbilityKeys();
-		if (abilityKeys.isEmpty()) {
-			cachedAbilityKeyOrder = List.of();
-			needsAbilityPrecache = true;
-			return Map.of();
-		}
-
-		if (!abilityKeys.equals(cachedAbilityKeyOrder)) {
-			cachedAbilityKeyOrder = List.copyOf(abilityKeys);
-			needsAbilityPrecache = true;
-		}
-
-		if (!needsAbilityPrecache) {
-			return Map.of();
-		}
-
-		Map<String, DetectionResult> preloaded = detector.cacheAbilityLocations(screenMat, abilityKeys);
-		needsAbilityPrecache = false;
-		return preloaded;
+		return builder.toString();
 	}
 }

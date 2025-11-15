@@ -277,26 +277,13 @@ public class TemplateDetector {
 
 			if (maxLoc != null) maxLoc.close();
 
-			// Close channel vectors and individual channels
-
+			// Close channel vectors (MatVector releases contained Mats)
 			if (channels != null) {
-
-				for (int i = 0; i < channels.size(); i++) {
-
-					Mat c = channels.get(i);
-
-					if (c != null) c.close();
-
-				}
-
 				channels.close();
-
 			}
 
 			if (bgrChannels != null) {
-
 				bgrChannels.close();
-
 			}
 		}
 	}
