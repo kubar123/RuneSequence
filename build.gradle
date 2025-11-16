@@ -1,18 +1,19 @@
 plugins {
     id 'java'
-    id 'java-library'
     id 'application'
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(24)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
 application {
-    mainClass = 'com.lansoftprogramming.runeSequence.TestLoad'  // Minimal test class
+    mainClass = 'com.lansoftprogramming.runeSequence.Main'  // Minimal test class
     applicationDefaultJvmArgs = [
+            "-Xms512m",
+            "-Xmx2048m",
             "--enable-native-access=ALL-UNNAMED",
             "-Dorg.bytedeco.javacpp.cachedir=C:\\javacpp_cache",
             "-Dorg.bytedeco.javacpp.logger=DEBUG"
@@ -24,27 +25,27 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.bytedeco:opencv-platform:4.7.0-1.5.9'
-    implementation 'org.bytedeco:javacv:1.5.9'
-    implementation 'org.bytedeco:ffmpeg-platform:6.0-1.5.9'
+    implementation 'org.bytedeco:opencv-platform:4.10.0-1.5.11'
+    implementation 'org.bytedeco:javacv:1.5.11'
+    implementation 'org.bytedeco:ffmpeg-platform:7.1-1.5.11'
 
     //heybinds
     implementation 'com.1stleg:jnativehook:2.1.0'
 
     // Logging
-    implementation 'org.slf4j:slf4j-api:2.0.9'
-    implementation 'ch.qos.logback:logback-classic:1.5.18'
+    implementation 'org.slf4j:slf4j-api:2.0.17'
+    implementation 'ch.qos.logback:logback-classic:1.5.21'
 
     // JSON
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.15.2'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.15.2'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.20.0'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.20'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.20.0'
 
     // GUI
-    implementation 'com.formdev:flatlaf:3.4.1'
+    implementation 'com.formdev:flatlaf:3.6.2'
     //testing
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:6.0.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
 }
 
 tasks.withType(Test).configureEach {
