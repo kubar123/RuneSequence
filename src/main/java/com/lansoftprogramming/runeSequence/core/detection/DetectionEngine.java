@@ -9,10 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -92,23 +91,26 @@ public class DetectionEngine {
 				}
 
 				List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
-				Map<String, DetectionResult> detectionByAbility = new HashMap<>();
+				Map<String, DetectionResult> detectionByAbility = new ConcurrentHashMap<>();
+
+				Set<String> abilityKeys = new HashSet<>();
+				for (ActiveSequence.DetectionRequirement requirement : requirements) {
+					abilityKeys.add(requirement.abilityKey());
+				}
+
+				abilityKeys.parallelStream().forEach(abilityKey -> {
+					long detectionStart = System.nanoTime();
+					DetectionResult baseResult = detector.detectTemplate(screenMat, abilityKey, false);
+					detectionByAbility.put(abilityKey, baseResult);
+					if (logger.isDebugEnabled()) {
+						long detectionElapsedMicros = (System.nanoTime() - detectionStart) / 1_000;
+						logger.debug("Detection '{}' took {}µs (found={}).",
+								abilityKey, detectionElapsedMicros, baseResult.found);
+					}
+				});
 
 				for (ActiveSequence.DetectionRequirement requirement : requirements) {
 					DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());
-					if (baseResult == null) {
-						long detectionStart = System.nanoTime();
-						baseResult = detector.detectTemplate(screenMat, requirement.abilityKey(), false);
-						detectionByAbility.put(requirement.abilityKey(), baseResult);
-						if (logger.isDebugEnabled()) {
-							long detectionElapsedMicros = (System.nanoTime() - detectionStart) / 1_000;
-							logger.debug("Detection '{}' took {}µs (found={}).",
-									requirement.abilityKey(), detectionElapsedMicros, baseResult.found);
-						}
-					} else if (logger.isDebugEnabled()) {
-						logger.debug("Reused cached detection for '{}'.", requirement.abilityKey());
-					}
-
 					DetectionResult adapted = adaptDetectionResult(requirement, baseResult, captureRegion);
 					detectionResults.add(adapted);
 				}

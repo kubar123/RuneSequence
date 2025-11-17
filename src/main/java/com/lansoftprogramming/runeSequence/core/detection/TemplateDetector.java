@@ -11,7 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Map;
 
 import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.*;
@@ -29,7 +32,7 @@ public class TemplateDetector {
 
 	private final TemplateCache templateCache;
 	private final AbilityConfig abilityConfig;
-	private final Map<String, Rectangle> lastKnownLocations = new HashMap<>();
+	private final Map<String, Rectangle> lastKnownLocations = new java.util.concurrent.ConcurrentHashMap<>();
 
 	public TemplateDetector(TemplateCache templateCache, AbilityConfig abilityConfig) {
 		this.templateCache = templateCache;
@@ -47,23 +50,23 @@ public class TemplateDetector {
 		}
 
 		LinkedHashSet<String> uniqueKeys = new LinkedHashSet<>(abilityKeys);
-		Map<String, DetectionResult> results = new HashMap<>();
+		Map<String, DetectionResult> results = new java.util.concurrent.ConcurrentHashMap<>();
 
-		for (String abilityKey : uniqueKeys) {
+		uniqueKeys.parallelStream().forEach(abilityKey -> {
 			if (abilityKey == null || abilityKey.isEmpty()) {
-				continue;
+				return;
 			}
 			if (!templateCache.hasTemplate(abilityKey)) {
 				logger.debug("Skipping pre-cache for {} because no template is loaded", abilityKey);
-				continue;
+				return;
 			}
 			if (lastKnownLocations.containsKey(abilityKey)) {
-				continue;
+				return;
 			}
 
 			DetectionResult result = detectTemplate(screen, abilityKey);
 			results.put(abilityKey, result);
-		}
+		});
 
 		return results;
 	}
