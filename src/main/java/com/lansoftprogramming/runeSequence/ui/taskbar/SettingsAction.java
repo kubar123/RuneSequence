@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.taskbar;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.ui.settings.HotkeySettingsPanel;
 import com.lansoftprogramming.runeSequence.ui.settings.IconSizeSettingsPanel;
 
 import javax.swing.*;
@@ -26,7 +27,12 @@ public class SettingsAction implements MenuAction {
 			settingsFrame = new JFrame("Settings");
 			settingsFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 			settingsFrame.setLayout(new BorderLayout());
-			settingsFrame.add(new IconSizeSettingsPanel(configManager), BorderLayout.CENTER);
+
+			JTabbedPane tabs = new JTabbedPane();
+			tabs.addTab("UI", new IconSizeSettingsPanel(configManager));
+			tabs.addTab("Hotkeys", new HotkeySettingsPanel(configManager));
+
+			settingsFrame.add(tabs, BorderLayout.CENTER);
 			settingsFrame.pack();
 			settingsFrame.setLocationRelativeTo(null);
 			settingsFrame.setVisible(true);
