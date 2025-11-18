@@ -6,9 +6,12 @@ import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -21,10 +24,17 @@ public class HotkeySettingsPanel extends JPanel {
 	private final List<Row> rows = new ArrayList<>();
 	private final JLabel statusLabel = new JLabel(" ");
 	private final Color defaultFieldBackground;
+	private final KeyCapturePopup keyCapturePopup = new KeyCapturePopup();
 
 	private static final Map<String, String> ACTION_LABELS = buildActionLabels();
 	private static final Color INVALID_FIELD_BACKGROUND = new Color(255, 230, 230);
 	private static final Set<String> MODIFIER_TOKENS = Set.of("CTRL", "CONTROL", "SHIFT", "ALT", "META");
+	private static final Set<Integer> MODIFIER_KEY_CODES = Set.of(
+			KeyEvent.VK_CONTROL,
+			KeyEvent.VK_SHIFT,
+			KeyEvent.VK_ALT,
+			KeyEvent.VK_META,
+			KeyEvent.VK_ALT_GRAPH);
 
 	public HotkeySettingsPanel(ConfigManager configManager) {
 		this.configManager = Objects.requireNonNull(configManager, "configManager");
@@ -85,7 +95,7 @@ public class HotkeySettingsPanel extends JPanel {
 				gbc.gridx = 2;
 				gbc.weightx = 1.0;
 				gbc.fill = GridBagConstraints.HORIZONTAL;
-				formPanel.add(row.customField(), gbc);
+				formPanel.add(row.customEditor(), gbc);
 
 				gbc.gridx = 3;
 				gbc.weightx = 0;
@@ -98,7 +108,7 @@ public class HotkeySettingsPanel extends JPanel {
 		gbc.gridy++;
 		gbc.gridx = 0;
 		gbc.gridwidth = 4;
-		JLabel helper = new JLabel("Tip: separate multiple bindings with commas, e.g. \"Ctrl+F1, Alt+P\".");
+		JLabel helper = new JLabel("Tip: click Capture to record a combo; separate multiple bindings with commas.");
 		helper.setFont(helper.getFont().deriveFont(Font.ITALIC, helper.getFont().getSize() - 1f));
 		formPanel.add(helper, gbc);
 
@@ -201,6 +211,15 @@ public class HotkeySettingsPanel extends JPanel {
 				return new ValidationResult(Collections.emptyList(),
 						actionLabel + " hotkey \"" + trimmed + "\" can only include one non-modifier key.");
 			}
+			int modifierCount = tokens.size() - nonModifierCount;
+			if (modifierCount == 0) {
+				return new ValidationResult(Collections.emptyList(),
+						actionLabel + " hotkey \"" + trimmed + "\" must include at least one modifier key.");
+			}
+			if (modifierCount > 2) {
+				return new ValidationResult(Collections.emptyList(),
+						actionLabel + " hotkey \"" + trimmed + "\" supports at most two modifiers.");
+			}
 			if (isModifierToken(tokens.get(tokens.size() - 1))) {
 				return new ValidationResult(Collections.emptyList(),
 						actionLabel + " hotkey \"" + trimmed + "\" must end with a key.");
@@ -261,6 +280,10 @@ public class HotkeySettingsPanel extends JPanel {
 		return MODIFIER_TOKENS.contains(normalized);
 	}
 
+	private static boolean isModifierKeyCode(int keyCode) {
+		return MODIFIER_KEY_CODES.contains(keyCode);
+	}
+
 	private void markFieldValidity(JTextField field, boolean valid) {
 		field.setBackground(valid ? defaultFieldBackground : INVALID_FIELD_BACKGROUND);
 	}
@@ -282,20 +305,172 @@ public class HotkeySettingsPanel extends JPanel {
 	private record ValidationResult(List<List<String>> bindings, String errorMessage) {
 	}
 
-	private record Row(AppSettings.HotkeySettings.Binding binding,
-	                   JLabel actionLabel,
-	                   JLabel defaultLabel,
-	                   JTextField customField,
-	                   JCheckBox enableCheck) {
+	private static String normalizeKeyToken(String keyText) {
+		if (keyText == null) {
+			return null;
+		}
+		String trimmed = keyText.trim();
+		return trimmed.isEmpty() ? null : trimmed;
+	}
+
+	private final class CustomBindingEditor extends JPanel {
+		private final JTextField field;
+		private final JButton captureButton;
+
+		private CustomBindingEditor(AppSettings.HotkeySettings.Binding binding) {
+			super(new BorderLayout(4, 0));
+			this.field = new JTextField(formatBinding(binding.getUser()));
+			this.field.setColumns(20);
+			this.field.setEditable(false);
+			this.field.setFocusable(false);
+			this.captureButton = new JButton("Capture");
+			captureButton.setToolTipText("Open a menu to record a keybind");
+			captureButton.setMargin(new Insets(2, 8, 2, 8));
+			captureButton.setFocusable(false);
+			captureButton.addActionListener(e -> beginCapture());
+			add(field, BorderLayout.CENTER);
+			add(captureButton, BorderLayout.EAST);
+		}
+
+		private void beginCapture() {
+			if (!captureButton.isEnabled()) {
+				return;
+			}
+			keyCapturePopup.open(captureButton, tokens -> applyCaptured(tokens));
+		}
+
+		private void applyCaptured(List<String> tokens) {
+			String formatted = formatBinding(List.of(tokens));
+			field.setText(formatted);
+			field.requestFocusInWindow();
+			field.selectAll();
+			markFieldValidity(field, true);
+		}
+
+		private void setEditorEnabled(boolean enabled) {
+			field.setEnabled(enabled);
+			captureButton.setEnabled(enabled);
+		}
+
+		private JTextField field() {
+			return field;
+		}
+	}
+
+	private final class KeyCapturePopup extends JPopupMenu implements KeyEventDispatcher {
+		private final JLabel infoLabel = new JLabel("Press a key combination (ESC to cancel).");
+		private Consumer<List<String>> completion;
+		private boolean listening;
+
+		private KeyCapturePopup() {
+			infoLabel.setBorder(new EmptyBorder(6, 12, 6, 12));
+			add(infoLabel);
+		}
+
+		void open(Component invoker, Consumer<List<String>> onComplete) {
+			if (invoker == null) {
+				return;
+			}
+			if (isVisible()) {
+				setVisible(false);
+			}
+			this.completion = onComplete;
+			infoLabel.setForeground(UIManager.getColor("Label.foreground"));
+			infoLabel.setText("Press a key combination (ESC to cancel).");
+			show(invoker, 0, invoker.getHeight());
+			KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(this);
+			listening = true;
+		}
+
+		@Override
+		public void setVisible(boolean visible) {
+			super.setVisible(visible);
+			if (!visible) {
+				stopListening();
+			}
+		}
+
+		private void stopListening() {
+			if (listening) {
+				KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(this);
+				listening = false;
+			}
+			completion = null;
+		}
+
+		@Override
+		public boolean dispatchKeyEvent(KeyEvent e) {
+			if (!isVisible()) {
+				return false;
+			}
+			if (e.getID() != KeyEvent.KEY_PRESSED) {
+				return true;
+			}
+			if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+				setVisible(false);
+				return true;
+			}
+			if (isModifierKeyCode(e.getKeyCode())) {
+				infoLabel.setText("Finish with a non-modifier key.");
+				return true;
+			}
+			List<String> tokens = translateEvent(e);
+			if (tokens == null) {
+				infoLabel.setText("Use 1-2 modifiers plus a final key.");
+				Toolkit.getDefaultToolkit().beep();
+				return true;
+			}
+			if (completion != null) {
+				completion.accept(tokens);
+			}
+			setVisible(false);
+			return true;
+		}
+
+		private List<String> translateEvent(KeyEvent event) {
+			int modifiers = event.getModifiersEx();
+			List<String> tokens = new ArrayList<>();
+			addModifierToken(modifiers, InputEvent.CTRL_DOWN_MASK, "CTRL", tokens);
+			addModifierToken(modifiers, InputEvent.ALT_DOWN_MASK, "ALT", tokens);
+			addModifierToken(modifiers, InputEvent.SHIFT_DOWN_MASK, "SHIFT", tokens);
+			addModifierToken(modifiers, InputEvent.META_DOWN_MASK, "META", tokens);
+			if ((modifiers & InputEvent.ALT_GRAPH_DOWN_MASK) != 0 && !tokens.contains("ALT")) {
+				tokens.add("ALT");
+			}
+			if (tokens.isEmpty() || tokens.size() > 2) {
+				return null;
+			}
+			String keyToken = normalizeKeyToken(KeyEvent.getKeyText(event.getKeyCode()));
+			if (keyToken == null) {
+				return null;
+			}
+			List<String> result = new ArrayList<>(tokens);
+			result.add(keyToken);
+			return result;
+		}
+
+		private void addModifierToken(int modifiers, int mask, String label, List<String> tokens) {
+			if ((modifiers & mask) != 0 && !tokens.contains(label)) {
+				tokens.add(label);
+			}
+		}
+	}
+
+	private final class Row {
+		private final AppSettings.HotkeySettings.Binding binding;
+		private final JLabel actionLabel;
+		private final JLabel defaultLabel;
+		private final CustomBindingEditor customEditor;
+		private final JCheckBox enableCheck;
 
 		private Row(AppSettings.HotkeySettings.Binding binding) {
-			this(binding,
-					new JLabel(resolveActionLabel(binding.getAction())),
-					new JLabel(renderDefault(binding)),
-					createField(binding),
-					createCheck(binding));
-			enableCheck.addActionListener(e -> customField.setEnabled(enableCheck.isSelected()));
-			customField.setEnabled(binding.isUserEnabled());
+			this.binding = binding;
+			this.actionLabel = new JLabel(resolveActionLabel(binding.getAction()));
+			this.defaultLabel = new JLabel(renderDefault(binding));
+			this.customEditor = new CustomBindingEditor(binding);
+			this.enableCheck = createCheck(binding);
+			enableCheck.addActionListener(e -> customEditor.setEditorEnabled(enableCheck.isSelected()));
+			customEditor.setEditorEnabled(binding.isUserEnabled());
 		}
 
 		private static String renderDefault(AppSettings.HotkeySettings.Binding binding) {
@@ -303,16 +478,34 @@ public class HotkeySettingsPanel extends JPanel {
 			return formatted.isBlank() ? "Not set" : formatted;
 		}
 
-		private static JTextField createField(AppSettings.HotkeySettings.Binding binding) {
-			JTextField field = new JTextField(formatBinding(binding.getUser()));
-			field.setColumns(20);
-			return field;
-		}
-
 		private static JCheckBox createCheck(AppSettings.HotkeySettings.Binding binding) {
 			JCheckBox checkBox = new JCheckBox();
 			checkBox.setSelected(binding.isUserEnabled());
 			return checkBox;
+		}
+
+		private AppSettings.HotkeySettings.Binding binding() {
+			return binding;
+		}
+
+		private JLabel actionLabel() {
+			return actionLabel;
+		}
+
+		private JLabel defaultLabel() {
+			return defaultLabel;
+		}
+
+		private JTextField customField() {
+			return customEditor.field();
+		}
+
+		private CustomBindingEditor customEditor() {
+			return customEditor;
+		}
+
+		private JCheckBox enableCheck() {
+			return enableCheck;
 		}
 	}
 }
