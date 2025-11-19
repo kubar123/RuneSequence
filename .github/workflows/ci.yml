@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Keep CI behavior consistent and enable Gradle/Test logging toggles
+  CI: true
+  # Centralize JavaCPP cache so it can be reused across runs
+  JAVACPP_CACHE: ${{ runner.temp }}/.javacpp/cache
+
+jobs:
+  build-test:
+    # Start with Ubuntu; other OSes added later once stable
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v2
+
+      - name: Set up Temurin JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Set up Gradle (build cache + config-cache friendly)
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Cache JavaCPP native artifacts
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.JAVACPP_CACHE }}
+          key: javacpp-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            javacpp-${{ runner.os }}-
+
+      - name: Build and unit test
+        run: ./gradlew --no-daemon clean test
+
+      - name: Sanity-check native load (OpenCV/JavaCV)
+        run: ./gradlew --no-daemon testOpenCV
+
+      - name: Assemble distributables
+        run: ./gradlew --no-daemon assemble
+
+      - name: Upload test reports (HTML + XML)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+
+      - name: Upload jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-libs
+          path: |
+            **/build/libs/*.jar
