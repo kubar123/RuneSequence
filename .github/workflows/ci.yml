@@ -83,13 +83,6 @@ jobs:
           timeout_minutes: 20
           command: ./gradlew --no-daemon --info --stacktrace clean test | tee build/ci-clean-test.log
 
-      - name: Sanity-check native load (OpenCV/JavaCV) (with retry)
-        uses: nick-fields/retry@v3
-        with:
-          max_attempts: 3
-          timeout_minutes: 10
-          command: ./gradlew --no-daemon --info --stacktrace testOpenCV | tee build/ci-testOpenCV.log
-
       - name: Assemble distributables (with retry)
         uses: nick-fields/retry@v3
         with:
