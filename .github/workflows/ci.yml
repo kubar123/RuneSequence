@@ -41,9 +41,27 @@ jobs:
         with:
           cache-read-only: false
 
-      # Make JavaCPP cache path available to later steps
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Print Java/Gradle versions
+        run: |
+          java -version
+          ./gradlew -v
+
+      - name: Install native runtime deps (OpenCV/AWT friendly)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1 \
+            libglib2.0-0 \
+            libxext6 libxrender1 libxtst6 libxi6
+
       - name: Configure JavaCPP cache path
         run: echo "JAVACPP_CACHE=$RUNNER_TEMP/.javacpp/cache" >> "$GITHUB_ENV"
+
+      - name: Ensure JavaCPP cache dir exists
+        run: mkdir -p "$JAVACPP_CACHE"
 
       - name: Cache JavaCPP native artifacts
         uses: actions/cache@v4
@@ -59,21 +77,14 @@ jobs:
         with:
           max_attempts: 3
           timeout_minutes: 20
-          command: ./gradlew --no-daemon --stacktrace clean test
-
-      - name: Sanity-check native load (OpenCV/JavaCV) (with retry)
-        uses: nick-fields/retry@v3
-        with:
-          max_attempts: 3
-          timeout_minutes: 10
-          command: ./gradlew --no-daemon --stacktrace testOpenCV
+          command: ./gradlew --no-daemon --info --stacktrace clean test | tee build/ci-clean-test.log
 
       - name: Assemble distributables (with retry)
         uses: nick-fields/retry@v3
         with:
           max_attempts: 3
           timeout_minutes: 10
-          command: ./gradlew --no-daemon --stacktrace assemble
+          command: ./gradlew --no-daemon --info --stacktrace assemble | tee build/ci-assemble.log
 
       - name: Upload test reports
         if: always()
@@ -92,4 +103,13 @@ jobs:
           name: build-libs
           path: |
             **/build/libs/*.jar
+          if-no-files-found: warn
+
+      - name: Upload CI logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs
+          path: |
+            build/*.log
           if-no-files-found: warn

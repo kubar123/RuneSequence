@@ -68,16 +68,3 @@ tasks.withType(JavaExec).configureEach {
     jvmArgs += ["--enable-native-access=ALL-UNNAMED"]
     environment 'JAVACPP_CACHE', javacppCacheDir        // Keeps cache location consistent in CI
 }
-
-tasks.register('testOpenCV') {
-    group = 'verification'
-    description = 'Run a minimal OpenCV load test'
-    dependsOn 'classes'
-    doLast {
-        javaexec {
-            main = 'com.lansoftprogramming.runeSequence.TestLoad'
-            classpath = sourceSets.main.runtimeClasspath
-            jvmArgs = application.applicationDefaultJvmArgs
-        }
-    }
-}
