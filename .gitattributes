@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# keep shell scripts usable on Linux runners
+*.sh text eol=lf
+gradlew text eol=lf
