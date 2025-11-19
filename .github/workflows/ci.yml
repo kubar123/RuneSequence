@@ -20,7 +20,7 @@ jobs:
     env:
       CI: true
       # Prefer IPv4 to avoid intermittent IPv6 ENETUNREACH on some runners
-      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -Djava.awt.headless=true
 
     steps:
       - name: Checkout
