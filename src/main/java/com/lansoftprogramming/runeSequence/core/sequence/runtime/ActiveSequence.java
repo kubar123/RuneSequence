@@ -16,6 +16,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	private final AbilityConfig abilityConfig;
 	private final List<List<AbilityInstance>> stepInstances;
 	private final Map<String, AbilityInstance> instancesById = new HashMap<>();
+	private boolean complete = false;
 
 	private int currentStepIndex = 0;
 	public final StepTimer stepTimer;
@@ -58,6 +59,10 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 	public void processDetections(List<DetectionResult> results) {
 
+		if (complete) {
+			return; // Finished rotations ignore further detections until reset
+		}
+
 		System.out.println("ActiveSequence.processDetections: Received " + results.size() + " results");
 
 		lastDetections.clear();
@@ -75,7 +80,12 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		if (stepTimer.isStepSatisfied(lastDetections)) {
 
 			System.out.println("  Step satisfied! Advancing...");
-			advanceStep();
+			if (isOnLastStep()) {
+				complete = true;
+				System.out.println("  Sequence complete");
+			} else {
+				advanceStep();
+			}
 		} else {
 
 			System.out.println("  Step not yet satisfied");
@@ -155,7 +165,12 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		System.out.println("ActiveSequence.reset: Resetting to step 0");
 		currentStepIndex = 0;
 		stepTimer.reset();
+		// Restart baseline timing so future runs resume properly
+		if (!definition.getSteps().isEmpty()) {
+			stepTimer.startStep(definition.getStep(currentStepIndex), abilityConfig);
+		}
 		lastDetections.clear();
+		complete = false;
 	}
 
 	public String getAbilityKeyForInstance(String instanceId) {
@@ -268,6 +283,14 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			}
 		}
 		return List.copyOf(keys);
+	}
+
+	public boolean isComplete() {
+		return complete;
+	}
+
+	private boolean isOnLastStep() {
+		return currentStepIndex >= definition.size() - 1;
 	}
 
 	private void logStepInstances() {

@@ -18,6 +18,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	private ActiveSequence activeSequence;
 	private SequenceController sequenceController;
 	private final GcdLatchTracker gcdLatchTracker = new GcdLatchTracker();
+	private boolean sequenceComplete = false;
 
 	public SequenceManager(Map<String, SequenceDefinition> namedSequences, AbilityConfig abilityConfig) {
 		this.abilityConfig = Objects.requireNonNull(abilityConfig);
@@ -48,6 +49,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		}
 
 		this.activeSequence = new ActiveSequence(def, abilityConfig);
+		this.sequenceComplete = false;
 
 		if (sequenceController != null) {
 			sequenceController.addStateChangeListener(activeSequence);
@@ -60,7 +62,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	 * Return the per-occurrence detection requirements (current + next step).
 	 */
 	public synchronized List<ActiveSequence.DetectionRequirement> getDetectionRequirements() {
-		if (activeSequence == null) {
+		if (activeSequence == null || sequenceComplete) {
 			return List.of();
 		}
 		return activeSequence.getDetectionRequirements();
@@ -68,30 +70,36 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 	public synchronized void processDetection(List<DetectionResult> results) {
 
+		if (sequenceComplete || activeSequence == null) {
+			return;
+		}
+
 		// Keep latch state synced to latest detections before step timers react
 		gcdLatchTracker.onFrame(results);
 
-		if (activeSequence != null) {
-			activeSequence.processDetections(results);
+		activeSequence.processDetections(results);
+
+		if (activeSequence.isComplete()) {
+			onSequenceCompleted();
 		}
 	}
 
 	public synchronized List<DetectionResult> getCurrentAbilities() {
-		if (activeSequence == null) {
+		if (activeSequence == null || sequenceComplete) {
 			return List.of();
 		}
 		return activeSequence.getCurrentAbilities();
 	}
 
 	public synchronized List<DetectionResult> getNextAbilities() {
-		if (activeSequence == null) {
+		if (activeSequence == null || sequenceComplete) {
 			return List.of();
 		}
 		return activeSequence.getNextAbilities();
 	}
 
 	public synchronized List<String> getActiveSequenceAbilityKeys() {
-		if (activeSequence == null) {
+		if (activeSequence == null || sequenceComplete) {
 			return List.of();
 		}
 		return activeSequence.getAllAbilityKeys();
@@ -103,7 +111,10 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 
 	public synchronized void resetActiveSequence() {
-		if (activeSequence != null) activeSequence.reset();
+		if (activeSequence != null) {
+			activeSequence.reset();
+		}
+		sequenceComplete = false;
 	}
 
 	public synchronized boolean hasActiveSequence() {
@@ -111,10 +122,31 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		return hasActive;
 	}
 
+	public synchronized boolean isSequenceComplete() {
+		return sequenceComplete;
+	}
+
+	public synchronized boolean shouldDetect() {
+		return activeSequence != null && !sequenceComplete;
+	}
+
 	@Override
 	public synchronized void onStateChanged(SequenceController.State oldState, SequenceController.State newState) {
 		// Keep detection-side latch phases aligned with UI state machine
 		gcdLatchTracker.onStateChanged(newState);
+	}
+
+	private void onSequenceCompleted() {
+		if (sequenceComplete) {
+			return;
+		}
+		sequenceComplete = true;
+		gcdLatchTracker.reset();
+		logger.info("Sequence complete - halting detections until restart");
+
+		if (sequenceController != null) {
+			sequenceController.onSequenceCompleted();
+		}
 	}
 
 	private final class GcdLatchTracker {

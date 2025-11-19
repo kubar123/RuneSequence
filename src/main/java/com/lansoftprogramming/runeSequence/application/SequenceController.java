@@ -41,8 +41,16 @@ public class SequenceController implements HotkeyListener {
 	public void onRestartSequence() {
 		synchronized (this) {
 			sequenceManager.resetActiveSequence();
-			setState(State.READY);
-			logger.info("Sequence restarted - back to ready state");
+			setState(State.ARMED);
+			logger.info("Sequence restarted - re-armed and awaiting latch");
+		}
+	}
+	public void onSequenceCompleted() {
+		synchronized (this) {
+			if (currentState == State.RUNNING) {
+				setState(State.READY);
+				logger.info("Sequence completed - returning to ready state");
+			}
 		}
 	}
 

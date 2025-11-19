@@ -110,6 +110,12 @@ public class HotkeyManager {
 			for (Map.Entry<HotkeyEvent, List<KeyChord>> en : bindings.entrySet()) {
 				List<KeyChord> chords = en.getValue();
 				if (chords != null && chords.contains(chord)) {
+					EnumSet<ModifierKey> snapshot = activeModifiers.isEmpty()
+							? EnumSet.noneOf(ModifierKey.class)
+							: EnumSet.copyOf(activeModifiers);
+					System.out.println("HotkeyManager: Hotkey pressed for event " + en.getKey()
+							+ " key=" + NativeKeyEvent.getKeyText(e.getKeyCode())
+							+ " modifiers=" + snapshot);
 					notifier.notify(en.getKey());
 				}
 			}

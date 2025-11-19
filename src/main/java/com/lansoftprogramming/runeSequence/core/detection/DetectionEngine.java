@@ -66,6 +66,11 @@ public class DetectionEngine {
 
 	private void processFrame() {
 		try {
+			if (!sequenceManager.shouldDetect()) {
+				// Ensure overlays are cleared once sequence has finished
+				updateOverlays();
+				return;
+			}
 			updateOverlays();
 		} catch (Exception e) {
 			logger.error("Overlay update failed.", e);

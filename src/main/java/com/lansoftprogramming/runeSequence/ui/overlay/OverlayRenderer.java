@@ -92,18 +92,6 @@ public class OverlayRenderer {
 		try {
 			// Clear existing borders
 			activeBorders.clear();
-			System.out.println("ABILITIES");
-			if (currentAbilities != null) {
-				for (DetectionResult result : currentAbilities) {
-					System.out.println("Current ability: " + result.templateName +
-							" found=" + result.found +
-							" location=" + result.location +
-							" boundingBox=" + result.boundingBox +
-							" confidence=" + result.confidence +
-							" isAlternative="+ result.isAlternative);
-				}
-			}
-//			System.exit(0);
 
 			// Add current ability borders (green/purple)
 			if (currentAbilities != null) {
