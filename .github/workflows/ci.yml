@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
-      JAVACPP_CACHE: ${{ runner.temp }}/.javacpp/cache
 
     steps:
       - name: Checkout
@@ -39,6 +38,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
         with:
           cache-read-only: false
+
+      # Set JAVACPP_CACHE at step time (runner is available now)
+      - name: Configure JavaCPP cache path
+        run: echo "JAVACPP_CACHE=$RUNNER_TEMP/.javacpp/cache" >> "$GITHUB_ENV"
 
       - name: Cache JavaCPP native artifacts
         uses: actions/cache@v4
