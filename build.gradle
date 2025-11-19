@@ -3,6 +3,10 @@ plugins {
     id 'application'
 }
 
+// CI-friendly defaults -------------------------------------------------------
+// Users can override the cache directory in CI with ENV var JAVACPP_CACHE
+def javacppCacheDir = System.getenv('JAVACPP_CACHE') ?: "${System.getProperty('user.home')}/.javacpp/cache"
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
@@ -15,8 +19,8 @@ application {
             "-Xms512m",
             "-Xmx2048m",
             "--enable-native-access=ALL-UNNAMED",
-            "-Dorg.bytedeco.javacpp.cachedir=C:\\javacpp_cache",
-            "-Dorg.bytedeco.javacpp.logger=DEBUG"
+            "-Dorg.bytedeco.javacpp.cachedir=${javacppCacheDir}",
+            "-Dorg.bytedeco.javacpp.logger=slf4j"
     ]
 }
 
@@ -52,11 +56,17 @@ dependencies {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    systemProperty 'java.awt.headless', 'true'          // Avoid UI requirement in CI
+    jvmArgs += ["--enable-native-access=ALL-UNNAMED"]
+    testLogging {
+        events "PASSED", "FAILED", "SKIPPED"
+        showStandardStreams = System.getenv('CI') != null
+        exceptionFormat 'short'
+    }
 }
 tasks.withType(JavaExec).configureEach {
-    jvmArgs += [
-            "--enable-native-access=ALL-UNNAMED"
-    ]
+    jvmArgs += ["--enable-native-access=ALL-UNNAMED"]
+    environment 'JAVACPP_CACHE', javacppCacheDir        // Keeps cache location consistent in CI
 }
 
 tasks.register('testOpenCV') {
