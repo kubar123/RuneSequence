@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: true
+      # Prefer IPv4 to avoid intermittent IPv6 ENETUNREACH on some runners
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
 
     steps:
       - name: Checkout
@@ -39,7 +41,7 @@ jobs:
         with:
           cache-read-only: false
 
-      # Set JAVACPP_CACHE at step time (runner is available now)
+      # Make JavaCPP cache path available to later steps
       - name: Configure JavaCPP cache path
         run: echo "JAVACPP_CACHE=$RUNNER_TEMP/.javacpp/cache" >> "$GITHUB_ENV"
 
@@ -51,14 +53,27 @@ jobs:
           restore-keys: |
             javacpp-${{ runner.os }}-
 
-      - name: Build and unit test
-        run: ./gradlew --no-daemon clean test
+      # Retry wrapper for transient network timeouts during dependency resolution
+      - name: Build and unit test (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          max_attempts: 3
+          timeout_minutes: 20
+          command: ./gradlew --no-daemon --stacktrace clean test
 
-      - name: Sanity-check native load (OpenCV/JavaCV)
-        run: ./gradlew --no-daemon testOpenCV
+      - name: Sanity-check native load (OpenCV/JavaCV) (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: ./gradlew --no-daemon --stacktrace testOpenCV
 
-      - name: Assemble distributables
-        run: ./gradlew --no-daemon assemble
+      - name: Assemble distributables (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: ./gradlew --no-daemon --stacktrace assemble
 
       - name: Upload test reports
         if: always()
@@ -66,12 +81,15 @@ jobs:
         with:
           name: test-reports
           path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
+            **/build/reports/tests/**/*
+            **/build/test-results/**/*
+          if-no-files-found: warn
 
       - name: Upload build jars
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-libs
           path: |
             **/build/libs/*.jar
+          if-no-files-found: warn
