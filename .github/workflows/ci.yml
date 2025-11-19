@@ -20,7 +20,7 @@ jobs:
     env:
       CI: true
       # Prefer IPv4 to avoid intermittent IPv6 ENETUNREACH on some runners
-      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -Djava.awt.headless=true
 
     steps:
       - name: Checkout
@@ -41,14 +41,17 @@ jobs:
         with:
           cache-read-only: false
 
+      # Ensure wrapper is executable on Linux runners
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      # Quick environment visibility
       - name: Print Java/Gradle versions
         run: |
           java -version
           ./gradlew -v
 
+      # Native runtime deps helpful for OpenCV/JavaCV + AWT headless usage
       - name: Install native runtime deps (OpenCV/AWT friendly)
         run: |
           sudo apt-get update
@@ -57,6 +60,7 @@ jobs:
             libglib2.0-0 \
             libxext6 libxrender1 libxtst6 libxi6
 
+      # Make JavaCPP cache path available to later steps
       - name: Configure JavaCPP cache path
         run: echo "JAVACPP_CACHE=$RUNNER_TEMP/.javacpp/cache" >> "$GITHUB_ENV"
 
@@ -78,6 +82,13 @@ jobs:
           max_attempts: 3
           timeout_minutes: 20
           command: ./gradlew --no-daemon --info --stacktrace clean test | tee build/ci-clean-test.log
+
+      - name: Sanity-check native load (OpenCV/JavaCV) (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: ./gradlew --no-daemon --info --stacktrace testOpenCV | tee build/ci-testOpenCV.log
 
       - name: Assemble distributables (with retry)
         uses: nick-fields/retry@v3
