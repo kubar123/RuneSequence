@@ -27,7 +27,7 @@ import static org.bytedeco.opencv.global.opencv_imgproc.*;
  * we close them when no longer needed to avoid native memory leaks.
  * - If a helper returns the same Mat object passed in (no conversion), we don't close the original here.
  */
-public class TemplateDetector {
+public class TemplateDetector implements TemplateMatcher {
 	private static final Logger logger = LoggerFactory.getLogger(TemplateDetector.class);
 
 	private final TemplateCache templateCache;
@@ -39,11 +39,13 @@ public class TemplateDetector {
 		this.abilityConfig = abilityConfig;
 	}
 
+	@Override
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
 		// Backwards-compatible entrypoint: default isAlternative to false
 		return detectTemplate(screen, templateName, false);
 	}
 
+	@Override
 	public Map<String, DetectionResult> cacheAbilityLocations(Mat screen, Collection<String> abilityKeys) {
 		if (screen == null || screen.empty() || abilityKeys == null || abilityKeys.isEmpty()) {
 			return Collections.emptyMap();
@@ -74,6 +76,7 @@ public class TemplateDetector {
 	/**
 	 * New overload that accepts isAlternative which will be propagated into DetectionResult.
 	 */
+	@Override
 	public DetectionResult detectTemplate(Mat screen, String templateName, boolean isAlternative) {
 		Mat template = templateCache.getTemplate(templateName);
 		if (template == null) {

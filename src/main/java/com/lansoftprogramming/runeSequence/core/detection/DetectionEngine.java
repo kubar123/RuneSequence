@@ -20,7 +20,7 @@ public class DetectionEngine {
 	private static final Logger logger = LoggerFactory.getLogger(DetectionEngine.class);
 
 	private final ScreenCapture screenCapture;
-	private final TemplateDetector detector;
+	private final TemplateMatcher detector;
 	private final SequenceManager sequenceManager;
 	private final OverlayRenderer overlay;
 	private final int detectionIntervalMs;
@@ -28,7 +28,7 @@ public class DetectionEngine {
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
 
-	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
+	public DetectionEngine(ScreenCapture screenCapture, TemplateMatcher detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
 	                       int detectionIntervalMs) {
 		this.screenCapture = screenCapture;

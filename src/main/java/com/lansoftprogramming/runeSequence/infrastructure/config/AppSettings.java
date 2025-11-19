@@ -200,6 +200,9 @@ public class AppSettings {
 		@JsonProperty("enableOverlay")
 		private boolean enableOverlay = true;
 
+		@JsonProperty("useGpu")
+		private boolean useGpu = false;
+
 		// Getters and setters
 		public int getIntervalMs() {
 			return intervalMs;
@@ -223,6 +226,14 @@ public class AppSettings {
 
 		public void setEnableOverlay(boolean enableOverlay) {
 			this.enableOverlay = enableOverlay;
+		}
+
+		public boolean isUseGpu() {
+			return useGpu;
+		}
+
+		public void setUseGpu(boolean useGpu) {
+			this.useGpu = useGpu;
 		}
 	}
 

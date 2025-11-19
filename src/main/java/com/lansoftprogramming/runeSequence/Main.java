@@ -5,7 +5,9 @@ import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.application.SequenceManager;
 import com.lansoftprogramming.runeSequence.application.TemplateCache;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
+import com.lansoftprogramming.runeSequence.core.detection.GpuTemplateMatcher;
 import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.core.detection.TemplateMatcher;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
@@ -45,7 +47,7 @@ public class Main {
 
 			// 3. Initialize core components
 			ScreenCapture screenCapture = new ScreenCapture(configManager.getSettings());
-			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
+			TemplateMatcher templateMatcher = createTemplateMatcher();
 			OverlayRenderer overlayRenderer = new OverlayRenderer();
 
 			// 4. Set up the Sequence Manager with our debug rotation
@@ -120,7 +122,7 @@ public class Main {
 			// 5. Initialize and start the detection engine
 			DetectionEngine detectionEngine = new DetectionEngine(
 					screenCapture,
-					templateDetector,
+					templateMatcher,
 					sequenceManager,
 					overlayRenderer,
 					configManager.getDetectionInterval()
@@ -186,5 +188,34 @@ public class Main {
 			throw new RuntimeException(e);
 		}
 		logger.info("ConfigManager initialized. Settings loaded.");
+	}
+
+	private static TemplateMatcher createTemplateMatcher() {
+		boolean useGpuRequested = false;
+		if (configManager.getSettings() != null
+				&& configManager.getSettings().getDetection() != null) {
+			useGpuRequested = configManager.getSettings().getDetection().isUseGpu();
+		}
+
+		TemplateDetector cpuMatcher = new TemplateDetector(templateCache, configManager.getAbilities());
+
+		if (!useGpuRequested) {
+			logger.info("GPU template matching disabled in settings; using CPU matcher.");
+			return cpuMatcher;
+		}
+
+		logger.info("GPU template matching requested; running CUDA self-test before enabling.");
+
+		try {
+			if (GpuTemplateMatcher.selfTestCuda()) {
+				logger.info("CUDA self-test succeeded; GPU template matcher enabled.");
+				return new GpuTemplateMatcher(templateCache, configManager.getAbilities());
+			}
+			logger.warn("CUDA self-test failed or no compatible device; using CPU matcher.");
+			return cpuMatcher;
+		} catch (Throwable t) {
+			logger.error("Failed to initialize GPU template matcher; falling back to CPU matcher.", t);
+			return cpuMatcher;
+		}
 	}
 }
