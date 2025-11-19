@@ -24,10 +24,32 @@ repositories {
     mavenCentral()
 }
 
+configurations.configureEach {
+    resolutionStrategy {
+        dependencySubstitution {
+            // Force any CPU OpenCV preset to resolve to the GPU bundle
+            substitute module("org.bytedeco:opencv-platform") using module("org.bytedeco:opencv-platform-gpu:4.11.0-1.5.12")
+            substitute module("org.bytedeco:opencv") using module("org.bytedeco:opencv-platform-gpu:4.11.0-1.5.12")
+        }
+        eachDependency { DependencyResolveDetails details ->
+            if (details.requested.group == 'org.bytedeco' && details.requested.name.startsWith('opencv-platform') && !details.requested.name.contains('gpu')) {
+                details.useTarget("org.bytedeco:opencv-platform-gpu:4.11.0-1.5.12")
+            }
+            if (details.requested.group == 'org.bytedeco' && details.requested.name == 'opencv') {
+                details.useTarget("org.bytedeco:opencv-platform-gpu:4.11.0-1.5.12")
+            }
+        }
+    }
+}
+
 dependencies {
-    implementation 'org.bytedeco:opencv-platform:4.10.0-1.5.11'
-    implementation 'org.bytedeco:javacv:1.5.11'
-    implementation 'org.bytedeco:ffmpeg-platform:7.1-1.5.11'
+    // Use CUDA-enabled OpenCV presets only. The GPU artifact includes CPU code as well,
+    // so it still supports CPU fallback while allowing CUDA symbols to load correctly.
+    implementation 'org.bytedeco:opencv-platform-gpu:4.11.0-1.5.12'
+    implementation 'org.bytedeco:javacv:1.5.12'
+    implementation 'org.bytedeco:ffmpeg-platform:7.1.1-1.5.12'
+    // CUDA runtime bundle matching 1.5.12 presets (large download ~3GB)
+    implementation 'org.bytedeco:cuda-platform-redist:12.9-9.10-1.5.12'
 
     //heybinds
     implementation 'com.1stleg:jnativehook:2.1.0'
