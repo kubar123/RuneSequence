@@ -43,6 +43,7 @@ class AbilityCardFactory {
 		card.add(iconLabel);
 		card.add(nameLabel);
 		card.putClientProperty("abilityKey", item.getKey());
+		card.setToolTipText(createTooltipText(item));
 
 		MouseAdapter dragListener = dragController.createCardDragListener(item, card, false);
 		card.addMouseListener(dragListener);
@@ -56,6 +57,13 @@ class AbilityCardFactory {
 		label.setForeground(Color.RED);
 		label.setBorder(new EmptyBorder(0, 5, 0, 5));
 		return label;
+	}
+
+	private String createTooltipText(AbilityItem item) {
+		return String.format("<html><b>%s</b><br/>Type: %s<br/>Level: %d</html>",
+				item.getDisplayName(),
+				item.getType(),
+				item.getLevel());
 	}
 
 	private String truncateText(String text, int maxLength) {
