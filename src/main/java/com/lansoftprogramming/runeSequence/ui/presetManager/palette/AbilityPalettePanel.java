@@ -170,18 +170,44 @@ public class AbilityPalettePanel extends JPanel {
 	 */
 	private void loadCategories() {
 		Map<String, List<String>> categories = categoryConfig.getCategories();
+		Map<String, List<String>> categoriesWithFallback = new LinkedHashMap<>();
 
-		if (categories == null || categories.isEmpty()) {
+		if (categories != null) {
+			categoriesWithFallback.putAll(categories);
+		}
+
+		// Build a default "Items" category from any abilities not already assigned to a category
+		Set<String> allAbilityKeys = abilityConfig.getAbilities() != null
+				? new LinkedHashSet<>(abilityConfig.getAbilities().keySet())
+				: Collections.emptySet();
+
+		Set<String> categorizedKeys = categoriesWithFallback.values().stream()
+				.filter(Objects::nonNull)
+				.flatMap(List::stream)
+				.collect(Collectors.toCollection(LinkedHashSet::new));
+
+		List<String> uncategorized = allAbilityKeys.stream()
+				.filter(key -> !categorizedKeys.contains(key))
+				.collect(Collectors.toList());
+
+		if (!uncategorized.isEmpty()) {
+			categoriesWithFallback
+					.computeIfAbsent("Items", k -> new ArrayList<>())
+					.addAll(uncategorized);
+			logger.info("Added {} uncategorized abilities to default 'Items' category", uncategorized.size());
+		} else if (categoriesWithFallback.isEmpty()) {
 			logger.warn("No ability categories to display");
 			return;
 		}
 
-		for (Map.Entry<String, List<String>> entry : categories.entrySet()) {
+		for (Map.Entry<String, List<String>> entry : categoriesWithFallback.entrySet()) {
 			String categoryName = entry.getKey();
 			List<String> abilityKeys = entry.getValue();
 
 			// Create and cache ability items
 			List<AbilityItem> abilityItems = abilityKeys.stream()
+					.filter(Objects::nonNull)
+					.distinct()
 					.map(this::createAbilityItem)
 					.filter(Objects::nonNull)
 					.sorted(Comparator.comparingInt(AbilityItem::getLevel))
@@ -202,7 +228,7 @@ public class AbilityPalettePanel extends JPanel {
 			categoryTabs.addTab(categoryName, scrollPane);
 		}
 
-		logger.info("Loaded {} ability categories", categories.size());
+		logger.info("Loaded {} ability categories", categoriesWithFallback.size());
 	}
 
 	/**
