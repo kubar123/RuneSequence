@@ -72,9 +72,9 @@ class AbilityFlowView extends JPanel {
 		hideEmptyDropIndicator();
 
 		for (Component card : getAbilityCardArray()) {
-			if (card instanceof JPanel) {
-				card.setBackground(Color.WHITE);
-				((JPanel) card).setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+			if (card instanceof JPanel panel) {
+				panel.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
+				panel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 			}
 		}
 		repaint();
@@ -213,7 +213,7 @@ class AbilityFlowView extends JPanel {
 	}
 
 	private Color getHighlightColor(DropZoneType zoneType) {
-		return zoneType == null ? Color.WHITE : UiColorPalette.getDropZoneHighlightColor(zoneType);
+		return UiColorPalette.getDropZoneHighlightColor(zoneType);
 	}
 
 	private JPanel createEmptyDropIndicator() {
