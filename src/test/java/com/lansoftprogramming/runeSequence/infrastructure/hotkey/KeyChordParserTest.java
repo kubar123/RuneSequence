@@ -35,4 +35,12 @@ class KeyChordParserTest {
 		assertNull(parser.parse(null));
 		assertNull(parser.parse(List.of()));
 	}
+
+	@Test
+	void shouldNormalizeTokensWithSpacesAndHyphens() {
+		KeyChord chord = parser.parse(List.of("shift + page-down"));
+
+		KeyChord expected = new KeyChord(EnumSet.of(ModifierKey.SHIFT), NativeKeyEvent.VC_PAGE_DOWN);
+		assertEquals(expected, chord, "Page Down with mixed separators should resolve to the correct key code");
+	}
 }

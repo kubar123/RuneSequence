@@ -77,6 +77,19 @@ class StepTest {
 		assertFalse(epsilon.isAlternative, "Single-option terms in subgroups must remain non-alternative");
 	}
 
+	@Test
+	void flattenDetectionsShouldKeepExistingAlternativeFlag() {
+		Step step = new Step(List.of(new Term(List.of(new Alternative("Solo")))));
+
+		Map<String, DetectionResult> lastDetections = new HashMap<>();
+		lastDetections.put("Solo", DetectionResult.found("Solo", new Point(5, 5), 0.99, new Rectangle(0, 0, 1, 1), true));
+
+		List<DetectionResult> flattened = step.flattenDetections(lastDetections);
+
+		assertEquals(1, flattened.size());
+		assertTrue(flattened.get(0).isAlternative, "Existing alternative flag should not be cleared when term is singular");
+	}
+
 	private AbilityConfig abilityConfig(String... names) {
 		AbilityConfig config = new AbilityConfig();
 		for (String name : names) {

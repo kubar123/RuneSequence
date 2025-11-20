@@ -72,7 +72,8 @@ class SequenceParserTest {
 				"(-> A -> B)",
 				"(A B -> C -> D)",
 				"(A -> + B -> C)",
-				"(A -> B -> )"
+				"(A -> B -> )",
+				"A -> -> B"
 		);
 
 		for (String expression : invalidExpressions) {
@@ -80,5 +81,29 @@ class SequenceParserTest {
 					() -> SequenceParser.parse(expression),
 					() -> "Expected malformed sequence to fail parsing: " + expression);
 		}
+	}
+
+	@Test
+	void shouldNormalizeSpecSuffixInsideGroups() {
+		SequenceDefinition definition = SequenceParser.parse("(Bio spec) -> Radiant");
+
+		assertEquals(2, definition.size(), "Outer arrow should still split into two steps");
+		assertEquals("(Bio + spec)", definition.getStep(0).toString(), "spec suffix should be split even inside parentheses");
+		assertEquals("Radiant", definition.getStep(1).toString());
+	}
+
+	@Test
+	void shouldRejectBlankExpressions() {
+		assertThrows(IllegalStateException.class, () -> SequenceParser.parse("   "));
+		assertThrows(IllegalStateException.class, () -> SequenceParser.parse(""));
+	}
+
+	@Test
+	void shouldValidateAbilityNamesWithoutOperators() {
+		assertThrows(IllegalStateException.class, () -> SequenceParser.parse("Alpha Beta"));
+
+		SequenceDefinition definition = SequenceParser.parse("Alpha-Beta -> Gamma1");
+		assertEquals("Alpha-Beta", definition.getStep(0).getTerms().get(0).getAlternatives().get(0).getToken());
+		assertEquals(2, definition.size(), "Hyphenated or numeric ability names should parse");
 	}
 }
