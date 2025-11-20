@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -20,7 +21,7 @@ class AbilityCardFactory {
 		JPanel card = new JPanel();
 		card.setName("abilityCard");
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-		card.setBackground(Color.WHITE);
+		card.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
 		card.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 		card.setMinimumSize(new Dimension(50, 68));
 		card.setPreferredSize(new Dimension(50, 68));
@@ -39,6 +40,7 @@ class AbilityCardFactory {
 		nameLabel.setMinimumSize(new Dimension(50, 16));
 		nameLabel.setPreferredSize(new Dimension(50, 16));
 		nameLabel.setMaximumSize(new Dimension(50, 16));
+		nameLabel.setForeground(UiColorPalette.UI_TEXT_COLOR);
 
 		card.add(iconLabel);
 		card.add(nameLabel);

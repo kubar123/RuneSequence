@@ -6,6 +6,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetai
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -352,7 +353,7 @@ public class AbilityPalettePanel extends JPanel {
 			this.dimmed = false;
 
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-			setBackground(Color.WHITE);
+			setBackground(UiColorPalette.UI_CARD_BACKGROUND);
 			setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 			setMinimumSize(new Dimension(50, 68));
 			setPreferredSize(new Dimension(50, 68));
@@ -373,6 +374,7 @@ public class AbilityPalettePanel extends JPanel {
 			nameLabel.setMinimumSize(new Dimension(50, 16));
 			nameLabel.setPreferredSize(new Dimension(50, 16));
 			nameLabel.setMaximumSize(new Dimension(50, 16));
+			nameLabel.setForeground(UiColorPalette.UI_TEXT_COLOR);
 
 			add(iconLabel);
 			add(Box.createRigidArea(new Dimension(0, 2)));

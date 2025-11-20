@@ -30,6 +30,10 @@ public final class UiColorPalette {
 	public static final Color ABILITY_GROUP_AND_BACKGROUND = new Color(220, 255, 223);
 	public static final Color ABILITY_GROUP_OR_BACKGROUND = new Color(196, 163, 231);
 
+	//---- UI -----
+	public static final Color UI_TEXT_COLOR = new Color(255, 255, 255);
+	public static final Color UI_CARD_BACKGROUND = new Color(10, 29, 38);
+
 	private UiColorPalette() {
 		// Utility class
 	}
