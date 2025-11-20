@@ -33,6 +33,7 @@ public class PresetManagerWindow extends JFrame {
     private JSplitPane verticalSplit;
     private JSplitPane horizontalSplit;
     private ToastManager toastManager;
+    private boolean suppressSelectionUpdate;
 
     // Toast helpers with logger fallback
     private void toastInfo(String msg) {
@@ -149,6 +150,10 @@ public class PresetManagerWindow extends JFrame {
 		masterPanel.addImportListener(this::handleImportSequence);
 
         masterPanel.addSelectionListener(entry -> {
+            if (suppressSelectionUpdate) {
+                return;
+            }
+
             if (entry != null) {
                 detailPanel.loadSequence(entry.getId(), entry.getPresetData());
                 updateActiveRotation(entry.getId());
@@ -168,7 +173,7 @@ public class PresetManagerWindow extends JFrame {
     }
 
 	private void handleAddSequence() {
-		masterPanel.clearSelection();
+		clearSelectionSilently();
 
 		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
 	   newPreset.setName("new sequence");
@@ -180,7 +185,7 @@ public class PresetManagerWindow extends JFrame {
 	}
 
 	private void handleImportSequence(String expression) {
-		masterPanel.clearSelection();
+		clearSelectionSilently();
 
 		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
 		newPreset.setName("Imported Sequence");
@@ -196,6 +201,11 @@ public class PresetManagerWindow extends JFrame {
             toastInfo("Please select a preset to delete.");
             return;
         }
+
+        AppSettings settings = configManager.getSettings();
+        String previouslySelectedId = settings != null && settings.getRotation() != null
+                ? settings.getRotation().getSelectedId()
+                : null;
 
         //Confirmation
         int confirm = JOptionPane.showConfirmDialog(
@@ -221,8 +231,24 @@ public class PresetManagerWindow extends JFrame {
 
             configManager.saveRotations();
             sequenceListModel.loadFromConfig(rotations);
-            masterPanel.clearSelection();
-            detailPanel.clear();
+
+            String newSelectionId = null;
+            // Keep previous selection if it still exists; otherwise fall back to first preset.
+            if (previouslySelectedId != null && sequenceListModel.indexOf(previouslySelectedId) >= 0) {
+                newSelectionId = previouslySelectedId;
+            } else if (sequenceListModel.getSize() > 0) {
+                newSelectionId = sequenceListModel.getElementAt(0).getId();
+            }
+
+            if (newSelectionId != null) {
+                String selectionTarget = newSelectionId;
+                SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(selectionTarget));
+            } else {
+                masterPanel.clearSelection();
+                detailPanel.clear();
+                updateActiveRotation(null);
+            }
+
             toastOk("Preset deleted.");
         } catch (Exception e) {
             logger.error("Failed to delete preset {}", entry.getId(), e);
@@ -251,6 +277,20 @@ public class PresetManagerWindow extends JFrame {
 
     public ToastManager toasts() {
         return toastManager;
+    }
+
+    /**
+     * Clears the master list selection without triggering selection listeners.
+     * This prevents programmatic actions (add/import) from overwriting the
+     * persisted "active" rotation in settings.json.
+     */
+    private void clearSelectionSilently() {
+        suppressSelectionUpdate = true;
+        try {
+            masterPanel.clearSelection();
+        } finally {
+            suppressSelectionUpdate = false;
+        }
     }
 
     private void updateActiveRotation(String rotationId) {
