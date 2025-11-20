@@ -42,6 +42,8 @@ out/
 !**/src/test/**/out/
 
 # Eclipse
+.eclipse/
+.metadata/
 .classpath
 .project
 .settings/
