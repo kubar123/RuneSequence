@@ -76,19 +76,20 @@ jobs:
             javacpp-${{ runner.os }}-
 
       # Retry wrapper for transient network timeouts during dependency resolution
+      # Use pipefail so Gradle failures aren't masked by `tee`
       - name: Build and unit test (with retry)
         uses: nick-fields/retry@v3
         with:
           max_attempts: 3
           timeout_minutes: 20
-          command: ./gradlew --no-daemon --info --stacktrace clean test | tee build/ci-clean-test.log
+          command: bash -lc "set -o pipefail; ./gradlew --no-daemon --info --stacktrace clean test | tee build/ci-clean-test.log"
 
       - name: Assemble distributables (with retry)
         uses: nick-fields/retry@v3
         with:
           max_attempts: 3
           timeout_minutes: 10
-          command: ./gradlew --no-daemon --info --stacktrace assemble | tee build/ci-assemble.log
+          command: bash -lc "set -o pipefail; ./gradlew --no-daemon --info --stacktrace assemble | tee build/ci-assemble.log"
 
       - name: Upload test reports
         if: always()
