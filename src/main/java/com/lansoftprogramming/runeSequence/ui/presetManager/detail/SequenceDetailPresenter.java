@@ -30,6 +30,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private String loadedSequenceName;
 	private String loadedExpression;
 	private List<SequenceElement> loadedElements;
+	private List<SequenceElement> originalElementsBeforeDrag;
 	private DropPreview currentPreview;
 	private boolean isHighlightActive;
 	private boolean isDragOutsidePanel;
@@ -160,6 +161,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	@Override
 	public void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex) {
 		logger.info("Drag start: key={}, abilityIndex={}", item.getKey(), abilityIndex);
+		// Keep a pristine copy so cancellation can restore the view state.
+		originalElementsBeforeDrag = new ArrayList<>(currentElements);
 		if (!isFromPalette) {
 			int removalIndex = resolveElementIndexForDrag(item, abilityIndex);
 			logger.info("Drag start resolved removalIndex={} for key={} (abilityIndex={})",
@@ -202,7 +205,6 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	@Override
 	public void onDragEnd(AbilityItem draggedItem, boolean commit) {
 		flowView.clearHighlights();
-
 		boolean isFromSequence = !previewElements.equals(currentElements);
 
 		if (commit) {
@@ -236,26 +238,24 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 				);
 			}
 		} else {
-			if (isFromSequence) {
-				logger.info(
-					"Drag cancelled: restoring previewElements (count={}, item={})",
-					previewElements.size(),
-					draggedItem.getKey()
-				);
-				currentElements = new ArrayList<>(previewElements);
-				updateExpression();
-			} else {
-				previewElements = new ArrayList<>(currentElements);
-				logger.debug(
-					"Drag cancelled: no removal needed for palette item {}",
-					draggedItem.getKey()
-				);
-			}
+			// Restore original state on any cancellation (including right-click cancel or drop outside).
+			List<SequenceElement> restore = originalElementsBeforeDrag != null
+				? new ArrayList<>(originalElementsBeforeDrag)
+				: new ArrayList<>(currentElements);
+			logger.info(
+				"Drag cancelled: restoring original sequence (count={}, item={})",
+				restore.size(),
+				draggedItem.getKey()
+			);
+			currentElements = restore;
+			previewElements = new ArrayList<>(currentElements);
+			updateExpression();
 		}
 
 		isHighlightActive = false;
 		isDragOutsidePanel = false;
 		currentPreview = null;
+		originalElementsBeforeDrag = null;
 		flowView.renderSequenceElements(currentElements);
 	}
 

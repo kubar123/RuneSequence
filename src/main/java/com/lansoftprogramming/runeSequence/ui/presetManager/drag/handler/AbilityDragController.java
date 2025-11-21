@@ -132,6 +132,19 @@ public class AbilityDragController {
         return new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                // Cancel active drag if a different mouse button is pressed mid-drag
+                if (currentDrag != null) {
+                    if (e.getButton() != currentDrag.getStartButton()) {
+                        cancelActiveDrag(true);
+                    }
+                    return;
+                }
+
+                // Only start drags with primary button or synthetic palette events (button==0)
+                if (!SwingUtilities.isLeftMouseButton(e) && e.getButton() != MouseEvent.NOBUTTON) {
+                    return;
+                }
+
                 int index = -1;
                 int elementIndex = -1;
                 Component[] cardsSnapshot = callback.getAllCards();
@@ -166,7 +179,7 @@ public class AbilityDragController {
                 }
                 logger.info("Start drag detected card index={}, elementIndex={}, abilityKey={}",
                         index, elementIndex, item.getKey());
-                startDrag(item, card, isFromPalette, index, e.getPoint());
+                startDrag(item, card, isFromPalette, index, e.getPoint(), e.getButton());
             }
 
             @Override
@@ -189,8 +202,13 @@ public class AbilityDragController {
      * Initiates a drag by creating a `floatingCard`
      * on the glass pane, allowing it to follow the cursor without affecting layout.
      */
-    private void startDrag(AbilityItem item, JPanel card, boolean isFromPalette, int originalIndex, Point startPoint) {
-        currentDrag = new DragState(item, card, isFromPalette, originalIndex, callback.getCurrentElements());
+    private void startDrag(AbilityItem item,
+                           JPanel card,
+                           boolean isFromPalette,
+                           int originalIndex,
+                           Point startPoint,
+                           int startButton) {
+        currentDrag = new DragState(item, card, isFromPalette, originalIndex, callback.getCurrentElements(), startButton);
 
         floatingCard = createFloatingCard(card);
 
@@ -252,6 +270,21 @@ public class AbilityDragController {
      * Cleans up the `floatingCard` and notifies `callback` to commit or cancel.
      */
     private void handleRelease(MouseEvent e) {
+        if (currentDrag != null) {
+            int startButton = currentDrag.getStartButton();
+            // Any secondary/middle release should cancel the drag
+            if (e.getButton() == MouseEvent.BUTTON3 || e.getButton() == MouseEvent.BUTTON2) {
+                cancelActiveDrag(true);
+                return;
+            }
+
+            // If release comes from a different button than the one that started the drag, cancel safely
+            if (startButton != MouseEvent.NOBUTTON && e.getButton() != startButton) {
+                cancelActiveDrag(true);
+                return;
+            }
+        }
+
         Point flowPanelPoint = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), flowPanel);
 
         // Enable condensed logs for the final calculation only
@@ -755,6 +788,24 @@ public class AbilityDragController {
             }
         }
         return floating;
+    }
+
+    /**
+     * Cancels the active drag, performing full cleanup and notifying the callback if requested.
+     */
+    private void cancelActiveDrag(boolean notifyCallback) {
+        if (currentDrag == null) {
+            return;
+        }
+
+        AbilityItem draggedItem = currentDrag.getDraggedItem();
+        cleanup();
+
+        if (notifyCallback) {
+            callback.onDragEnd(draggedItem, false);
+        }
+
+        currentDrag = null;
     }
 
     private void cleanup() {

@@ -15,13 +15,20 @@ public class DragState {
     private final boolean isFromPalette;
     private final int originalIndex; // -1 if from palette
     private final List<SequenceElement> originalElements;
+    private final int startButton;
 
-    public DragState(AbilityItem item, JPanel card, boolean isFromPalette, int originalIndex, List<SequenceElement> originalElements) {
+    public DragState(AbilityItem item,
+                     JPanel card,
+                     boolean isFromPalette,
+                     int originalIndex,
+                     List<SequenceElement> originalElements,
+                     int startButton) {
         this.draggedItem = item;
         this.draggedCard = card;
         this.isFromPalette = isFromPalette;
         this.originalIndex = originalIndex;
         this.originalElements = List.copyOf(originalElements);
+        this.startButton = startButton;
     }
 
     public AbilityItem getDraggedItem() {
@@ -42,5 +49,9 @@ public class DragState {
 
     public List<SequenceElement> getOriginalElements() {
         return originalElements;
+    }
+
+    public int getStartButton() {
+        return startButton;
     }
 }

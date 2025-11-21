@@ -386,7 +386,8 @@ public class AbilityPalettePanel extends JPanel {
 			addMouseListener(new MouseAdapter() {
 				@Override
 				public void mousePressed(MouseEvent e) {
-					if (!dimmed) {
+					// Only start drags from the palette with a physical left-button press.
+					if (!dimmed && e.getButton() == MouseEvent.BUTTON1) {
 						logger.info("Palette card pressed: {}", item.getKey());
 						if (detailPanel != null) {
 							detailPanel.startPaletteDrag(item, AbilityCard.this, e.getPoint());
