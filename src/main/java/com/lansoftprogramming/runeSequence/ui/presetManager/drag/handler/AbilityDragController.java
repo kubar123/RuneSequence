@@ -498,11 +498,32 @@ public class AbilityDragController {
 
         DropZoneType zoneType;
         if (dragPoint.y < topLimit) {
-            zoneType = determineTopZoneType(existingGroupZone, currentTargetIndex, groupBounds);
+            zoneType = determineTopZoneType(
+                    existingGroupZone,
+                    currentTargetIndex,
+                    groupBounds,
+                    dropSide,
+                    beyondLeftEdge,
+                    beyondRightEdge
+            );
         } else if (dragPoint.y > bottomLimit) {
-            zoneType = determineBottomZoneType(existingGroupZone, currentTargetIndex, groupBounds);
+            zoneType = determineBottomZoneType(
+                    existingGroupZone,
+                    currentTargetIndex,
+                    groupBounds,
+                    dropSide,
+                    beyondLeftEdge,
+                    beyondRightEdge
+            );
         } else {
-            zoneType = determineMiddleZoneType(existingGroupZone, currentTargetIndex, groupBounds, dropSide, beyondLeftEdge, beyondRightEdge);
+            zoneType = determineMiddleZoneType(
+                    existingGroupZone,
+                    currentTargetIndex,
+                    groupBounds,
+                    dropSide,
+                    beyondLeftEdge,
+                    beyondRightEdge
+            );
         }
 
 		if (releasePhaseLogging) {
@@ -576,24 +597,40 @@ public class AbilityDragController {
     }
 
     private DropZoneType determineTopZoneType(DropZoneType existingGroupZone,
-                                               int currentTargetIndex,
-                                               GroupBoundaries groupBounds) {
+                                              int currentTargetIndex,
+                                              GroupBoundaries groupBounds,
+                                              DropSide dropSide,
+                                              boolean beyondLeftEdge,
+                                              boolean beyondRightEdge) {
         if (existingGroupZone != null && groupBounds.isValid()) {
-            boolean isGroupStart = (currentTargetIndex == groupBounds.start);
-            if (isGroupStart) {
+            boolean atGroupStart = currentTargetIndex == groupBounds.start;
+            boolean atGroupEnd = currentTargetIndex == groupBounds.end;
+
+            // NEXT is only valid when leaving the group from its true outer sides.
+            boolean leavingLeft = atGroupStart && dropSide == DropSide.LEFT && beyondLeftEdge;
+            boolean leavingRight = atGroupEnd && dropSide == DropSide.RIGHT && beyondRightEdge;
+            if (leavingLeft || leavingRight) {
                 return DropZoneType.NEXT;
             }
+            // Otherwise stay within the group (AND/OR).
             return existingGroupZone;
         }
         return DropZoneType.AND;
     }
 
     private DropZoneType determineBottomZoneType(DropZoneType existingGroupZone,
-                                                  int currentTargetIndex,
-                                                  GroupBoundaries groupBounds) {
+                                                 int currentTargetIndex,
+                                                 GroupBoundaries groupBounds,
+                                                 DropSide dropSide,
+                                                 boolean beyondLeftEdge,
+                                                 boolean beyondRightEdge) {
         if (existingGroupZone != null && groupBounds.isValid()) {
-            boolean isGroupEnd = (currentTargetIndex == groupBounds.end);
-            if (isGroupEnd) {
+            boolean atGroupStart = currentTargetIndex == groupBounds.start;
+            boolean atGroupEnd = currentTargetIndex == groupBounds.end;
+
+            boolean leavingLeft = atGroupStart && dropSide == DropSide.LEFT && beyondLeftEdge;
+            boolean leavingRight = atGroupEnd && dropSide == DropSide.RIGHT && beyondRightEdge;
+            if (leavingLeft || leavingRight) {
                 return DropZoneType.NEXT;
             }
             return existingGroupZone;
