@@ -31,8 +31,9 @@ public class AbilityDragController {
     private static final int GROUP_EDGE_TOLERANCE = 8;
 
     private boolean isDragOutsidePanel = false;
-    private JLabel trashIconLabel;
     private ImageIcon trashIcon;
+    private JLabel floatingIconLabel;
+    private Icon originalAbilityIcon;
 
     private final JPanel flowPanel;
     private final DragCallback callback;
@@ -71,51 +72,16 @@ public class AbilityDragController {
     private void updateFloatingCardAppearance() {
         if (floatingCard == null) return;
 
-        if (isDragOutsidePanel) {
-            // Load trash icon if not already loaded
-            if (trashIcon == null) {
-                try {
-                    URL trashUrl = getClass().getResource("/ui/trash-512.png");
-                    if (trashUrl != null) {
-                        ImageIcon fullSizeTrash = new ImageIcon(trashUrl);
-                        // Scale to 50x50 to match ability icon size
-                        Image scaledImage = fullSizeTrash.getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
-                        trashIcon = new ImageIcon(scaledImage);
-                    }
-                } catch (Exception e) {
-                    logger.warn("Failed to load trash icon", e);
-                }
-            }
+        cacheFloatingIcon();
 
-            // Find the icon label (first label with an icon)
-            for (Component comp : floatingCard.getComponents()) {
-                if (comp instanceof JLabel) {
-                    JLabel label = (JLabel) comp;
-                    // Check if this label has an icon (the ability icon, not the text label)
-                    if (label.getIcon() != null && label.getClientProperty("originalIcon") == null) {
-                        // Save original icon only if not already saved
-                        label.putClientProperty("originalIcon", label.getIcon());
-
-                        // Replace with trash icon
-                        if (trashIcon != null) {
-                            label.setIcon(trashIcon);
-                        }
-                        break; // Only process the icon label
-                    }
+        if (floatingIconLabel != null) {
+            if (isDragOutsidePanel) {
+                ensureTrashIconLoaded();
+                if (trashIcon != null) {
+                    floatingIconLabel.setIcon(trashIcon);
                 }
-            }
-        } else {
-            // Restore original appearance
-            for (Component comp : floatingCard.getComponents()) {
-                if (comp instanceof JLabel) {
-                    JLabel label = (JLabel) comp;
-                    ImageIcon originalIcon = (ImageIcon) label.getClientProperty("originalIcon");
-                    if (originalIcon != null) {
-                        label.setIcon(originalIcon);
-                        label.putClientProperty("originalIcon", null);
-                        break; // Only restore the icon label
-                    }
-                }
+            } else {
+                floatingIconLabel.setIcon(originalAbilityIcon);
             }
         }
 
@@ -210,6 +176,8 @@ public class AbilityDragController {
                            int startButton) {
         currentDrag = new DragState(item, card, isFromPalette, originalIndex, callback.getCurrentElements(), startButton);
 
+        floatingIconLabel = null;
+        originalAbilityIcon = null;
         floatingCard = createFloatingCard(card);
 
         JRootPane rootPane = SwingUtilities.getRootPane(card);
@@ -498,31 +466,34 @@ public class AbilityDragController {
 
         DropZoneType zoneType;
         if (dragPoint.y < topLimit) {
-            zoneType = determineTopZoneType(
-                    existingGroupZone,
-                    currentTargetIndex,
-                    groupBounds,
-                    dropSide,
-                    beyondLeftEdge,
-                    beyondRightEdge
+            zoneType = determineZoneType(
+                existingGroupZone,
+                currentTargetIndex,
+                groupBounds,
+                dropSide,
+                beyondLeftEdge,
+                beyondRightEdge,
+                DropZoneType.AND
             );
         } else if (dragPoint.y > bottomLimit) {
-            zoneType = determineBottomZoneType(
-                    existingGroupZone,
-                    currentTargetIndex,
-                    groupBounds,
-                    dropSide,
-                    beyondLeftEdge,
-                    beyondRightEdge
+            zoneType = determineZoneType(
+                existingGroupZone,
+                currentTargetIndex,
+                groupBounds,
+                dropSide,
+                beyondLeftEdge,
+                beyondRightEdge,
+                DropZoneType.OR
             );
         } else {
-            zoneType = determineMiddleZoneType(
-                    existingGroupZone,
-                    currentTargetIndex,
-                    groupBounds,
-                    dropSide,
-                    beyondLeftEdge,
-                    beyondRightEdge
+            zoneType = determineZoneType(
+                existingGroupZone,
+                currentTargetIndex,
+                groupBounds,
+                dropSide,
+                beyondLeftEdge,
+                beyondRightEdge,
+                existingGroupZone != null ? existingGroupZone : DropZoneType.NEXT
             );
         }
 
@@ -596,12 +567,13 @@ public class AbilityDragController {
         return new GroupBoundaries(start, end);
     }
 
-    private DropZoneType determineTopZoneType(DropZoneType existingGroupZone,
-                                              int currentTargetIndex,
-                                              GroupBoundaries groupBounds,
-                                              DropSide dropSide,
-                                              boolean beyondLeftEdge,
-                                              boolean beyondRightEdge) {
+    private DropZoneType determineZoneType(DropZoneType existingGroupZone,
+                                           int currentTargetIndex,
+                                           GroupBoundaries groupBounds,
+                                           DropSide dropSide,
+                                           boolean beyondLeftEdge,
+                                           boolean beyondRightEdge,
+                                           DropZoneType defaultZone) {
         if (existingGroupZone != null && groupBounds.isValid()) {
             boolean atGroupStart = currentTargetIndex == groupBounds.start;
             boolean atGroupEnd = currentTargetIndex == groupBounds.end;
@@ -615,46 +587,7 @@ public class AbilityDragController {
             // Otherwise stay within the group (AND/OR).
             return existingGroupZone;
         }
-        return DropZoneType.AND;
-    }
-
-    private DropZoneType determineBottomZoneType(DropZoneType existingGroupZone,
-                                                 int currentTargetIndex,
-                                                 GroupBoundaries groupBounds,
-                                                 DropSide dropSide,
-                                                 boolean beyondLeftEdge,
-                                                 boolean beyondRightEdge) {
-        if (existingGroupZone != null && groupBounds.isValid()) {
-            boolean atGroupStart = currentTargetIndex == groupBounds.start;
-            boolean atGroupEnd = currentTargetIndex == groupBounds.end;
-
-            boolean leavingLeft = atGroupStart && dropSide == DropSide.LEFT && beyondLeftEdge;
-            boolean leavingRight = atGroupEnd && dropSide == DropSide.RIGHT && beyondRightEdge;
-            if (leavingLeft || leavingRight) {
-                return DropZoneType.NEXT;
-            }
-            return existingGroupZone;
-        }
-        return DropZoneType.OR;
-    }
-
-    private DropZoneType determineMiddleZoneType(DropZoneType existingGroupZone,
-                                                 int currentTargetIndex,
-                                                 GroupBoundaries groupBounds,
-                                                 DropSide dropSide,
-                                                 boolean beyondLeftEdge,
-                                                 boolean beyondRightEdge) {
-        if (existingGroupZone != null && groupBounds.isValid()) {
-            boolean atGroupStart = currentTargetIndex == groupBounds.start;
-            boolean atGroupEnd = currentTargetIndex == groupBounds.end;
-            boolean leavingLeft = atGroupStart && dropSide == DropSide.LEFT && beyondLeftEdge;
-            boolean leavingRight = atGroupEnd && dropSide == DropSide.RIGHT && beyondRightEdge;
-            if (leavingLeft || leavingRight) {
-                return DropZoneType.NEXT;
-            }
-            return existingGroupZone;
-        }
-        return existingGroupZone != null ? existingGroupZone : DropZoneType.NEXT;
+        return defaultZone;
     }
 
     private int calculateInsertionIndex(List<SequenceElement> elements,
@@ -819,6 +752,10 @@ public class AbilityDragController {
                 newLabel.setPreferredSize(comp.getPreferredSize());
                 newLabel.setMinimumSize(comp.getMinimumSize());
                 newLabel.setMaximumSize(comp.getMaximumSize());
+                if (floatingIconLabel == null && origLabel.getIcon() != null) {
+                    floatingIconLabel = newLabel;
+                    originalAbilityIcon = newLabel.getIcon();
+                }
                 floating.add(newLabel);
             } else if (comp instanceof Box.Filler) {
                 floating.add(Box.createRigidArea(comp.getSize()));
@@ -860,6 +797,40 @@ public class AbilityDragController {
             glassPane.setVisible(false);
             floatingCard = null;
             glassPane = null;
+        }
+        floatingIconLabel = null;
+        originalAbilityIcon = null;
+    }
+
+    private void cacheFloatingIcon() {
+        if (floatingIconLabel != null || floatingCard == null) {
+            return;
+        }
+        for (Component comp : floatingCard.getComponents()) {
+            if (comp instanceof JLabel label && label.getIcon() != null) {
+                floatingIconLabel = label;
+                if (originalAbilityIcon == null) {
+                    originalAbilityIcon = label.getIcon();
+                }
+                break;
+            }
+        }
+    }
+
+    private void ensureTrashIconLoaded() {
+        if (trashIcon != null) {
+            return;
+        }
+
+        try {
+            URL trashUrl = getClass().getResource("/ui/trash-512.png");
+            if (trashUrl != null) {
+                ImageIcon fullSizeTrash = new ImageIcon(trashUrl);
+                Image scaledImage = fullSizeTrash.getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+                trashIcon = new ImageIcon(scaledImage);
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to load trash icon", e);
         }
     }
 
