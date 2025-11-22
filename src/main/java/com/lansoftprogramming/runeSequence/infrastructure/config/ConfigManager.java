@@ -45,13 +45,13 @@ public class ConfigManager {
 	public void initialize() throws IOException {
 		//User AppData folder ifExists check
 		createConfigDirectory();
-		//assets
-		checkOrCreateAbilities();
 		//settings files
 		loadOrCreateSettings();
 		loadOrCreateRotations();
 		loadOrCreateAbilities();
 		loadOrCreateAbilityCategories();
+		//assets
+		checkOrCreateAbilities();
 	}
 
 	private void checkOrCreateAbilities() {
@@ -73,7 +73,7 @@ public class ConfigManager {
 		try {
 			int[] sizes = ScalingConverter.getAllSizes();
 			var processor = new OpenCvImageProcessor();
-			processor.processImages(abilitiesDir, sizes);
+			processor.processImages(abilitiesDir, sizes, abilities);
 			logger.info("Processed ability images for sizes: {}", java.util.Arrays.toString(sizes));
 		} catch (Exception e) {
 			logger.warn("Failed to process ability images: {}", e.getMessage());

@@ -1,7 +1,7 @@
 package com.lansoftprogramming.runeSequence.infrastructure.config;
 
-import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.HashMap;
@@ -52,6 +52,9 @@ public class AbilityConfig {
 
 		@JsonProperty("detection_threshold")
 		private Double detectionThreshold;
+
+		@JsonProperty("mask")
+		private String mask;
 
 		// Getters and setters
 		public String getCommonName() {
@@ -108,6 +111,14 @@ public class AbilityConfig {
 
 		public void setDetectionThreshold(Double detectionThreshold) {
 			this.detectionThreshold = detectionThreshold;
+		}
+
+		public String getMask() {
+			return mask;
+		}
+
+		public void setMask(String mask) {
+			this.mask = mask;
 		}
 	}
 }
