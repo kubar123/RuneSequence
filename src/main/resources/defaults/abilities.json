@@ -7,12 +7,14 @@
     "mask": "mask"
   },
   "smokecloud": {
+    "common_name": "Smoke Cloud",
+    "type": "Spell",
     "triggers_gcd": true,
     "cast_duration": 0,
-    "cooldown": 15,
     "mask": "mask"
   },
-  "adrenaline_renewal": {
+  "adrenrenewal": {
+    "common_name": "Adrenaline Renewal",
     "triggers_gcd": false,
     "type": "potion",
     "mask": "mask_potion"
@@ -857,7 +859,7 @@
     "triggers_gcd": true,
     "mask": "mask"
   },
-  "barricade": {
+  "cade": {
     "common_name": "Barricade",
     "type": "Ultimate",
     "level": 81,
@@ -1036,7 +1038,7 @@
   "deathguard90": {
     "common_name": "Death Guard",
     "type": "item",
-    "level": null,
+    "level": 90,
     "triggers_gcd": false,
     "detection_threshold": 0.6
   },
@@ -1044,6 +1046,18 @@
     "common_name": "Omni Guard",
     "type": "item",
     "level": 95,
+    "triggers_gcd": false
+  },
+  "disrupt": {
+    "common_name": "Disruption Shield",
+    "type": "spell",
+    "level": 90,
+    "triggers_gcd": false
+  },
+  "veng": {
+    "common_name": "Vengence",
+    "type": "spell",
+    "level": 94,
     "triggers_gcd": false
   }
 }
