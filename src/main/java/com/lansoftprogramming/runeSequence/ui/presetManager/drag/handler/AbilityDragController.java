@@ -839,6 +839,12 @@ public class AbilityDragController {
      * Condensed logging: show once, then only on change.
      */
 	private void updateIndicators(DropPreview preview) {
+		if (isDragOutsidePanel) {
+			indicators.hideIndicators();
+			resetIndicatorState();
+			return;
+		}
+
 		if (!preview.isValid()) {
 			indicators.hideIndicators();
 
@@ -890,7 +896,7 @@ public class AbilityDragController {
             }
         }
 
-        indicators.showInsertionLineBetweenCards(leftCard, rightCard, preview.getZoneType());
+        indicators.showInsertionLineBetweenCards(leftCard, rightCard, preview.getZoneType(), preview.getDropSide());
 
         // Logging: first show and changes only
         if (!hasLoggedIndicatorShown) {

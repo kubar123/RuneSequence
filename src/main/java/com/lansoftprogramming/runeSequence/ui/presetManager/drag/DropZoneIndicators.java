@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.drag;
 
+import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropSide;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
@@ -207,7 +208,7 @@ public class DropZoneIndicators {
      * @param rightCard Right boundary card (can be null for end position)
      * @param zoneType Zone type for color coding
      */
-    public void showInsertionLineBetweenCards(Component leftCard, Component rightCard, DropZoneType zoneType) {
+    public void showInsertionLineBetweenCards(Component leftCard, Component rightCard, DropZoneType zoneType, DropSide dropSide) {
         if (glassPane == null) {
             hideIndicators();
             return;
@@ -235,6 +236,22 @@ public class DropZoneIndicators {
         int insertionX;
         int insertionY;
         int lineHeight;
+
+        boolean rowsDiffer = leftBounds != null && rightBounds != null && leftBounds.y != rightBounds.y;
+
+        if (rowsDiffer && dropSide != null) {
+            // When wrap layout puts the boundary cards on different rows, anchor to the row that matches the drop side.
+            Rectangle anchorBounds = dropSide == DropSide.LEFT ? rightBounds : leftBounds;
+            if (anchorBounds != null) {
+                insertionX = dropSide == DropSide.LEFT
+                    ? anchorBounds.x - 5
+                    : anchorBounds.x + anchorBounds.width + 5;
+                insertionY = anchorBounds.y;
+                lineHeight = anchorBounds.height;
+                showInsertionLine(insertionX, insertionY, lineHeight, zoneType);
+                return;
+            }
+        }
 
         if (leftBounds != null && rightBounds != null) {
             // Between two cards

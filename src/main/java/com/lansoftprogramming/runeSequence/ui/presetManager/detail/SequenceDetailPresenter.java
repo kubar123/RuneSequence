@@ -197,7 +197,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		flowView.setDragOutsidePanel(isDragOutsidePanel);
 
-		if (preview.isValid()) {
+		if (!isDragOutsidePanel && preview.isValid()) {
 			isHighlightActive = flowView.highlightDropZone(preview);
 		}
 	}
@@ -210,21 +210,33 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (commit) {
 			if (isHighlightActive && currentPreview != null && currentPreview.isValid()) {
 				logger.info(
-					"Commit insert: item={}, insertIndex={}, zone={}, dropSide={}, fromSequence={}, currentElementCount={}",
-					draggedItem.getKey(),
-					currentPreview.getInsertIndex(),
-					currentPreview.getZoneType(),
-					currentPreview.getDropSide(),
-					isFromSequence,
-					currentElements.size()
-				);
-				currentElements = expressionBuilder.insertAbility(
-						new ArrayList<>(previewElements),
+						"Commit insert: item={}, type={}, insertIndex={}, zone={}, dropSide={}, fromSequence={}, currentElementCount={}",
 						draggedItem.getKey(),
+						draggedItem.getClass().getSimpleName(),
 						currentPreview.getInsertIndex(),
 						currentPreview.getZoneType(),
-						currentPreview.getDropSide()
+						currentPreview.getDropSide(),
+						isFromSequence,
+						currentElements.size()
 				);
+
+				if (draggedItem instanceof ClipboardInsertItem clipboardItem) {
+					currentElements = expressionBuilder.insertSequence(
+							new ArrayList<>(previewElements),
+							clipboardItem.getElements(),
+							currentPreview.getInsertIndex(),
+							currentPreview.getZoneType(),
+							currentPreview.getDropSide()
+					);
+				} else {
+					currentElements = expressionBuilder.insertAbility(
+							new ArrayList<>(previewElements),
+							draggedItem.getKey(),
+							currentPreview.getInsertIndex(),
+							currentPreview.getZoneType(),
+							currentPreview.getDropSide()
+					);
+				}
 				previewElements = new ArrayList<>(currentElements);
 				updateExpression();
 			} else {

@@ -150,6 +150,13 @@ class AbilityFlowView extends JPanel {
 		});
 	}
 
+	MouseAdapter createPaletteDragListener(AbilityItem item, JPanel card) {
+		if (dragController == null) {
+			return null;
+		}
+		return dragController.createCardDragListener(item, card, true);
+	}
+
 	private int renderAbilityGroup(List<SequenceElement> elements, int startIndex, SequenceElement.Type groupType) {
 		Color groupColor = groupType == SequenceElement.Type.PLUS
 				? UiColorPalette.ABILITY_GROUP_AND_BACKGROUND

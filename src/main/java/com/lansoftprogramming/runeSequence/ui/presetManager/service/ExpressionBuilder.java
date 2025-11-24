@@ -124,6 +124,86 @@ public class ExpressionBuilder {
     }
 
     /**
+     * Inserts an entire pre-parsed sequence (clipboard payload) at the given drop preview location.
+     * - NEXT: inserts the snippet as a new step block, splitting groups if necessary.
+     * - AND/OR: only supported when the snippet is a single ability; otherwise the insertion is skipped.
+     */
+    public List<SequenceElement> insertSequence(List<SequenceElement> elements,
+                                                List<SequenceElement> snippet,
+                                                int insertIndex,
+                                                DropZoneType zoneType,
+                                                DropSide dropSide) {
+        if (snippet == null || snippet.isEmpty()) {
+            return new ArrayList<>(elements);
+        }
+        List<SequenceElement> base = new ArrayList<>(elements);
+        List<SequenceElement> payload = trimSeparators(snippet);
+
+        if (payload.isEmpty()) {
+            return base;
+        }
+
+        if (base.isEmpty()) {
+            return new ArrayList<>(payload);
+        }
+
+        if (zoneType == DropZoneType.NEXT) {
+            // Handle group splitting logic similar to insertAsNextStep
+            if (insertIndex > 0 && insertIndex < base.size()) {
+                SequenceElement before = base.get(insertIndex - 1);
+                SequenceElement at = base.get(insertIndex);
+
+                // If inserting between Ability and GroupSeparator, we are splitting a group
+                if (before.isAbility() && (at.isPlus() || at.isSlash())) {
+                    // Replace the group separator with an arrow
+                    base.set(insertIndex, SequenceElement.arrow());
+                    // Shift insert index to be after the new arrow
+                    insertIndex++;
+                }
+            }
+
+            // Insert the payload
+            base.addAll(insertIndex, payload);
+            
+            // Ensure boundaries around the insertion have separators (default to Arrow if missing)
+            ensureBoundaries(base, insertIndex, payload.size());
+            
+            normalizeSeparators(base);
+            return base;
+        }
+
+        if ((zoneType == DropZoneType.AND || zoneType == DropZoneType.OR)
+                && payload.size() == 1
+                && payload.get(0).isAbility()) {
+            return insertAbility(base, payload.get(0).getValue(), insertIndex, zoneType, dropSide);
+        }
+
+        logger.warn("insertSequence: unsupported combination zone={} payloadSize={}", zoneType, payload.size());
+        return base;
+    }
+
+    private void ensureBoundaries(List<SequenceElement> elements, int startIndex, int length) {
+        // Check after the inserted block
+        int endIndex = startIndex + length;
+        if (endIndex < elements.size()) {
+            SequenceElement lastPayload = elements.get(endIndex - 1);
+            SequenceElement nextExisting = elements.get(endIndex);
+            if (lastPayload.isAbility() && nextExisting.isAbility()) {
+                elements.add(endIndex, SequenceElement.arrow());
+            }
+        }
+
+        // Check before the inserted block
+        if (startIndex > 0) {
+            SequenceElement prevExisting = elements.get(startIndex - 1);
+            SequenceElement firstPayload = elements.get(startIndex);
+            if (prevExisting.isAbility() && firstPayload.isAbility()) {
+                elements.add(startIndex, SequenceElement.arrow());
+            }
+        }
+    }
+
+    /**
      * Inserts ability into an existing group or creates a new group.
      * Uses dropSide to determine insertion position consistently.
      *
@@ -388,6 +468,38 @@ public class ExpressionBuilder {
         }
 
         // Clean up leading/trailing separators
+        while (!elements.isEmpty() && elements.get(0).isSeparator()) {
+            elements.remove(0);
+        }
+        while (!elements.isEmpty() && elements.get(elements.size() - 1).isSeparator()) {
+            elements.remove(elements.size() - 1);
+        }
+    }
+
+    private List<SequenceElement> trimSeparators(List<SequenceElement> snippet) {
+        List<SequenceElement> out = new ArrayList<>(snippet);
+        while (!out.isEmpty() && out.get(0).isSeparator()) {
+            out.remove(0);
+        }
+        while (!out.isEmpty() && out.get(out.size() - 1).isSeparator()) {
+            out.remove(out.size() - 1);
+        }
+        return out;
+    }
+
+    private void normalizeSeparators(List<SequenceElement> elements) {
+        if (elements.isEmpty()) {
+            return;
+        }
+
+        // Clean up consecutive separators
+        for (int i = elements.size() - 1; i > 0; i--) {
+            if (elements.get(i).isSeparator() && elements.get(i - 1).isSeparator()) {
+                elements.remove(i);
+            }
+        }
+
+        // Remove leading/trailing separators
         while (!elements.isEmpty() && elements.get(0).isSeparator()) {
             elements.remove(0);
         }
