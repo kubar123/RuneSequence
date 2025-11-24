@@ -1,0 +1,18 @@
+{
+  "core.sequence.parser.Tokenizer": {
+    "tokenize(String)": "The main public method of the `Tokenizer`. It takes a raw sequence expression string as input and breaks it down into a `List` of `Token` objects. The process involves several stages: normalizing arrow symbols, adding padding around operators to ensure clean splitting, and then iterating through the parts to intelligently merge multi-word ability names while separating out operators and parentheses. This token stream is the direct input for the `SequenceParser`. It is a critical first step in understanding the user's intended ability rotation."
+  },
+  "core.sequence.parser.SequenceParser": {
+    "parse(String)": "The primary static entry point for the parser. It takes a raw expression string, creates a `Tokenizer` to convert it into a list of `Token`s, and then instantiates itself to begin the parsing process. It calls `parseExpression` to build the Abstract Syntax Tree (AST) and then ensures the entire token stream was consumed to catch syntax errors. The final, validated `SequenceDefinition` (the root of the AST) is returned. This is called by `Main` to process all configured rotations at startup.",
+    "parseExpression()": "This method implements the top-level rule of the grammar (`Expression := Step ('→' Step)*`). It parses one or more `Step`s, separated by the '→' operator. It calls `parseStep` to handle the parsing of each individual step. This recursive descent structure is central to the parser's design.",
+    "parseStep()": "Implements the `Step` rule of the grammar (`Step := Term ('+' Term)*`). It parses one or more `Term`s that are to be executed simultaneously, separated by the '+' operator. It calls `parseTerm` to handle each component.",
+    "parseTerm()": "Implements the `Term` rule of the grammar (`Term := Alternative ('/' Alternative)*`). It parses one or more `Alternative`s, which represent abilities that can be used interchangeably, separated by the '/' operator. It calls `parseAlternative` for each.",
+    "parseAlternative()": "The lowest level of the recursive descent parser, implementing the `Alternative` rule (`Alternative := Ability | '(' Expression ')'`). It checks for a left parenthesis to handle nested sub-expressions (by recursively calling `parseExpression`) or consumes an `Ability` token for a simple ability name. This is where the tree structure of the AST is actually built."
+  },
+  "core.sequence.parser.Token": {
+    "Token.Ability(String)": "A record implementing the `Token` sealed interface, representing an ability name. It encapsulates the string name of the ability. The constructor includes validation to ensure the name is not null or blank. These tokens are created by the `Tokenizer` when it identifies a sequence of characters that is not an operator or parenthesis.",
+    "Token.Operator(String)": "A record that represents an operator token (→, +, /). It includes constructor validation to ensure that only valid symbols can be used to create an operator token. Used by the `Tokenizer` and consumed by the `SequenceParser` to structure the AST.",
+    "Token.LeftParen()": "A record representing a left parenthesis token '('. Used by the `Tokenizer` and `SequenceParser` to handle nested sub-expressions.",
+    "Token.RightParen()": "A record representing a right parenthesis token ')'. Used by the `Tokenizer` and `SequenceParser` to close nested sub-expressions."
+  }
+}

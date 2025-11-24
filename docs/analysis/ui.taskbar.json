@@ -1,0 +1,16 @@
+{
+  "ui.taskbar.SettingsAction": {
+    "execute()": "This method implements the `MenuAction` interface. When invoked, it creates and displays the main settings `JFrame`. It ensures that only one settings window can be open at a time by checking if the frame already exists and is showing. The frame contains a `JTabbedPane` that houses the various settings panels, such as `IconSizeSettingsPanel` and `HotkeySettingsPanel`. All UI creation is correctly performed on the Swing Event Dispatch Thread using `SwingUtilities.invokeLater`. It depends on the `ConfigManager` to pass to the settings panels."
+  },
+  "ui.taskbar.MenuAction": {
+    "execute()": "This is the single abstract method of the `MenuAction` functional interface. It defines a simple, parameterless contract for any action that can be triggered from a taskbar menu item. Implementations of this interface, such as `SettingsAction` and `PresetManagerAction`, contain the logic that should run when the user clicks the corresponding menu item. This abstraction decouples the `Taskbar` class from the concrete actions."
+  },
+  "ui.taskbar.PrimeAbilityCacheAction": {
+    "execute()": "An implementation of the `MenuAction` interface. Its purpose is to provide a way for the user to manually trigger the ability cache priming process. When executed, it calls the `primeActiveSequence()` method on the `DetectionEngine`. This is useful if the initial automatic priming failed or if the user wants to re-run the process for debugging or performance reasons. It takes the `DetectionEngine` as a dependency."
+  },
+  "ui.taskbar.Taskbar": {
+    "initialize()": "This is the main setup method for the application's system tray icon. It checks if the system tray is supported, loads the application icon from resources, creates a `TrayIcon` and a `PopupMenu`, and adds a permanent 'Exit' item. Finally, it adds the icon to the system tray. This method is called by `Main` on the Swing Event Dispatch Thread to ensure proper UI setup. Failures are logged and the application will run without a tray icon.",
+    "addMenuItem(String, MenuAction)": "A public method that allows other parts of the application, primarily `Main`, to dynamically add new items to the taskbar's right-click menu. It takes a label for the menu item and a `MenuAction` to be executed on click. It creates a `MenuItem`, attaches an `ActionListener` that calls the `MenuAction.execute()` method, and inserts it at the top of the menu. This makes the menu extensible.",
+    "addSeparator()": "A utility method for adding a visual separator line to the taskbar's popup menu. It inserts the separator at the top of the current menu list, allowing for logical grouping of menu items that are added in reverse order."
+  }
+}

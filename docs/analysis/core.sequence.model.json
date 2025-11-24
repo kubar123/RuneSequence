@@ -1,0 +1,18 @@
+{
+  "core.sequence.model.SequenceDefinition": {
+    "SequenceDefinition(List<Step>)": "Constructor for the root of the immutable Abstract Syntax Tree (AST) representing a parsed sequence. It takes a list of `Step` objects and stores an immutable copy. This class is the primary output of the `SequenceParser` and the main data structure used by `ActiveSequence` to drive the runtime logic. Its immutability ensures thread safety when accessed by different components.",
+    "getStep(int)": "A simple getter that returns the `Step` at a given index in the sequence. It includes bounds checking to prevent `IndexOutOfBoundsException`, returning `null` for invalid indices. This is the primary method used by `ActiveSequence` to retrieve the current and next steps in the sequence as it progresses."
+  },
+  "core.sequence.model.Term": {
+    "Term(List<Alternative>)": "Constructor for a `Term`, which represents one or more abilities that must be used simultaneously in a sequence step (e.g., 'A + B'). In the grammar, a `Term` is a collection of `Alternative`s, where `Alternative`s are separated by '/'. The input list is stored immutably. This class is part of the AST created by the `SequenceParser` and is used by `Step` to structure its components."
+  },
+  "core.sequence.model.Alternative": {
+    "Alternative(String)": "Constructor for a terminal node in the sequence's Abstract Syntax Tree (AST). It represents a single, concrete ability identified by its token (name). This is the most common type of `Alternative` created by the `SequenceParser` when it processes ability names in the expression string.",
+    "Alternative(SequenceDefinition)": "Constructor for a non-terminal node in the sequence's AST. It represents a nested sub-sequence that was enclosed in parentheses in the original expression. This allows for complex, recursive sequence structures. It is used by the `SequenceParser` to build the tree structure when it encounters parentheses."
+  },
+  "core.sequence.model.Step": {
+    "Step(List<Term>)": "Constructor for a `Step`, which is a single stage in a larger ability sequence. A `Step` consists of a list of `Term`s that must be completed to advance. For example, in 'A → B + C', 'A' is one step and 'B + C' is another. The input list is stored immutably. This is a core data structure in the AST created by the `SequenceParser`.",
+    "getDetectableTokens(AbilityConfig)": "A crucial method that flattens the potentially complex structure of a `Step` (including nested sub-groups) into a simple `List` of all unique ability tokens that need to be detected for this step to be completed. It recursively traverses the AST for this step and collects all terminal tokens, which are then used by `ActiveSequence` to request detections from the `DetectionEngine`.",
+    "flattenDetections(Map<String, DetectionResult>)": "This method is used by the `OverlayRenderer` to get a simple, flat list of all abilities that should be displayed for the current step. It traverses the step's AST and, for each ability token, it looks up the latest `DetectionResult` from the provided map. It correctly sets the `isAlternative` flag on the results based on the sequence's structure (e.g., for abilities in an 'A / B' clause), which allows the UI to render them differently."
+  }
+}

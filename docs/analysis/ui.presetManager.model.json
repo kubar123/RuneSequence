@@ -1,0 +1,8 @@
+{
+  "ui.presetManager.model.SequenceElement": {
+    "ability(String)": "A static factory method for creating a `SequenceElement` of type `ABILITY`. It takes the ability's key (its unique name) as its value. This is the primary way that the `SequenceVisualService` creates elements that represent a concrete ability in the sequence.",
+    "arrow()": "A static factory method for creating a `SequenceElement` of type `ARROW`. It uses the Unicode arrow '→' as its value. These elements are used to visually separate sequential steps in the UI.",
+    "plus()": "A static factory method for creating a `SequenceElement` of type `PLUS`. It uses the '+' symbol as its value. These elements visually separate abilities that should be used simultaneously (an 'AND' condition).",
+    "slash()": "A static factory method for creating a `SequenceElement` of type `SLASH`. It uses the '/' symbol as its value. These elements visually separate abilities that can be used interchangeably (an 'OR' condition)."
+  }
+}

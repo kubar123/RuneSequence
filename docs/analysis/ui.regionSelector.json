@@ -1,0 +1,13 @@
+{
+  "ui.regionSelector.RegionSelectorWindow": {
+    "selectRegion()": "A static factory method that is the primary public entry point for using this component. It creates a modal `JDialog` that covers the entire screen with a semi-transparent overlay. It attaches mouse listeners to the overlay to handle the drag-and-select functionality. The method blocks until the user either confirms a selection or cancels. It returns the `RegionSelectorWindow` instance itself if a selection was made, or `null` if the action was cancelled. This provides a clean API for the `RegionSelectorAction`.",
+    "RegionSelectorWindow(Frame)": "The private constructor for the modal `JDialog` used for region selection. It sets up the window to be undecorated, always on top, and nearly transparent. It creates the `RegionOverlay` for drawing and a `JLayeredPane` to place the control buttons on top of the overlay. It also attaches the `MouseAdapter` responsible for listening to drag events, updating the `selection` `Rectangle`, and repainting the overlay. The constructor handles all the complex Swing setup for the full-screen capture effect.",
+    "updateSelection(Point)": "A private helper method called continuously during a mouse drag event. It takes the current mouse position and updates the internal `selection` `Rectangle`. It calculates the top-left corner (x, y) and the dimensions (width, height) based on the drag start point and the current point, correctly handling dragging in any direction. This method is central to the interactive selection logic."
+  },
+  "ui.regionSelector.RegionSelectorAction": {
+    "execute()": "This method implements the `MenuAction` interface. When triggered from the taskbar menu, it calls `RegionSelectorWindow.selectRegion()` on the Swing Event Dispatch Thread to show the selection UI. If the user confirms a valid selection, this method retrieves the selected `Rectangle`, updates the corresponding `RegionSettings` in the `AppSettings` object, and then calls `configManager.saveSettings()` to persist the change to `settings.json`. It provides user feedback via `JOptionPane` on success or failure."
+  },
+  "ui.regionSelector.RegionOverlay": {
+    "paintComponent(Graphics)": "This overridden `JPanel` method is responsible for all the custom drawing of the region selection UI. It is called whenever `repaint()` is invoked. It first fills the entire component with a dark, semi-transparent color to dim the screen. Then, if a selection has been made (i.e., the `selection` rectangle has a non-zero width and height), it draws a bright, contrasting rectangle to show the user what area they have selected. This visual feedback is critical for the component's usability."
+  }
+}

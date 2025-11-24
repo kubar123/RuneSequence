@@ -1,0 +1,17 @@
+{
+  "ui.shared.service.AbilityIconLoader": {
+    "loadIcon(String)": "The main public method for retrieving an ability icon. It implements a lazy-loading and caching strategy: it first checks an in-memory `iconCache` for the requested icon. If not found, it calls `loadIconFromDisk` to load, resize, and cache the icon before returning it. This ensures that each icon is only read from the disk and processed once, significantly improving UI performance. If an icon cannot be found, it returns a generated placeholder.",
+    "loadIconFromDisk(String)": "A private helper method that handles the logic of finding and loading an icon file. It first attempts to load a pre-scaled image from the `resolvedSizeFolder` for optimal quality. If that fails, it falls back to loading the source image from the base `abilityImagePath` and resizing it at runtime. This fallback mechanism makes the icon loading robust. If no file is found, it returns a placeholder.",
+    "createPlaceholderIcon()": "A private utility that programmatically generates a generic placeholder icon (a gray square with a question mark). It uses `BufferedImage` and `Graphics2D` to create this icon at runtime. This ensures that the UI will not fail to render even if an ability's icon is missing from the filesystem."
+  },
+  "ui.shared.model.AbilityItem": {
+    "AbilityItem(String, String, int, String, ImageIcon)": "Constructor for this immutable value object. It encapsulates all the metadata required to display an ability in the UI, including its unique `key`, its user-friendly `displayName`, its `level`, `type`, and the loaded `ImageIcon`. The `equals` and `hashCode` methods are implemented based on the unique `key` field, allowing `AbilityItem` objects to be reliably used in collections and maps."
+  },
+  "ui.shared.component.WrapLayout": {
+    "WrapLayout(...)": "Constructors for a custom layout manager that extends `FlowLayout`. Unlike the standard `FlowLayout`, this implementation correctly calculates its preferred height based on the available width of its parent container, allowing components to wrap into multiple rows. This is essential for the `AbilityPalettePanel`, enabling it to display a grid of ability cards that reflows gracefully when the window is resized.",
+    "preferredLayoutSize(Container)": "This overridden method contains the core logic of the `WrapLayout`. It calculates the ideal dimensions of the container by iterating through its components, arranging them into rows that fit within the parent's width, and wrapping to a new row when an item doesn't fit. The total height is the sum of the row heights. This calculation is crucial for `JScrollPane` to correctly determine when to show its vertical scrollbar."
+  },
+  "ui.theme.UiColorPalette": {
+    "getDropZoneHighlightColor(DropZoneType)": "A static utility method that provides a consistent color for highlighting a drop zone during a drag-and-drop operation. It uses a pre-populated `EnumMap` to look up the appropriate color based on the `DropZoneType` (e.g., green for `AND`, blue for `OR`). This centralization ensures a consistent color scheme across all drag-and-drop UI components."
+  }
+}
