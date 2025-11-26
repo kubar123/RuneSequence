@@ -1,7 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
-import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
+import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastClient;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
@@ -28,7 +28,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private final SequenceDetailPresenter presenter;
 	private final SequenceDetailService detailService;
 	private final ImageIcon insertIcon;
-	private ToastManager toastManager;
+	private ToastClient toastClient;
 
 	public SequenceDetailPanel(SequenceDetailService detailService) {
 		this.detailService = detailService;
@@ -160,8 +160,8 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		highlightSequenceNameField();
 	}
 
-	public void setToastManager(ToastManager toastManager) {
-		this.toastManager = toastManager;
+	public void setToastClient(ToastClient toastClient) {
+		this.toastClient = toastClient;
 	}
 
 	public void highlightSequenceNameField() {
@@ -199,12 +199,12 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	@Override
 	public void showSaveDialog(String message, int messageType) {
-		if (toastManager != null) {
+		if (toastClient != null) {
 			switch (messageType) {
-				case JOptionPane.ERROR_MESSAGE -> toastManager.error(message);
-				case JOptionPane.WARNING_MESSAGE -> toastManager.warn(message);
-				case JOptionPane.INFORMATION_MESSAGE -> toastManager.success(message);
-				default -> toastManager.info(message);
+				case JOptionPane.ERROR_MESSAGE -> toastClient.error(message);
+				case JOptionPane.WARNING_MESSAGE -> toastClient.warn(message);
+				case JOptionPane.INFORMATION_MESSAGE -> toastClient.success(message);
+				default -> toastClient.info(message);
 			}
 			return;
 		}
@@ -297,14 +297,14 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private void showToast(String message, boolean error) {
-		if (toastManager == null) {
+		if (toastClient == null) {
 			Toolkit.getDefaultToolkit().beep();
 			return;
 		}
 		if (error) {
-			toastManager.error(message);
+			toastClient.error(message);
 		} else {
-			toastManager.info(message);
+			toastClient.info(message);
 		}
 	}
 }

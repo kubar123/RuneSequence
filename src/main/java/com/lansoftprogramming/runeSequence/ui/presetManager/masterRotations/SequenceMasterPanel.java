@@ -1,6 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
-import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
+import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastClient;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -41,7 +41,7 @@ public class SequenceMasterPanel extends JPanel {
 	private final List<Consumer<SequenceListModel.SequenceEntry>> deleteListeners;
 	private final List<Consumer<String>> importListeners;
 	private Predicate<String> expressionValidator = s -> false;
-	private ToastManager toastManager;
+	private ToastClient toastClient;
 
 	/**
 	 * Constructs the master panel for sequence management.
@@ -201,8 +201,8 @@ public class SequenceMasterPanel extends JPanel {
 		}
 
 		if (expression.trim().isEmpty()) {
-			if (toastManager != null) {
-				toastManager.info("Clipboard is empty.");
+			if (toastClient != null) {
+				toastClient.info("Clipboard is empty.");
 			}
 			return;
 		}
@@ -210,8 +210,8 @@ public class SequenceMasterPanel extends JPanel {
 		if (expressionValidator.test(expression)) {
 			notifyImportListeners(expression);
 		} else {
-			if (toastManager != null) {
-				toastManager.error("Invalid ability expression in clipboard.");
+			if (toastClient != null) {
+				toastClient.error("Invalid ability expression in clipboard.");
 			}
 		}
 	}
@@ -224,8 +224,8 @@ public class SequenceMasterPanel extends JPanel {
 			}
 			return "";
 		} catch (UnsupportedFlavorException | IOException | IllegalStateException e) {
-			if (toastManager != null) {
-				toastManager.error("Could not read from clipboard.");
+			if (toastClient != null) {
+				toastClient.error("Could not read from clipboard.");
 			}
 			return null;
 		}
@@ -253,8 +253,8 @@ public class SequenceMasterPanel extends JPanel {
 		SequenceListModel.SequenceEntry entry = getSelectedSequenceEntry();
 		if (entry == null || entry.getPresetData() == null) {
 			Toolkit.getDefaultToolkit().beep();
-			if (toastManager != null) {
-				toastManager.info("Please select a preset to export.");
+			if (toastClient != null) {
+				toastClient.info("Please select a preset to export.");
 			}
 			return;
 		}
@@ -267,12 +267,12 @@ public class SequenceMasterPanel extends JPanel {
 		try {
 			StringSelection selection = new StringSelection(expression);
 			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
-			if (toastManager != null) {
-				toastManager.success("Copied to clipboard.");
+			if (toastClient != null) {
+				toastClient.success("Copied to clipboard.");
 			}
 		} catch (IllegalStateException clipboardUnavailable) {
-			if (toastManager != null) {
-				toastManager.error("Clipboard is not available. Try again.");
+			if (toastClient != null) {
+				toastClient.error("Clipboard is not available. Try again.");
 			}
 		}
 	}
@@ -284,8 +284,8 @@ public class SequenceMasterPanel extends JPanel {
 	/**
 	 * Optional injection of a ToastManager for UI feedback.
 	 */
-	public void setToastManager(ToastManager toastManager) {
-		this.toastManager = toastManager;
+	public void setToastClient(ToastClient toastClient) {
+		this.toastClient = toastClient;
 	}
 
 	/**

@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.overlay.toast;
 
+import org.slf4j.Logger;
+
 import javax.swing.*;
 import javax.swing.Timer;
 import java.awt.*;
@@ -13,7 +15,7 @@ import java.util.List;
 /**
  * High-level API for showing stacked toast notifications anchored to a frame's layered pane.
  */
-public class ToastManager {
+public class ToastManager implements ToastClient {
 	private static final int MAX_VISIBLE = 3;
 	private static final int RIGHT_MARGIN = 28;
 	private static final int BOTTOM_MARGIN = 36;
@@ -43,34 +45,46 @@ public class ToastManager {
 		installOverlay();
 	}
 
+	public static ToastClient loggingFallback(Logger logger) {
+		return new LoggingToastClient(logger);
+	}
+
+	@Override
 	public void success(String message) {
 		show(ToastType.SUCCESS, message, null);
 	}
 
+	@Override
 	public void success(String message, String hiddenMessage) {
 		show(ToastType.SUCCESS, message, hiddenMessage);
 	}
 
+	@Override
 	public void info(String message) {
 		show(ToastType.INFO, message, null);
 	}
 
+	@Override
 	public void info(String message, String hiddenMessage) {
 		show(ToastType.INFO, message, hiddenMessage);
 	}
 
+	@Override
 	public void warn(String message) {
 		show(ToastType.WARNING, message, null);
 	}
 
+	@Override
 	public void warn(String message, String hiddenMessage) {
 		show(ToastType.WARNING, message, hiddenMessage);
 	}
 
+	@Override
 	public void error(String message) {
 		show(ToastType.ERROR, message, null);
 	}
 
+	@Override
 	public void error(String message, String hiddenMessage) {
 		show(ToastType.ERROR, message, hiddenMessage);
 	}
@@ -94,6 +108,7 @@ public class ToastManager {
 		}
 	}
 
+	@Override
 	public void clearAll() {
 		Runnable task = () -> {
 			for (ToastHandle handle : new ArrayList<>(activeToasts)) {
@@ -269,7 +284,7 @@ public class ToastManager {
 			closing = true;
 			cancelTimer(lifeTimer);
 			if (animated) {
-				animateOpacity(panel.getOpacity(), 0f, () -> retire());
+				animateOpacity(panel.getOpacity(), 0f, this::retire);
 				animateMove(panel.getLocation(), new Point(panel.getX(), panel.getY() + ENTRY_SLIDE), false);
 			} else {
 				retire();
@@ -333,6 +348,54 @@ public class ToastManager {
 			if (timer != null) {
 				timer.stop();
 			}
+		}
+	}
+
+	private static final class LoggingToastClient implements ToastClient {
+		private final Logger logger;
+
+		private LoggingToastClient(Logger logger) {
+			this.logger = Objects.requireNonNull(logger, "logger");
+		}
+
+		@Override
+		public void success(String message) {
+			logger.info("SUCCESS: {}", message);
+		}
+
+		@Override
+		public void success(String message, String hiddenMessage) {
+			logger.info("SUCCESS: {} - {}", message, hiddenMessage);
+		}
+
+		@Override
+		public void info(String message) {
+			logger.info("INFO: {}", message);
+		}
+
+		@Override
+		public void info(String message, String hiddenMessage) {
+			logger.info("INFO: {} - {}", message, hiddenMessage);
+		}
+
+		@Override
+		public void warn(String message) {
+			logger.warn("WARN: {}", message);
+		}
+
+		@Override
+		public void warn(String message, String hiddenMessage) {
+			logger.warn("WARN: {} - {}", message, hiddenMessage);
+		}
+
+		@Override
+		public void error(String message) {
+			logger.error("ERROR: {}", message);
+		}
+
+		@Override
+		public void error(String message, String hiddenMessage) {
+			logger.error("ERROR: {} - {}", message, hiddenMessage);
 		}
 	}
 }

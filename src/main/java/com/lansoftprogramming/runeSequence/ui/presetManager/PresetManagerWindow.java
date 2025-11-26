@@ -4,6 +4,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastClient;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailPanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailService;
@@ -33,25 +34,10 @@ public class PresetManagerWindow extends JFrame {
     private JSplitPane verticalSplit;
     private JSplitPane horizontalSplit;
     private ToastManager toastManager;
+    private ToastClient toasts = ToastManager.loggingFallback(logger);
     private boolean suppressSelectionUpdate;
     private String currentSelectionId;
     private boolean autoSaveInProgress;
-
-    // Toast helpers with logger fallback
-    private void toastInfo(String msg) {
-        if (toastManager != null) toastManager.info(msg);
-        else logger.warn("INFO: {}", msg);
-    }
-
-    private void toastError(String msg) {
-        if (toastManager != null) toastManager.error(msg);
-        else logger.error("ERROR: {}", msg);
-    }
-
-    private void toastOk(String msg) {
-        if (toastManager != null) toastManager.success(msg);
-        else logger.info("OK: {}", msg);
-    }
 
     public PresetManagerWindow(ConfigManager configManager) {
         this.configManager = configManager;
@@ -59,6 +45,7 @@ public class PresetManagerWindow extends JFrame {
 
         initializeFrame();
         toastManager = new ToastManager(this);
+        toasts = toastManager;
 
         initializeComponents();
         layoutComponents();
@@ -67,8 +54,8 @@ public class PresetManagerWindow extends JFrame {
         setVisible(true);
 
         SwingUtilities.invokeLater(() -> {
-            detailPanel.setToastManager(toastManager);
-            masterPanel.setToastManager(toastManager);
+            detailPanel.setToastClient(toasts);
+            masterPanel.setToastClient(toasts);
         });
     }
 
@@ -107,7 +94,7 @@ public class PresetManagerWindow extends JFrame {
 
         } catch (Exception e) {
             logger.error("Failed to initialize components", e);
-            toastError("Failed to initialize: " + e.getMessage());
+            toasts.error("Failed to initialize: " + e.getMessage());
         }
     }
 
@@ -180,9 +167,7 @@ public class PresetManagerWindow extends JFrame {
                 SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(result.getPresetId()));
                 currentSelectionId = result.getPresetId();
             }
-            if (toastManager != null) {
-                toastManager.success("Preset saved.");
-            }
+            toasts.success("Preset saved.");
         });
     }
 
@@ -244,7 +229,7 @@ public class PresetManagerWindow extends JFrame {
 
     private void handleDeleteSequence(SequenceListModel.SequenceEntry entry) {
         if (entry == null) {
-            toastInfo("Please select a preset to delete.");
+            toasts.info("Please select a preset to delete.");
             return;
         }
 
@@ -266,12 +251,12 @@ public class PresetManagerWindow extends JFrame {
         try {
             RotationConfig rotations = configManager.getRotations();
             if (rotations == null || rotations.getPresets() == null) {
-                toastError("Rotation data is not available. Unable to delete preset.");
+                toasts.error("Rotation data is not available. Unable to delete preset.");
                 return;
             }
 
             if (rotations.getPresets().remove(entry.getId()) == null) {
-                toastError("Preset could not be located by its identifier.");
+                toasts.error("Preset could not be located by its identifier.");
                 return;
             }
 
@@ -295,10 +280,10 @@ public class PresetManagerWindow extends JFrame {
                 updateActiveRotation(null);
             }
 
-            toastOk("Preset deleted.");
+            toasts.success("Preset deleted.");
         } catch (Exception e) {
             logger.error("Failed to delete preset {}", entry.getId(), e);
-            toastError("Failed to delete preset: " + e.getMessage());
+            toasts.error("Failed to delete preset: " + e.getMessage());
         }
     }
 
@@ -317,12 +302,12 @@ public class PresetManagerWindow extends JFrame {
             }
         } catch (Exception e) {
             logger.error("Failed to load sequences", e);
-            toastError("Failed to load sequences: " + e.getMessage());
+            toasts.error("Failed to load sequences: " + e.getMessage());
         }
     }
 
-    public ToastManager toasts() {
-        return toastManager;
+    public ToastClient toasts() {
+        return toasts;
     }
 
     /**
@@ -362,7 +347,7 @@ public class PresetManagerWindow extends JFrame {
                 configManager.saveSettings();
             } catch (IOException e) {
                 logger.error("Failed to persist active rotation {}", rotationId, e);
-                toastError("Failed to set active rotation: " + e.getMessage());
+                toasts.error("Failed to set active rotation: " + e.getMessage());
             }
         }
 
