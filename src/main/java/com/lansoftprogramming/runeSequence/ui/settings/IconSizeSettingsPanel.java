@@ -14,6 +14,7 @@ public class IconSizeSettingsPanel extends JPanel {
 	private final ConfigManager configManager;
 	private final int[] supportedSizes;
 	private final JSpinner sizeSpinner;
+	private final JCheckBox autoSaveCheck;
 	private final JLabel statusLabel;
 
 	public IconSizeSettingsPanel(ConfigManager configManager) {
@@ -33,6 +34,9 @@ public class IconSizeSettingsPanel extends JPanel {
 				supportedSizes[supportedSizes.length - 1],
 				1
 		));
+
+		autoSaveCheck = new JCheckBox("Auto-save rotations when switching presets");
+		autoSaveCheck.setSelected(resolveAutoSavePreference());
 
 		statusLabel = new JLabel(" ");
 		statusLabel.setForeground(Color.GRAY);
@@ -61,6 +65,11 @@ public class IconSizeSettingsPanel extends JPanel {
 		JLabel helpLabel = new JLabel("Supported sizes: " + Arrays.toString(supportedSizes));
 		helpLabel.setFont(helpLabel.getFont().deriveFont(Font.ITALIC, helpLabel.getFont().getSize() - 1f));
 		formPanel.add(helpLabel, gbc);
+
+		gbc.gridy++;
+		gbc.gridx = 0;
+		gbc.gridwidth = 2;
+		formPanel.add(autoSaveCheck, gbc);
 
 		gbc.gridy++;
 		gbc.gridwidth = 1;
@@ -98,13 +107,18 @@ public class IconSizeSettingsPanel extends JPanel {
 		}
 		settings.getUi().setIconSize(resolvedSize);
 
+		if (settings.getRotation() == null) {
+			settings.setRotation(new AppSettings.RotationSettings());
+		}
+		settings.getRotation().setAutoSaveOnSwitch(autoSaveCheck.isSelected());
+
 		try {
 			configManager.saveSettings();
 			statusLabel.setForeground(new Color(0, 128, 0));
 			if (adjusted) {
-				statusLabel.setText("Saved icon size (adjusted to nearest): " + resolvedSize + " px");
+				statusLabel.setText("Saved icon size (adjusted to nearest): " + resolvedSize + " px; auto-save rotations " + stateLabel());
 			} else {
-				statusLabel.setText("Saved icon size: " + resolvedSize + " px");
+				statusLabel.setText("Saved icon size: " + resolvedSize + " px; auto-save rotations " + stateLabel());
 			}
 		} catch (IOException ex) {
 			statusLabel.setForeground(Color.RED);
@@ -125,5 +139,17 @@ public class IconSizeSettingsPanel extends JPanel {
 		}
 
 		return nearest;
+	}
+
+	private boolean resolveAutoSavePreference() {
+		AppSettings settings = configManager.getSettings();
+		if (settings != null && settings.getRotation() != null) {
+			return settings.getRotation().isAutoSaveOnSwitch();
+		}
+		return false;
+	}
+
+	private String stateLabel() {
+		return autoSaveCheck.isSelected() ? "enabled" : "disabled";
 	}
 }

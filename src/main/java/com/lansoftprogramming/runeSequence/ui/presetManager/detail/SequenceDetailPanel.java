@@ -175,6 +175,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		presenter.addSaveListener(listener);
 	}
 
+	public void saveSequence() {
+		presenter.saveSequence();
+	}
+
 	@Override
 	public void setSequenceName(String name) {
 		sequenceNameField.setText(name);

@@ -29,7 +29,7 @@ public class SettingsAction implements MenuAction {
 			settingsFrame.setLayout(new BorderLayout());
 
 			JTabbedPane tabs = new JTabbedPane();
-			tabs.addTab("UI", new IconSizeSettingsPanel(configManager));
+			tabs.addTab("General", new IconSizeSettingsPanel(configManager));
 			tabs.addTab("Hotkeys", new HotkeySettingsPanel(configManager));
 
 			settingsFrame.add(tabs, BorderLayout.CENTER);

@@ -17,7 +17,8 @@
     "enableOverlay" : true
   },
   "rotation": {
-    "selectedId": "9c858901-8a57-4791-81fe-4c455b099bc9"
+    "selectedId": "9c858901-8a57-4791-81fe-4c455b099bc9",
+    "autoSaveOnSwitch": false
   },
   "hotkeys": {
     "schema": 1,

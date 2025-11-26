@@ -34,6 +34,8 @@ public class PresetManagerWindow extends JFrame {
     private JSplitPane horizontalSplit;
     private ToastManager toastManager;
     private boolean suppressSelectionUpdate;
+    private String currentSelectionId;
+    private boolean autoSaveInProgress;
 
     // Toast helpers with logger fallback
     private void toastInfo(String msg) {
@@ -151,8 +153,13 @@ public class PresetManagerWindow extends JFrame {
 
         masterPanel.addSelectionListener(entry -> {
             if (suppressSelectionUpdate) {
+                currentSelectionId = entry != null ? entry.getId() : null;
                 return;
             }
+
+            maybeAutoSaveCurrent();
+
+            currentSelectionId = entry != null ? entry.getId() : null;
 
             if (entry != null) {
                 detailPanel.loadSequence(entry.getId(), entry.getPresetData());
@@ -165,11 +172,43 @@ public class PresetManagerWindow extends JFrame {
 
         detailPanel.addSaveListener(result -> {
             sequenceListModel.upsert(result.getPresetId(), result.getPresetData());
-            SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(result.getPresetId()));
+            if (result.isCreated()) {
+                SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(result.getPresetId()));
+                currentSelectionId = result.getPresetId();
+            }
             if (toastManager != null) {
                 toastManager.success("Preset saved.");
             }
         });
+    }
+
+    private void maybeAutoSaveCurrent() {
+        if (autoSaveInProgress || !isAutoSaveEnabled()) {
+            return;
+        }
+        if (currentSelectionId == null || sequenceListModel.indexOf(currentSelectionId) < 0) {
+            return;
+        }
+
+        autoSaveInProgress = true;
+        try {
+            detailPanel.saveSequence();
+        } finally {
+            autoSaveInProgress = false;
+        }
+    }
+
+    private boolean isAutoSaveEnabled() {
+        AppSettings settings = configManager.getSettings();
+        if (settings == null) {
+            return false;
+        }
+        AppSettings.RotationSettings rotation = settings.getRotation();
+        if (rotation == null) {
+            rotation = new AppSettings.RotationSettings();
+            settings.setRotation(rotation);
+        }
+        return rotation.isAutoSaveOnSwitch();
     }
 
 	private void handleAddSequence() {

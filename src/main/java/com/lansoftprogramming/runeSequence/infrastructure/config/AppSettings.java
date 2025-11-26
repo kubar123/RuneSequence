@@ -232,12 +232,23 @@ public class AppSettings {
 		@JsonProperty("selectedId")
 		private String selectedId;
 
+		@JsonProperty("autoSaveOnSwitch")
+		private boolean autoSaveOnSwitch = false;
+
 		public String getSelectedId() {
 			return selectedId;
 		}
 
 		public void setSelectedId(String selectedId) {
 			this.selectedId = selectedId;
+		}
+
+		public boolean isAutoSaveOnSwitch() {
+			return autoSaveOnSwitch;
+		}
+
+		public void setAutoSaveOnSwitch(boolean autoSaveOnSwitch) {
+			this.autoSaveOnSwitch = autoSaveOnSwitch;
 		}
 	}
 
