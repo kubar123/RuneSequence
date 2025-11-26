@@ -206,9 +206,16 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	public void onDragEnd(AbilityItem draggedItem, boolean commit) {
 		flowView.clearHighlights();
 		boolean isFromSequence = !previewElements.equals(currentElements);
+		boolean droppedInTrash = !commit && isFromSequence && isDragOutsidePanel;
 
-		if (commit) {
-			if (isHighlightActive && currentPreview != null && currentPreview.isValid()) {
+		if (commit || droppedInTrash) {
+			if (droppedInTrash) {
+				currentElements = new ArrayList<>(previewElements);
+				previewElements = new ArrayList<>(currentElements);
+				long abilityCount = currentElements.stream().filter(SequenceElement::isAbility).count();
+				updateExpression();
+				logger.info("Deleted ability via trash drop: key={}, newAbilityCount={}", draggedItem.getKey(), abilityCount);
+			} else if (isHighlightActive && currentPreview != null && currentPreview.isValid()) {
 				logger.info(
 						"Commit insert: item={}, type={}, insertIndex={}, zone={}, dropSide={}, fromSequence={}, currentElementCount={}",
 						draggedItem.getKey(),
