@@ -139,6 +139,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		registerInsertDragHandler();
 	}
 
+	public void discardChanges() {
+		presenter.discardChanges();
+	}
+
 	public void startPaletteDrag(AbilityItem item, JPanel card, Point startPoint) {
 		presenter.startPaletteDrag(item, card, startPoint);
 	}

@@ -157,7 +157,11 @@ public class PresetManagerWindow extends JFrame {
                 return;
             }
 
-            maybeAutoSaveCurrent();
+            if (isAutoSaveEnabled()) {
+                maybeAutoSaveCurrent();
+            } else {
+                detailPanel.discardChanges();
+            }
 
             currentSelectionId = entry != null ? entry.getId() : null;
 
