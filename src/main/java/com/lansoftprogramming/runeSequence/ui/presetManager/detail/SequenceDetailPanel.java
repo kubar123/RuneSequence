@@ -183,6 +183,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		presenter.saveSequence();
 	}
 
+	public boolean hasUnsavedChanges() {
+		return presenter.hasUnsavedChanges();
+	}
+
 	@Override
 	public void setSequenceName(String name) {
 		sequenceNameField.setText(name);

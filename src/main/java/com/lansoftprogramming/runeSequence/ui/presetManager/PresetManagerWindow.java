@@ -193,6 +193,9 @@ public class PresetManagerWindow extends JFrame {
         if (currentSelectionId == null || sequenceListModel.indexOf(currentSelectionId) < 0) {
             return;
         }
+        if (!detailPanel.hasUnsavedChanges()) {
+            return;
+        }
 
         autoSaveInProgress = true;
         try {

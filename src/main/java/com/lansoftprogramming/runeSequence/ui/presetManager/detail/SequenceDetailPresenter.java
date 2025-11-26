@@ -94,6 +94,20 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		flowView.renderSequenceElements(currentElements);
 	}
 
+	boolean hasUnsavedChanges() {
+		String currentName = view.getSequenceName();
+		String trimmedCurrentName = currentName != null ? currentName.trim() : "";
+		String trimmedLoadedName = loadedSequenceName != null ? loadedSequenceName.trim() : "";
+
+		if (!trimmedCurrentName.equals(trimmedLoadedName)) {
+			return true;
+		}
+
+		String currentExpression = expressionBuilder.buildExpression(currentElements);
+		String loadedExpr = loadedExpression != null ? loadedExpression : "";
+		return !currentExpression.equals(loadedExpr);
+	}
+
 	void saveSequence() {
 		String sequenceName = view.getSequenceName();
 		String trimmedName = sequenceName != null ? sequenceName.trim() : "";
