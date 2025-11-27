@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.settings;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -27,7 +28,7 @@ public class HotkeySettingsPanel extends JPanel {
 	private final KeyCapturePopup keyCapturePopup = new KeyCapturePopup();
 
 	private static final Map<String, String> ACTION_LABELS = buildActionLabels();
-	private static final Color INVALID_FIELD_BACKGROUND = new Color(255, 230, 230);
+	private static final Color INVALID_FIELD_BACKGROUND = UiColorPalette.INPUT_INVALID_BACKGROUND;
 	private static final Set<String> MODIFIER_TOKENS = Set.of("CTRL", "CONTROL", "SHIFT", "ALT", "META");
 	private static final Set<Integer> MODIFIER_KEY_CODES = Set.of(
 			KeyEvent.VK_CONTROL,
@@ -39,7 +40,7 @@ public class HotkeySettingsPanel extends JPanel {
 	public HotkeySettingsPanel(ConfigManager configManager) {
 		this.configManager = Objects.requireNonNull(configManager, "configManager");
 		Color uiColor = UIManager.getColor("TextField.background");
-		this.defaultFieldBackground = uiColor != null ? uiColor : Color.WHITE;
+		this.defaultFieldBackground = uiColor != null ? uiColor : UiColorPalette.BASE_WHITE;
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(15, 15, 15, 15));
 
@@ -76,7 +77,7 @@ public class HotkeySettingsPanel extends JPanel {
 			gbc.gridx = 0;
 			gbc.gridwidth = 4;
 			JLabel emptyLabel = new JLabel("No hotkey bindings were found in the current settings.");
-			emptyLabel.setForeground(Color.GRAY);
+			emptyLabel.setForeground(UiColorPalette.TEXT_MUTED);
 			formPanel.add(emptyLabel, gbc);
 		} else {
 			for (AppSettings.HotkeySettings.Binding binding : bindings) {
@@ -119,7 +120,7 @@ public class HotkeySettingsPanel extends JPanel {
 
 	private JPanel buildFooter() {
 		JPanel footer = new JPanel(new BorderLayout());
-		statusLabel.setForeground(Color.GRAY);
+		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
 		footer.add(statusLabel, BorderLayout.CENTER);
 
 		JButton saveButton = new JButton("Save hotkeys");
@@ -131,10 +132,10 @@ public class HotkeySettingsPanel extends JPanel {
 	}
 
 	private void handleSave() {
-		statusLabel.setForeground(Color.GRAY);
+		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
 		AppSettings settings = configManager.getSettings();
 		if (settings == null) {
-			statusLabel.setForeground(Color.RED);
+			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
 			statusLabel.setText("Settings are not loaded.");
 			return;
 		}
@@ -163,17 +164,17 @@ public class HotkeySettingsPanel extends JPanel {
 		}
 
 		if (hasError) {
-			statusLabel.setForeground(Color.RED);
+			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
 			statusLabel.setText(firstError);
 			return;
 		}
 
 		try {
 			configManager.saveSettings();
-			statusLabel.setForeground(new Color(0, 128, 0));
+			statusLabel.setForeground(UiColorPalette.TEXT_SUCCESS);
 			statusLabel.setText("Hotkey settings saved.");
 		} catch (IOException ex) {
-			statusLabel.setForeground(Color.RED);
+			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
 			statusLabel.setText("Failed to save hotkeys: " + ex.getMessage());
 		}
 	}

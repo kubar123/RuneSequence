@@ -74,7 +74,7 @@ class AbilityFlowView extends JPanel {
 		for (Component card : getAbilityCardArray()) {
 			if (card instanceof JPanel panel) {
 				panel.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
-				panel.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+				panel.setBorder(UiColorPalette.CARD_BORDER);
 			}
 		}
 		repaint();

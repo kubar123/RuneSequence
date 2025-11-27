@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.regionSelector;
 
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -23,7 +25,7 @@ public class RegionSelectorWindow extends JDialog {
         this.confirmButton = new JButton("Confirm Selection");
 
         setUndecorated(true);
-        setBackground(new Color(0, 0, 0, 1)); // Almost fully transparent
+        setBackground(UiColorPalette.TRANSLUCENT_WINDOW); // Almost fully transparent
         setAlwaysOnTop(true);
 
         GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();

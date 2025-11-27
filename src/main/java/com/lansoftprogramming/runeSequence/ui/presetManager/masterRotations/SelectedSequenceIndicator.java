@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import java.awt.*;
@@ -57,14 +58,14 @@ public class SelectedSequenceIndicator {
 		Graphics2D g2d = img.createGraphics();
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-		g2d.setColor(new Color(76, 175, 80));
+		g2d.setColor(UiColorPalette.SELECTION_ACTIVE_FILL);
 		g2d.fillOval(0, 0, size - 1, size - 1);
 
-		g2d.setColor(new Color(46, 125, 50));
+		g2d.setColor(UiColorPalette.SELECTION_ACTIVE_BORDER);
 		g2d.drawOval(0, 0, size - 1, size - 1);
 
 		g2d.setStroke(new BasicStroke(2f));
-		g2d.setColor(Color.WHITE);
+		g2d.setColor(UiColorPalette.TEXT_INVERSE);
 		g2d.drawLine(size / 4, size / 2, size / 2, size - size / 4);
 		g2d.drawLine(size / 2, size - size / 4, size - size / 5, size / 4);
 

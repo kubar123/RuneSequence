@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.shared.service;
 
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -144,16 +145,16 @@ public class AbilityIconLoader {
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
 		// Fill with light gray
-		g2d.setColor(new Color(220, 220, 220));
+		g2d.setColor(UiColorPalette.PLACEHOLDER_BACKGROUND);
 		g2d.fillRect(0, 0, iconSize, iconSize);
 
 		// Draw border
-		g2d.setColor(new Color(180, 180, 180));
+		g2d.setColor(UiColorPalette.PLACEHOLDER_BORDER);
 		g2d.drawRect(0, 0, iconSize - 1, iconSize - 1);
 
 		// Draw question mark in center
-		g2d.setColor(new Color(150, 150, 150));
-		g2d.setFont(new Font("SansSerif", Font.BOLD, iconSize / 2));
+		g2d.setColor(UiColorPalette.PLACEHOLDER_FOREGROUND);
+		g2d.setFont(UiColorPalette.boldSans(iconSize / 2));
 		FontMetrics fm = g2d.getFontMetrics();
 		String questionMark = "?";
 		int x = (iconSize - fm.stringWidth(questionMark)) / 2;

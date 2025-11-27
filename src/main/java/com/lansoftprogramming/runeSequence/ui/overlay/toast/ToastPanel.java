@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.overlay.toast;
 
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -87,7 +89,7 @@ class ToastPanel extends JPanel {
 
 			// Soft shadow
 			g2.setComposite(AlphaComposite.SrcOver.derive(alpha * 0.3f));
-			g2.setColor(new Color(0, 0, 0, 160));
+			g2.setColor(UiColorPalette.TOAST_SHADOW);
 			g2.fillRoundRect(4, SHADOW_OFFSET_Y + 4, width - 8, height - 8, CORNER_RADIUS, CORNER_RADIUS);
 
 			// Card background
@@ -106,11 +108,11 @@ class ToastPanel extends JPanel {
 
 	private void configureContent() {
 		iconLabel.setForeground(type.getForegroundColor());
-		iconLabel.setFont(iconLabel.getFont().deriveFont((float) ICON_FONT_SIZE));
+		iconLabel.setFont(UiColorPalette.boldSans(ICON_FONT_SIZE));
 		iconLabel.setBorder(new EmptyBorder(0, 0, 0, 6));
 		iconLabel.setAlignmentY(0.5f);
 
-		messageLabel.setForeground(new Color(34, 38, 42));
+		messageLabel.setForeground(UiColorPalette.TOAST_MESSAGE_FOREGROUND);
 		messageLabel.setAlignmentY(0.5f);
 
 		add(Box.createHorizontalStrut(ACCENT_WIDTH + 8));

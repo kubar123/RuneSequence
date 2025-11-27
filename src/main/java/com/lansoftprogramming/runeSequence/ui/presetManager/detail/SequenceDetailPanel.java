@@ -88,10 +88,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		Color hoverColor = baseColor.brighter();
 		panel.setOpaque(true);
 		panel.setBackground(baseColor);
-		panel.setBorder(BorderFactory.createCompoundBorder(
-				BorderFactory.createLineBorder(new Color(180, 180, 180)),
-				new EmptyBorder(2, 2, 2, 2)
-		));
+		panel.setBorder(UiColorPalette.paddedLineBorder(UiColorPalette.UI_CARD_BORDER_STRONG, 2));
 		panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
 //		JLabel iconLabel = new JLabel(insertIcon);
@@ -127,7 +124,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	private JScrollPane createContentScrollPane() {
 		JScrollPane scrollPane = new JScrollPane(abilityFlowView);
-		scrollPane.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+		scrollPane.setBorder(UiColorPalette.SCROLL_BORDER);
 		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		scrollPane.getVerticalScrollBar().setUnitIncrement(5);
@@ -246,10 +243,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
 		Graphics2D g2d = image.createGraphics();
 		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2d.setColor(new Color(66, 133, 244));
+		g2d.setColor(UiColorPalette.INSERT_ICON_FILL);
 		g2d.fillRoundRect(padding, padding, size - (padding * 2), size - (padding * 2), cornerRadius, cornerRadius);
 		g2d.setStroke(new BasicStroke(2f));
-		g2d.setColor(Color.WHITE);
+		g2d.setColor(UiColorPalette.TEXT_INVERSE);
 		int mid = size / 2;
 		int arm = mid - padding - 1;
 		g2d.drawLine(mid, mid - arm, mid, mid + arm);

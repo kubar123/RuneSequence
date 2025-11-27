@@ -354,7 +354,7 @@ public class AbilityPalettePanel extends JPanel {
 
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setBackground(UiColorPalette.UI_CARD_BACKGROUND);
-			setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+			setBorder(UiColorPalette.CARD_BORDER);
 			setMinimumSize(new Dimension(50, 68));
 			setPreferredSize(new Dimension(50, 68));
 			setMaximumSize(new Dimension(50, 68));
@@ -412,7 +412,7 @@ public class AbilityPalettePanel extends JPanel {
 		 */
 		private void updateAppearance() {
 			if (dimmed) {
-				setBackground(new Color(240, 240, 240));
+				setBackground(UiColorPalette.UI_CARD_DIMMED_BACKGROUND);
 				iconLabel.setEnabled(false);
 				nameLabel.setEnabled(false);
 				// Apply transparency to icon
@@ -422,7 +422,7 @@ public class AbilityPalettePanel extends JPanel {
 					iconLabel.setIcon(new ImageIcon(dimmedImage));
 				}
 			} else {
-				setBackground(Color.WHITE);
+				setBackground(UiColorPalette.BASE_WHITE);
 				iconLabel.setEnabled(true);
 				nameLabel.setEnabled(true);
 				iconLabel.setIcon(item.getIcon());

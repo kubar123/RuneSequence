@@ -22,7 +22,7 @@ class AbilityCardFactory {
 		card.setName("abilityCard");
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
 		card.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
-		card.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+		card.setBorder(UiColorPalette.CARD_BORDER);
 		card.setMinimumSize(new Dimension(50, 68));
 		card.setPreferredSize(new Dimension(50, 68));
 		card.setMaximumSize(new Dimension(50, 68));
@@ -55,8 +55,8 @@ class AbilityCardFactory {
 
 	JLabel createSeparatorLabel(SequenceElement element) {
 		JLabel label = new JLabel(" " + element.getValue() + " ");
-		label.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
-		label.setForeground(Color.RED);
+		label.setFont(UiColorPalette.SYMBOL_LARGE);
+		label.setForeground(UiColorPalette.TEXT_DANGER);
 		label.setBorder(new EmptyBorder(0, 5, 0, 5));
 		return label;
 	}

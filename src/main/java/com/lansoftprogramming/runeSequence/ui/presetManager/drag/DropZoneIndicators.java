@@ -33,12 +33,12 @@ public class DropZoneIndicators {
 
     private JLabel createIndicator(String text) {
         JLabel label = new JLabel(text);
-        label.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18));
-        label.setForeground(Color.WHITE);
-        label.setBackground(new Color(50, 50, 50, 220));
+        label.setFont(UiColorPalette.SYMBOL_LARGE);
+        label.setForeground(UiColorPalette.TEXT_INVERSE);
+        label.setBackground(UiColorPalette.DROP_ZONE_LABEL_BACKGROUND);
         label.setOpaque(true);
         label.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(100, 100, 100), 1),
+            UiColorPalette.lineBorder(UiColorPalette.DROP_ZONE_LABEL_BORDER, 1),
             BorderFactory.createEmptyBorder(3, 8, 3, 8)
         ));
         label.setHorizontalAlignment(SwingConstants.CENTER);
@@ -90,18 +90,18 @@ public class DropZoneIndicators {
 
         if (zoneType != null) {
             backgroundColor = UiColorPalette.getDropZoneOverlayColor(zoneType);
-            foregroundColor = Color.BLACK; // Black text for better contrast on light colors
+            foregroundColor = UiColorPalette.BASE_BLACK; // Black text for better contrast on light colors
             borderColor = backgroundColor.darker();
         } else {
-            backgroundColor = new Color(50, 50, 50, 220);
-            foregroundColor = Color.WHITE;
-            borderColor = new Color(100, 100, 100);
+            backgroundColor = UiColorPalette.DROP_ZONE_LABEL_BACKGROUND;
+            foregroundColor = UiColorPalette.TEXT_INVERSE;
+            borderColor = UiColorPalette.DROP_ZONE_LABEL_BORDER;
         }
 
         indicator.setForeground(foregroundColor);
         indicator.setBackground(backgroundColor);
         indicator.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(borderColor, 1),
+            UiColorPalette.lineBorder(borderColor, 1),
             BorderFactory.createEmptyBorder(3, 8, 3, 8)
         ));
     }

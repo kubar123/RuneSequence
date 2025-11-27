@@ -59,7 +59,7 @@ public class OverlayRenderer {
 		window.setAutoRequestFocus(false);
 
 		// Set transparent background
-		window.setBackground(new Color(0, 0, 0, 0));
+		window.setBackground(UiColorPalette.TRANSPARENT);
 
 		return window;
 	}
@@ -231,7 +231,7 @@ public class OverlayRenderer {
 
 		public OverlayPanel() {
 			setOpaque(false); // Transparent background
-			setBackground(new Color(0, 0, 0, 0));
+			setBackground(UiColorPalette.TRANSPARENT);
 		}
 
 		@Override

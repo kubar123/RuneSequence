@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.settings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ScalingConverter;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -39,7 +40,7 @@ public class IconSizeSettingsPanel extends JPanel {
 		autoSaveCheck.setSelected(resolveAutoSavePreference());
 
 		statusLabel = new JLabel(" ");
-		statusLabel.setForeground(Color.GRAY);
+		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
 
 		add(createFormPanel(), BorderLayout.CENTER);
 		add(statusLabel, BorderLayout.SOUTH);
@@ -99,7 +100,7 @@ public class IconSizeSettingsPanel extends JPanel {
 			sizeSpinner.setValue(resolvedSize);
 		}
 
-		statusLabel.setForeground(Color.GRAY);
+		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
 
 		AppSettings settings = configManager.getSettings();
 		if (settings.getUi() == null) {
@@ -114,14 +115,14 @@ public class IconSizeSettingsPanel extends JPanel {
 
 		try {
 			configManager.saveSettings();
-			statusLabel.setForeground(new Color(0, 128, 0));
+			statusLabel.setForeground(UiColorPalette.TEXT_SUCCESS);
 			if (adjusted) {
 				statusLabel.setText("Saved icon size (adjusted to nearest): " + resolvedSize + " px; auto-save rotations " + stateLabel());
 			} else {
 				statusLabel.setText("Saved icon size: " + resolvedSize + " px; auto-save rotations " + stateLabel());
 			}
 		} catch (IOException ex) {
-			statusLabel.setForeground(Color.RED);
+			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
 			statusLabel.setText("Failed to save settings: " + ex.getMessage());
 		}
 	}
