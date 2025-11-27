@@ -1059,5 +1059,80 @@
     "type": "spell",
     "level": 94,
     "triggers_gcd": false
+  },
+  "eofor": {
+    "common_name": "Essence of Finality (Or)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofblack": {
+    "common_name": "Essence of Finality (Or) (Black)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofblacku": {
+    "common_name": "Essence of Finality (Black)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofblue": {
+    "common_name": "Essence of Finality (Or) (Blue)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofblueu": {
+    "common_name": "Essence of Finality (Blue)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofgreen": {
+    "common_name": "Essence of Finality (Or) (Green)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofgreenu": {
+    "common_name": "Essence of Finality (Green)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofpink": {
+    "common_name": "Essence of Finality (Or) (Pink)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofpinku": {
+    "common_name": "Essence of Finality (Pink)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofpurple": {
+    "common_name": "Essence of Finality (Or) (Purple)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofpurpleu": {
+    "common_name": "Essence of Finality (Purple)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofred": {
+    "common_name": "Essence of Finality (Or) (Red)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofredu": {
+    "common_name": "Essence of Finality (Red)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofyellow": {
+    "common_name": "Essence of Finality (Or) (Yellow)",
+    "type": "item",
+    "triggers_gcd": false
+  },
+  "eofyellowu": {
+    "common_name": "Essence of Finality (Yellow)",
+    "type": "item",
+    "triggers_gcd": false
   }
 }
