@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
@@ -21,6 +22,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private final AbilityFlowView flowView;
 	private final View view;
 	private final ExpressionBuilder expressionBuilder;
+	private final NotificationService notifications;
 
 	private List<SequenceElement> currentElements;
 	private List<SequenceElement> previewElements;
@@ -35,10 +37,14 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private boolean isHighlightActive;
 	private boolean isDragOutsidePanel;
 
-	SequenceDetailPresenter(SequenceDetailService detailService, AbilityFlowView flowView, View view) {
+	SequenceDetailPresenter(SequenceDetailService detailService,
+	                        AbilityFlowView flowView,
+	                        View view,
+	                        NotificationService notifications) {
 		this.detailService = detailService;
 		this.flowView = flowView;
 		this.view = view;
+		this.notifications = notifications;
 		this.expressionBuilder = new ExpressionBuilder();
 		this.currentElements = new ArrayList<>();
 		this.previewElements = new ArrayList<>();
@@ -123,12 +129,14 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		if (!outcome.isSuccess()) {
 			String message = outcome.getMessage() != null ? outcome.getMessage() : "Failed to save sequence.";
-			int messageType = outcome.isValidationFailure()
-					? JOptionPane.WARNING_MESSAGE
-					: JOptionPane.ERROR_MESSAGE;
-
 			logger.debug("Save attempt failed: {}", message);
-			view.showSaveDialog(message, messageType);
+			if (notifications != null) {
+				if (outcome.isValidationFailure()) {
+					notifications.showWarning(message);
+				} else {
+					notifications.showError(message);
+				}
+			}
 			return;
 		}
 
@@ -153,7 +161,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		notifySaveListeners(result);
 
 		String successMessage = outcome.getMessage() != null ? outcome.getMessage() : "Sequence saved successfully.";
-		view.showSaveDialog(successMessage, JOptionPane.INFORMATION_MESSAGE);
+		if (notifications != null) {
+			notifications.showSuccess(successMessage);
+		}
 	}
 
 	void discardChanges() {
@@ -378,8 +388,6 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		void setSequenceName(String name);
 
 		String getSequenceName();
-
-		void showSaveDialog(String message, int messageType);
 
 		JComponent asComponent();
 	}

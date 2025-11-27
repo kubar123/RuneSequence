@@ -4,7 +4,8 @@ import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
-import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastClient;
+import com.lansoftprogramming.runeSequence.ui.notification.DefaultNotificationService;
+import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailPanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailService;
@@ -34,7 +35,7 @@ public class PresetManagerWindow extends JFrame {
     private JSplitPane verticalSplit;
     private JSplitPane horizontalSplit;
     private ToastManager toastManager;
-    private ToastClient toasts = ToastManager.loggingFallback(logger);
+    private NotificationService notifications;
     private boolean suppressSelectionUpdate;
     private String currentSelectionId;
     private boolean autoSaveInProgress;
@@ -45,18 +46,13 @@ public class PresetManagerWindow extends JFrame {
 
         initializeFrame();
         toastManager = new ToastManager(this);
-        toasts = toastManager;
+        notifications = new DefaultNotificationService(this, toastManager);
 
         initializeComponents();
         layoutComponents();
         wireEventHandlers();
         loadSequences();
         setVisible(true);
-
-        SwingUtilities.invokeLater(() -> {
-            detailPanel.setToastClient(toasts);
-            masterPanel.setToastClient(toasts);
-        });
     }
 
     private void initializeFrame() {
@@ -82,19 +78,21 @@ public class PresetManagerWindow extends JFrame {
             );
 
             masterPanel = new SequenceMasterPanel(sequenceListModel, selectionIndicator);
-            detailPanel = new SequenceDetailPanel(detailService);
+            detailPanel = new SequenceDetailPanel(detailService, notifications);
             palettePanel = new AbilityPalettePanel(
                 configManager.getAbilities(),
                 configManager.getAbilityCategories(),
                 iconLoader
             );
 
+            masterPanel.setNotificationService(notifications);
+
             // Wire palette to detail panel for drag coordination
             palettePanel.setDetailPanel(detailPanel);
 
         } catch (Exception e) {
             logger.error("Failed to initialize components", e);
-            toasts.error("Failed to initialize: " + e.getMessage());
+            notifications.showError("Failed to initialize: " + e.getMessage());
         }
     }
 
@@ -167,7 +165,7 @@ public class PresetManagerWindow extends JFrame {
                 SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(result.getPresetId()));
                 currentSelectionId = result.getPresetId();
             }
-            toasts.success("Preset saved.");
+            notifications.showSuccess("Preset saved.");
         });
     }
 
@@ -205,7 +203,7 @@ public class PresetManagerWindow extends JFrame {
 
     private void handleDeleteSequence(SequenceListModel.SequenceEntry entry) {
         if (entry == null) {
-            toasts.info("Please select a preset to delete.");
+            notifications.showInfo("Please select a preset to delete.");
             return;
         }
 
@@ -215,24 +213,21 @@ public class PresetManagerWindow extends JFrame {
                 : null;
 
         //Confirmation
-        int confirm = JOptionPane.showConfirmDialog(
-                masterPanel,
-                "Are you sure you want to delete this item?",
+        boolean confirmed = notifications.showConfirmDialog(
                 "Confirm Delete",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE
+                "Are you sure you want to delete this item?"
         );
-        if (confirm != JOptionPane.YES_OPTION) return;
+        if (!confirmed) return;
 
         try {
             RotationConfig rotations = configManager.getRotations();
             if (rotations == null || rotations.getPresets() == null) {
-                toasts.error("Rotation data is not available. Unable to delete preset.");
+                notifications.showError("Rotation data is not available. Unable to delete preset.");
                 return;
             }
 
             if (rotations.getPresets().remove(entry.getId()) == null) {
-                toasts.error("Preset could not be located by its identifier.");
+                notifications.showError("Preset could not be located by its identifier.");
                 return;
             }
 
@@ -256,10 +251,10 @@ public class PresetManagerWindow extends JFrame {
                 updateActiveRotation(null);
             }
 
-            toasts.success("Preset deleted.");
+            notifications.showSuccess("Preset deleted.");
         } catch (Exception e) {
             logger.error("Failed to delete preset {}", entry.getId(), e);
-            toasts.error("Failed to delete preset: " + e.getMessage());
+            notifications.showError("Failed to delete preset: " + e.getMessage());
         }
     }
 
@@ -278,12 +273,8 @@ public class PresetManagerWindow extends JFrame {
             }
         } catch (Exception e) {
             logger.error("Failed to load sequences", e);
-            toasts.error("Failed to load sequences: " + e.getMessage());
+            notifications.showError("Failed to load sequences: " + e.getMessage());
         }
-    }
-
-    public ToastClient toasts() {
-        return toasts;
     }
 
     /**
@@ -323,7 +314,7 @@ public class PresetManagerWindow extends JFrame {
                 configManager.saveSettings();
             } catch (IOException e) {
                 logger.error("Failed to persist active rotation {}", rotationId, e);
-                toasts.error("Failed to set active rotation: " + e.getMessage());
+                notifications.showError("Failed to set active rotation: " + e.getMessage());
             }
         }
 

@@ -1,7 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
-import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastClient;
+import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
@@ -28,10 +28,11 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private final SequenceDetailPresenter presenter;
 	private final SequenceDetailService detailService;
 	private final ImageIcon insertIcon;
-	private ToastClient toastClient;
+	private final NotificationService notifications;
 
-	public SequenceDetailPanel(SequenceDetailService detailService) {
+	public SequenceDetailPanel(SequenceDetailService detailService, NotificationService notifications) {
 		this.detailService = detailService;
+		this.notifications = notifications;
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
 
@@ -42,7 +43,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		saveButton = new JButton("Save");
 		discardButton = new JButton("Discard");
 		abilityFlowView = new AbilityFlowView(detailService);
-		presenter = new SequenceDetailPresenter(detailService, abilityFlowView, this);
+		presenter = new SequenceDetailPresenter(detailService, abilityFlowView, this, notifications);
 
 		alignInsertButtonSize();
 		layoutComponents();
@@ -160,10 +161,6 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		highlightSequenceNameField();
 	}
 
-	public void setToastClient(ToastClient toastClient) {
-		this.toastClient = toastClient;
-	}
-
 	public void highlightSequenceNameField() {
 		SwingUtilities.invokeLater(() -> {
 			sequenceNameField.requestFocusInWindow();
@@ -196,27 +193,6 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	public String getSequenceName() {
 		return sequenceNameField.getText();
 	}
-
-	@Override
-	public void showSaveDialog(String message, int messageType) {
-		if (toastClient != null) {
-			switch (messageType) {
-				case JOptionPane.ERROR_MESSAGE -> toastClient.error(message);
-				case JOptionPane.WARNING_MESSAGE -> toastClient.warn(message);
-				case JOptionPane.INFORMATION_MESSAGE -> toastClient.success(message);
-				default -> toastClient.info(message);
-			}
-			return;
-		}
-
-		JOptionPane.showMessageDialog(
-			this,
-			message,
-			"Save Sequence",
-			messageType
-		);
-	}
-
 
 	@Override
 	public JComponent asComponent() {
@@ -297,14 +273,14 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private void showToast(String message, boolean error) {
-		if (toastClient == null) {
+		if (notifications == null) {
 			Toolkit.getDefaultToolkit().beep();
 			return;
 		}
 		if (error) {
-			toastClient.error(message);
+			notifications.showError(message);
 		} else {
-			toastClient.info(message);
+			notifications.showInfo(message);
 		}
 	}
 }

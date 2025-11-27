@@ -2,6 +2,8 @@ package com.lansoftprogramming.runeSequence.ui.regionSelector;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.ui.notification.DefaultNotificationService;
+import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,9 +15,11 @@ public class RegionSelectorAction implements MenuAction {
 
     private static final Logger logger = LoggerFactory.getLogger(RegionSelectorAction.class);
     private final ConfigManager configManager;
+    private final NotificationService notifications;
 
     public RegionSelectorAction(ConfigManager configManager) {
         this.configManager = configManager;
+        this.notifications = new DefaultNotificationService(null);
     }
 
     @Override
@@ -49,17 +53,11 @@ public class RegionSelectorAction implements MenuAction {
                     logger.info("Region settings saved successfully.");
 
                     // Optional: provide user feedback
-                    JOptionPane.showMessageDialog(null,
-                            "Region saved successfully!",
-                            "Success",
-                            JOptionPane.INFORMATION_MESSAGE);
+                    notifications.showSuccess("Region saved successfully!");
 
                 } catch (Exception e) {
                     logger.error("Failed to save region settings.", e);
-                    JOptionPane.showMessageDialog(null,
-                            "Error saving region: " + e.getMessage(),
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE);
+                    notifications.showError("Error saving region: " + e.getMessage());
                 }
             } else {
                 logger.info("Region selection was cancelled by the user.");
