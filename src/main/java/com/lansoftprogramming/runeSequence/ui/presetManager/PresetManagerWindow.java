@@ -191,16 +191,8 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private boolean isAutoSaveEnabled() {
-        AppSettings settings = configManager.getSettings();
-        if (settings == null) {
-            return false;
-        }
-        AppSettings.RotationSettings rotation = settings.getRotation();
-        if (rotation == null) {
-            rotation = new AppSettings.RotationSettings();
-            settings.setRotation(rotation);
-        }
-        return rotation.isAutoSaveOnSwitch();
+        AppSettings.RotationSettings rotation = getRotationSettings(true);
+        return rotation != null && rotation.isAutoSaveOnSwitch();
     }
 
 	private void handleAddSequence() {
@@ -315,10 +307,10 @@ public class PresetManagerWindow extends JFrame {
             return;
         }
 
-        AppSettings.RotationSettings rotationSettings = settings.getRotation();
+        AppSettings.RotationSettings rotationSettings = getRotationSettings(true);
         if (rotationSettings == null) {
-            rotationSettings = new AppSettings.RotationSettings();
-            settings.setRotation(rotationSettings);
+            logger.warn("Rotation settings unavailable; cannot update active rotation.");
+            return;
         }
 
         String currentId = rotationSettings.getSelectedId();
@@ -347,6 +339,23 @@ public class PresetManagerWindow extends JFrame {
 
 		String newPresetId = UUID.randomUUID().toString();
 
-		detailPanel.startNewSequence(newPresetId, newPreset);
-	}
+        detailPanel.startNewSequence(newPresetId, newPreset);
+    }
+
+    /**
+     * Returns rotation settings, optionally creating and attaching a new instance to settings.
+     * Does not persist to disk; callers remain responsible for saving if they mutate values.
+     */
+    private AppSettings.RotationSettings getRotationSettings(boolean createIfMissing) {
+        AppSettings settings = configManager.getSettings();
+        if (settings == null) {
+            return null;
+        }
+        AppSettings.RotationSettings rotation = settings.getRotation();
+        if (rotation == null && createIfMissing) {
+            rotation = new AppSettings.RotationSettings();
+            settings.setRotation(rotation);
+        }
+        return rotation;
+    }
 }
