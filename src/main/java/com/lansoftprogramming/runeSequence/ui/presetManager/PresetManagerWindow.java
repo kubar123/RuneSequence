@@ -204,27 +204,11 @@ public class PresetManagerWindow extends JFrame {
     }
 
 	private void handleAddSequence() {
-		clearSelectionSilently();
-
-		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
-	   newPreset.setName("new sequence");
-	   newPreset.setExpression("");
-
-		String newPresetId = UUID.randomUUID().toString();
-
-		detailPanel.startNewSequence(newPresetId, newPreset);
+		createNewPreset("new sequence", "");
 	}
 
 	private void handleImportSequence(String expression) {
-		clearSelectionSilently();
-
-		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
-		newPreset.setName("Imported Sequence");
-		newPreset.setExpression(expression);
-
-		String newPresetId = UUID.randomUUID().toString();
-
-		detailPanel.startNewSequence(newPresetId, newPreset);
+		createNewPreset("Imported Sequence", expression);
 	}
 
     private void handleDeleteSequence(SequenceListModel.SequenceEntry entry) {
@@ -353,4 +337,16 @@ public class PresetManagerWindow extends JFrame {
 
         masterPanel.refreshList();
     }
+
+	private void createNewPreset(String name, String expression) {
+		clearSelectionSilently();
+
+		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
+		newPreset.setName(name);
+		newPreset.setExpression(expression);
+
+		String newPresetId = UUID.randomUUID().toString();
+
+		detailPanel.startNewSequence(newPresetId, newPreset);
+	}
 }
