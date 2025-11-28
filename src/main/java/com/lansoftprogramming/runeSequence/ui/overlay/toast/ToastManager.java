@@ -26,7 +26,7 @@ public class ToastManager implements ToastClient {
 	private static final int ANIMATION_INTERVAL = 15;
 	private static final int ANIMATION_DURATION = 180;
 
-	private final JFrame owner;
+	private final Window owner;
 	private final JLayeredPane layeredPane;
 	private final JPanel overlay;
 	private final Deque<ToastRequest> pendingQueue;
@@ -36,7 +36,15 @@ public class ToastManager implements ToastClient {
 		this(owner, owner.getLayeredPane());
 	}
 
-	public ToastManager(JFrame owner, JLayeredPane layeredPane) {
+	public ToastManager(JDialog owner) {
+		this(owner, owner.getLayeredPane());
+	}
+
+	public ToastManager(JWindow owner) {
+		this(owner, owner.getLayeredPane());
+	}
+
+	public ToastManager(Window owner, JLayeredPane layeredPane) {
 		this.owner = Objects.requireNonNull(owner, "owner");
 		this.layeredPane = Objects.requireNonNull(layeredPane, "layeredPane");
 		this.pendingQueue = new ArrayDeque<>();
