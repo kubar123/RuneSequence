@@ -4,6 +4,7 @@ import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
+import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,14 +16,17 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 	private final AbilityConfig abilityConfig;
 	private final Map<String, SequenceDefinition> namedSequences;
+	private final NotificationService notifications;
 	private ActiveSequence activeSequence;
 	private SequenceController sequenceController;
 	private final GcdLatchTracker gcdLatchTracker = new GcdLatchTracker();
 	private boolean sequenceComplete = false;
 
-	public SequenceManager(Map<String, SequenceDefinition> namedSequences, AbilityConfig abilityConfig) {
+	public SequenceManager(Map<String, SequenceDefinition> namedSequences, AbilityConfig abilityConfig,
+	                      NotificationService notifications) {
 		this.abilityConfig = Objects.requireNonNull(abilityConfig);
 		this.namedSequences = Objects.requireNonNull(namedSequences);
+		this.notifications = Objects.requireNonNull(notifications);
 	}
 	public void setSequenceController(SequenceController sequenceController) {
 		if (this.sequenceController != null) {
@@ -161,6 +165,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			if (newState == SequenceController.State.ARMED) {
 				// Fresh arming ignores stale sightings so we only react to the next recycle
 				logger.info("ARMED: awaiting detection snapshot for recycle latch");
+				notifications.showInfo("Armed. Waiting for ability use to start the sequence.");
 				awaitingInitialDetection = true;
 				waitingForVanish = false;
 				waitingForReturn = false;
@@ -241,6 +246,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			logger.info("LATCH: tracked abilities detected again -> RUNNING");
 			reset();
 			sequenceController.onLatchDetected();
+			notifications.showSuccess("Sequence started!");
 		}
 
 		private List<TrackedTarget> selectTargets(Map<String, DetectionResult> indexedResults) {

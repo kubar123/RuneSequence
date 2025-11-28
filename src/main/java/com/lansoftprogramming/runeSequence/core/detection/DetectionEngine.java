@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.core.detection;
 import com.lansoftprogramming.runeSequence.application.SequenceManager;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
+import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
@@ -24,17 +25,19 @@ public class DetectionEngine {
 	private final SequenceManager sequenceManager;
 	private final OverlayRenderer overlay;
 	private final int detectionIntervalMs;
+	private final NotificationService notificationService;
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
-	                       int detectionIntervalMs) {
+	                       NotificationService notificationService, int detectionIntervalMs) {
 		this.screenCapture = screenCapture;
 		this.detector = detector;
 		this.sequenceManager = sequenceManager;
 		this.overlay = overlay;
+		this.notificationService = notificationService;
 		this.detectionIntervalMs = detectionIntervalMs;
 	}
 
@@ -185,6 +188,9 @@ public class DetectionEngine {
 
 			Map<String, DetectionResult> preloaded = detector.cacheAbilityLocations(screenMat, abilityKeys);
 			logger.info("Primed ability cache for {} templates ({} hits).", abilityKeys.size(), preloaded.size());
+			notificationService.showSuccess(
+					String.format("Primed %d abilities (%d cached hits).", abilityKeys.size(), preloaded.size())
+			);
 		} catch (Exception e) {
 			logger.error("Failed to prime ability cache.", e);
 		} finally {

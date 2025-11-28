@@ -13,7 +13,10 @@ import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyBindingSource;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
+import com.lansoftprogramming.runeSequence.ui.notification.DefaultNotificationService;
+import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
+import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
 import com.lansoftprogramming.runeSequence.ui.taskbar.PrimeAbilityCacheAction;
@@ -23,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.awt.*;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,6 +37,7 @@ public class Main {
 
 	private static ConfigManager configManager;
 	private static TemplateCache templateCache;
+	private static Window toastHostWindow;
 
 	public static void main(String[] args) {
 		logger.info("Starting {} application...", APP_NAME);
@@ -47,6 +52,7 @@ public class Main {
 			ScreenCapture screenCapture = new ScreenCapture(configManager.getSettings());
 			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
 			OverlayRenderer overlayRenderer = new OverlayRenderer();
+			NotificationService notifications = createNotificationService();
 
 			// 4. Set up the Sequence Manager with our debug rotation
 			RotationConfig rotationConfig = configManager.getRotations();
@@ -62,7 +68,7 @@ public class Main {
 							entry -> SequenceParser.parse(entry.getValue().getExpression())
 					));
 
-			SequenceManager sequenceManager = new SequenceManager(namedSequences, configManager.getAbilities());
+			SequenceManager sequenceManager = new SequenceManager(namedSequences, configManager.getAbilities(), notifications);
 
 			//Hotkeys
 			SequenceController sequenceController = new SequenceController(sequenceManager);
@@ -123,6 +129,7 @@ public class Main {
 					templateDetector,
 					sequenceManager,
 					overlayRenderer,
+					notifications,
 					configManager.getDetectionInterval()
 			);
 
@@ -149,6 +156,9 @@ public class Main {
 				detectionEngine.stop();
 				overlayRenderer.shutdown();
 				templateCache.shutdown();
+				if (toastHostWindow != null) {
+					toastHostWindow.dispose();
+				}
 				logger.info("Application has been shut down successfully.");
 			}));
 
@@ -156,6 +166,31 @@ public class Main {
 
 		} catch (Exception e) {
 			logger.error("A critical error occurred during application startup.", e);
+		}
+	}
+
+	private static NotificationService createNotificationService() {
+		try {
+			Rectangle bounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+			int width = 420;
+			int height = 160;
+			int x = bounds.x + bounds.width - width - 24;
+			int y = bounds.y + bounds.height - height - 24;
+
+			JWindow toastWindow = new JWindow();
+			toastWindow.setAlwaysOnTop(true);
+			toastWindow.setFocusableWindowState(false);
+			toastWindow.setBackground(new Color(0, 0, 0, 0));
+			toastWindow.setSize(width, height);
+			toastWindow.setLocation(x, y);
+			toastWindow.setVisible(true);
+
+			ToastManager toastManager = new ToastManager(toastWindow);
+			toastHostWindow = toastWindow;
+			return new DefaultNotificationService(toastWindow, toastManager);
+		} catch (Exception e) {
+			logger.warn("Failed to initialize toast notifications; falling back to logging.", e);
+			return new DefaultNotificationService(new JPanel(), ToastManager.loggingFallback(logger));
 		}
 	}
 
