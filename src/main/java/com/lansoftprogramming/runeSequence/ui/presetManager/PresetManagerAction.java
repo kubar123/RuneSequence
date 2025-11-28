@@ -22,7 +22,10 @@ public class PresetManagerAction implements MenuAction {
         SwingUtilities.invokeLater(() -> {
             if (presetManagerWindow == null || !presetManagerWindow.isVisible()) {
                 logger.info("Opening Preset Manager window...");
-                presetManagerWindow = new PresetManagerWindow(configManager);
+                presetManagerWindow = new PresetManagerWindowBuilder(configManager).buildAndShow();
+                if (presetManagerWindow == null) {
+                    logger.error("Preset Manager failed to initialize.");
+                }
             } else {
                 logger.info("Preset Manager window is already open, bringing to front.");
                 presetManagerWindow.toFront();

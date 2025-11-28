@@ -13,7 +13,6 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.Sele
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceListModel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceMasterPanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.palette.AbilityPalettePanel;
-import com.lansoftprogramming.runeSequence.ui.presetManager.service.SequenceVisualService;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +26,9 @@ public class PresetManagerWindow extends JFrame {
 
     private final ConfigManager configManager;
     private final SequenceListModel sequenceListModel;
+    private final AbilityIconLoader iconLoader;
+    private final SequenceDetailService detailService;
+    private final SelectedSequenceIndicator selectionIndicator;
 
     private SequenceMasterPanel masterPanel;
     private SequenceDetailPanel detailPanel;
@@ -40,19 +42,31 @@ public class PresetManagerWindow extends JFrame {
     private String currentSelectionId;
     private boolean autoSaveInProgress;
 
-    public PresetManagerWindow(ConfigManager configManager) {
+    public PresetManagerWindow(
+            ConfigManager configManager,
+            SequenceListModel sequenceListModel,
+            AbilityIconLoader iconLoader,
+            SequenceDetailService detailService,
+            SelectedSequenceIndicator selectionIndicator) {
         this.configManager = configManager;
-        this.sequenceListModel = new SequenceListModel();
+        this.sequenceListModel = sequenceListModel;
+        this.iconLoader = iconLoader;
+        this.detailService = detailService;
+        this.selectionIndicator = selectionIndicator;
 
         initializeFrame();
         toastManager = new ToastManager(this);
         notifications = new DefaultNotificationService(this, toastManager);
 
-        initializeComponents();
-        layoutComponents();
-        wireEventHandlers();
-        loadSequences();
-        setVisible(true);
+        boolean initialized = initializeComponents();
+        if (initialized) {
+            layoutComponents();
+            wireEventHandlers();
+            loadSequences();
+            setVisible(true);
+        } else {
+            logger.error("PresetManagerWindow failed to initialize; skipping layout and wiring.");
+        }
     }
 
     private void initializeFrame() {
@@ -62,21 +76,8 @@ public class PresetManagerWindow extends JFrame {
         setLocationRelativeTo(null);
     }
 
-    private void initializeComponents() {
+    private boolean initializeComponents() {
         try {
-            AbilityIconLoader iconLoader = new AbilityIconLoader(
-                configManager.getConfigDir().resolve("Abilities")
-            );
-
-            SequenceVisualService visualService = new SequenceVisualService();
-            SequenceDetailService detailService = new SequenceDetailService(
-                configManager, iconLoader, visualService
-            );
-
-            SelectedSequenceIndicator selectionIndicator = SelectedSequenceIndicator.forSettings(
-                configManager.getSettings()
-            );
-
             masterPanel = new SequenceMasterPanel(sequenceListModel, selectionIndicator);
             detailPanel = new SequenceDetailPanel(detailService, notifications);
             palettePanel = new AbilityPalettePanel(
@@ -89,10 +90,11 @@ public class PresetManagerWindow extends JFrame {
 
             // Wire palette to detail panel for drag coordination
             palettePanel.setDetailPanel(detailPanel);
-
+            return true;
         } catch (Exception e) {
             logger.error("Failed to initialize components", e);
             notifications.showError("Failed to initialize: " + e.getMessage());
+            return false;
         }
     }
 
