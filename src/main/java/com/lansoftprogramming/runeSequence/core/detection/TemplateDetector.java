@@ -105,6 +105,26 @@ public class TemplateDetector {
 		return result;
 	}
 
+	/**
+	 * Expose the cached last-known bounding box for a template, if available.
+	 * Returned rectangles are defensive copies so callers cannot mutate the cache.
+	 */
+	public Rectangle getCachedLocation(String templateName) {
+		Rectangle cached = lastKnownLocations.get(templateName);
+		return cached != null ? new Rectangle(cached) : null;
+	}
+
+	/**
+	 * Update (or seed) the cached last-known bounding box for a template.
+	 * A defensive copy is stored to keep the cache immutable from outside callers.
+	 */
+	public void updateCachedLocation(String templateName, Rectangle boundingBox) {
+		if (templateName == null || boundingBox == null) {
+			return;
+		}
+		lastKnownLocations.put(templateName, new Rectangle(boundingBox));
+	}
+
 	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi) {
 		// Backwards-compatible entrypoint: default isAlternative to false
 		return detectTemplateInRegion(screen, templateName, roi, false);
@@ -147,6 +167,97 @@ public class TemplateDetector {
 		} finally {
 			roiMat.close();
 		}
+	}
+
+	/**
+	 * Resolve a stable ROI for an ability key, using cached location if valid or falling back to template detection.
+	 * The returned rectangle is guaranteed to fit inside the given frame or {@code null} is returned.
+	 */
+	public Rectangle resolveAbilityRoi(Mat frame, String abilityKey) {
+		if (frame == null || frame.empty() || abilityKey == null) {
+			return null;
+		}
+
+		Rectangle cached = getCachedLocation(abilityKey);
+		if (cached != null && isValidRoi(cached, frame)) {
+			return cached;
+		}
+
+		DetectionResult detection = detectTemplate(frame, abilityKey, false);
+		if (detection != null && detection.found && detection.boundingBox != null && isValidRoi(detection.boundingBox, frame)) {
+			updateCachedLocation(abilityKey, detection.boundingBox);
+			return new Rectangle(detection.boundingBox);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Measure mean brightness of the given ROI in the frame as a grayscale value.
+	 * Returns a negative value if sampling fails.
+	 */
+	public double measureBrightness(Mat frame, Rectangle roi) {
+		if (frame == null || frame.empty() || roi == null) {
+			return -1;
+		}
+
+		Rectangle clamped = clampToFrame(roi, frame);
+		if (clamped == null) {
+			return -1;
+		}
+
+		Rect rect = new Rect(clamped.x, clamped.y, clamped.width, clamped.height);
+		Mat roiMat = null;
+		Mat gray = null;
+		try {
+			roiMat = new Mat(frame, rect);
+			gray = new Mat();
+			int channels = roiMat.channels();
+			if (channels == 4) {
+				cvtColor(roiMat, gray, COLOR_BGRA2GRAY);
+			} else {
+				cvtColor(roiMat, gray, COLOR_BGR2GRAY);
+			}
+			return mean(gray).get(0);
+		} catch (Exception e) {
+			logger.warn("Failed to sample brightness for ROI {}", clamped, e);
+			return -1;
+		} finally {
+			if (gray != null) {
+				gray.close();
+			}
+			if (roiMat != null) {
+				roiMat.close();
+			}
+		}
+	}
+
+	private boolean isValidRoi(Rectangle roi, Mat frame) {
+		if (roi == null || frame == null || frame.empty()) {
+			return false;
+		}
+		if (roi.width <= 1 || roi.height <= 1) {
+			return false;
+		}
+		int maxX = frame.cols();
+		int maxY = frame.rows();
+		return roi.x >= 0 && roi.y >= 0 && roi.x + roi.width <= maxX && roi.y + roi.height <= maxY;
+	}
+
+	private Rectangle clampToFrame(Rectangle roi, Mat frame) {
+		if (roi == null || frame == null || frame.empty()) {
+			return null;
+		}
+		int maxX = frame.cols();
+		int maxY = frame.rows();
+		int x = Math.max(0, roi.x);
+		int y = Math.max(0, roi.y);
+		int w = Math.min(roi.width, maxX - x);
+		int h = Math.min(roi.height, maxY - y);
+		if (w <= 1 || h <= 1) {
+			return null;
+		}
+		return new Rectangle(x, y, w, h);
 	}
 
 	private double getThresholdForTemplate(String templateName) {

@@ -1,14 +1,20 @@
 package com.lansoftprogramming.runeSequence.application;
 
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
+import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class SequenceManager implements SequenceController.StateChangeListener {
 
@@ -17,16 +23,18 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	private final AbilityConfig abilityConfig;
 	private final Map<String, SequenceDefinition> namedSequences;
 	private final NotificationService notifications;
+	private final TemplateDetector templateDetector;
 	private ActiveSequence activeSequence;
 	private SequenceController sequenceController;
 	private final GcdLatchTracker gcdLatchTracker = new GcdLatchTracker();
 	private boolean sequenceComplete = false;
 
 	public SequenceManager(Map<String, SequenceDefinition> namedSequences, AbilityConfig abilityConfig,
-	                      NotificationService notifications) {
+	                       NotificationService notifications, TemplateDetector templateDetector) {
 		this.abilityConfig = Objects.requireNonNull(abilityConfig);
 		this.namedSequences = Objects.requireNonNull(namedSequences);
 		this.notifications = Objects.requireNonNull(notifications);
+		this.templateDetector = Objects.requireNonNull(templateDetector);
 	}
 	public void setSequenceController(SequenceController sequenceController) {
 		if (this.sequenceController != null) {
@@ -72,14 +80,14 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		return activeSequence.getDetectionRequirements();
 	}
 
-	public synchronized void processDetection(List<DetectionResult> results) {
+	public synchronized void processDetection(Mat frame, List<DetectionResult> results) {
 
 		if (sequenceComplete || activeSequence == null) {
 			return;
 		}
 
 		// Keep latch state synced to latest detections before step timers react
-		gcdLatchTracker.onFrame(results);
+		gcdLatchTracker.onFrame(frame, results);
 
 		activeSequence.processDetections(results);
 
@@ -154,108 +162,100 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	}
 
 	private final class GcdLatchTracker {
-		private static final int CONSECUTIVE_MISS_THRESHOLD = 2;
+		private static final double DARKEN_PERCENT_THRESHOLD = 0.25; // 25% drop from baseline
+		private static final int DARKEN_FRAMES_REQUIRED = 3;
+		private static final double MIN_BASELINE_BRIGHTNESS = 1.0;
 
-		private boolean awaitingInitialDetection = false; // Force us to lock onto what is currently visible
-		private boolean waitingForVanish = false; // Prevent latch until tracked abilities truly disappear
-		private boolean waitingForReturn = false; // Fire only when the same abilities come back
+		private boolean awaitingInitialDetection = false; // Waiting for baseline capture
+		private boolean waitingForDarken = false; // Watching for brightness drops
 		private List<TrackedTarget> trackedTargets = List.of();
 
 		void onStateChanged(SequenceController.State newState) {
 			if (newState == SequenceController.State.ARMED) {
-				// Fresh arming ignores stale sightings so we only react to the next recycle
-				logger.info("ARMED: awaiting detection snapshot for recycle latch");
+				logger.info("ARMED: awaiting brightness baseline for latch");
 				notifications.showInfo("Armed. Waiting for ability use to start the sequence.");
 				awaitingInitialDetection = true;
-				waitingForVanish = false;
-				waitingForReturn = false;
+				waitingForDarken = false;
 				trackedTargets = List.of();
 			} else {
 				reset();
 			}
 		}
 
-		void onFrame(List<DetectionResult> results) {
-			if (sequenceController == null) {
+		void onFrame(Mat frame, List<DetectionResult> results) {
+			if (sequenceController == null || frame == null || frame.empty()) {
 				return;
 			}
-
-			// Build a lookup per frame so recycle checks stay O(1)
-			Map<String, DetectionResult> indexed = indexByInstance(results);
 
 			if (awaitingInitialDetection) {
-				// Need one solid frame before we can watch for the cooldown cycle
-				beginTracking(indexed);
+				beginTracking(frame);
 			}
 
-			if (!waitingForVanish && !waitingForReturn) {
-				// Nothing to do until we have a full vanish/return journey
+			if (!waitingForDarken || trackedTargets.isEmpty()) {
 				return;
 			}
 
-			if (trackedTargets.isEmpty()) {
-				return;
-			}
-
-			// Guard against false positives by requiring every tracked ability to vanish then return
-			boolean allObservedAbsence = true;
-			boolean allCurrentlyDetected = true;
-
+			boolean allDarkened = true;
 			for (TrackedTarget target : trackedTargets) {
-				target.update(indexed.get(target.instanceId));
-				if (!target.hasObservedAbsence()) {
-					allObservedAbsence = false;
-				}
-				if (!target.isCurrentlyDetected()) {
-					allCurrentlyDetected = false;
+				double sample = templateDetector.measureBrightness(frame, target.roi);
+				target.updateFromBrightness(sample);
+				if (!target.hasDarkened()) {
+					allDarkened = false;
 				}
 			}
 
-			if (waitingForVanish && allObservedAbsence) {
-				waitingForVanish = false;
-				waitingForReturn = true;
-				logger.info("ARMED: tracked abilities vanished - waiting for return");
-			}
-
-			if (waitingForReturn && allCurrentlyDetected) {
+			if (allDarkened) {
 				latch();
 			}
 		}
 
-		private void beginTracking(Map<String, DetectionResult> indexedResults) {
-			List<TrackedTarget> selected = selectTargets(indexedResults);
-			if (selected.isEmpty()) {
+		private void beginTracking(Mat frame) {
+			List<ActiveSequence.DetectionRequirement> gcdRequirements = selectGcdRequirements();
+			if (gcdRequirements.isEmpty()) {
 				return;
 			}
-			// Freeze the exact abilities we expect to recycle so stray detections do not latch
-			trackedTargets = selected;
-			awaitingInitialDetection = false;
-			waitingForVanish = true;
-			waitingForReturn = false;
-			for (TrackedTarget target : trackedTargets) {
-				target.initialize(indexedResults.get(target.instanceId));
+
+			List<TrackedTarget> resolved = new ArrayList<>(gcdRequirements.size());
+			for (ActiveSequence.DetectionRequirement requirement : gcdRequirements) {
+				Rectangle roi = resolveRoi(requirement.abilityKey(), frame);
+				if (roi == null) {
+					logger.debug("Latch: ROI unavailable for {} (waiting for cache/search)", requirement.abilityKey());
+					return;
+				}
+				double baseline = templateDetector.measureBrightness(frame, roi);
+				if (baseline < MIN_BASELINE_BRIGHTNESS) {
+					logger.debug("Latch: baseline too low for {} (brightness={})", requirement.abilityKey(), baseline);
+					return;
+				}
+				resolved.add(new TrackedTarget(requirement.instanceId(), requirement.abilityKey(), roi, baseline));
 			}
-			logger.info("ARMED: tracking ability recycle targets={}", describeTargets());
+
+			trackedTargets = List.copyOf(resolved);
+			awaitingInitialDetection = false;
+			waitingForDarken = true;
+			logger.info("ARMED: brightness tracking {} targets; baselines={}", describeTargets(), describeBaselines());
+		}
+
+		private Rectangle resolveRoi(String abilityKey, Mat frame) {
+			return templateDetector.resolveAbilityRoi(frame, abilityKey);
 		}
 
 		private void latch() {
-			if (!waitingForReturn || sequenceController == null) {
+			if (!waitingForDarken || sequenceController == null) {
 				return;
 			}
-			// As soon as we see the recycle, timers should spin up with zero added delay
-			logger.info("LATCH: tracked abilities detected again -> RUNNING");
+			logger.info("LATCH: tracked abilities darkened -> RUNNING");
 			reset();
 			sequenceController.onLatchDetected();
 			notifications.showSuccess("Sequence started!");
 		}
 
-		private List<TrackedTarget> selectTargets(Map<String, DetectionResult> indexedResults) {
+		private List<ActiveSequence.DetectionRequirement> selectGcdRequirements() {
 			if (activeSequence == null) {
 				return List.of();
 			}
-			// Focus on the first couple of GCD-triggering abilities so visual noise does not matter
 			List<ActiveSequence.DetectionRequirement> requirements = activeSequence.getDetectionRequirements();
-			List<TrackedTarget> selected = new ArrayList<>(2);
+			List<ActiveSequence.DetectionRequirement> selected = new ArrayList<>(2);
 			for (ActiveSequence.DetectionRequirement requirement : requirements) {
 				if (selected.size() >= 2) {
 					break;
@@ -264,11 +264,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				if (ability == null || !ability.isTriggersGcd()) {
 					continue;
 				}
-				DetectionResult detection = indexedResults.get(requirement.instanceId());
-				if (detection == null || !detection.found) {
-					continue;
-				}
-				selected.add(new TrackedTarget(requirement.instanceId(), requirement.abilityKey()));
+				selected.add(requirement);
 			}
 			return List.copyOf(selected);
 		}
@@ -281,65 +277,55 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			return String.join(",", labels);
 		}
 
-		private Map<String, DetectionResult> indexByInstance(List<DetectionResult> results) {
-			Map<String, DetectionResult> indexed = new HashMap<>();
-			for (DetectionResult result : results) {
-				indexed.put(result.templateName, result);
+		private String describeBaselines() {
+			List<String> labels = new ArrayList<>(trackedTargets.size());
+			for (TrackedTarget target : trackedTargets) {
+				labels.add(target.abilityKey + "=" + Math.round(target.baselineBrightness));
 			}
-			return indexed;
+			return String.join(",", labels);
 		}
 
 		private void reset() {
 			awaitingInitialDetection = false;
-			waitingForVanish = false;
-			waitingForReturn = false;
+			waitingForDarken = false;
 			trackedTargets = List.of();
 		}
 
-		private final class TrackedTarget { // Tracks one HUD tile to prove that specific spell recycled
+		private final class TrackedTarget { // Tracks one HUD tile's brightness drop
 			private final String instanceId;
 			private final String abilityKey;
-			private int consecutiveMisses = 0;
-			private boolean currentlyDetected = false;
-			private boolean observedAbsence = false;
+			private final Rectangle roi;
+			private final double baselineBrightness;
+			private int consecutiveDarkFrames = 0;
+			private boolean darkened = false;
 
-			private TrackedTarget(String instanceId, String abilityKey) {
+			private TrackedTarget(String instanceId, String abilityKey, Rectangle roi, double baselineBrightness) {
 				this.instanceId = instanceId;
 				this.abilityKey = abilityKey;
+				this.roi = new Rectangle(roi);
+				this.baselineBrightness = baselineBrightness;
 			}
 
-			private void initialize(DetectionResult detection) {
-				// Baseline current visibility so we only count disappearances that happen after arming
-				boolean detected = detection != null && detection.found;
-				currentlyDetected = detected;
-				consecutiveMisses = detected ? 0 : CONSECUTIVE_MISS_THRESHOLD;
-				observedAbsence = !detected;
-			}
-
-			private void update(DetectionResult detection) {
-				// Use short miss streaks so brief occlusions do not trip a false vanish
-				boolean detected = detection != null && detection.found;
-				if (detected) {
-					currentlyDetected = true;
-					consecutiveMisses = 0;
+			private void updateFromBrightness(double sample) {
+				if (sample <= 0 || baselineBrightness <= 0) {
+					consecutiveDarkFrames = 0;
 					return;
 				}
-
-				currentlyDetected = false;
-				if (consecutiveMisses < CONSECUTIVE_MISS_THRESHOLD) {
-					consecutiveMisses++;
-				}
-				if (consecutiveMisses >= CONSECUTIVE_MISS_THRESHOLD) {
-					observedAbsence = true;
+				double drop = (baselineBrightness - sample) / baselineBrightness;
+				if (drop >= DARKEN_PERCENT_THRESHOLD) {
+					if (consecutiveDarkFrames < DARKEN_FRAMES_REQUIRED) {
+						consecutiveDarkFrames++;
+					}
+					if (consecutiveDarkFrames >= DARKEN_FRAMES_REQUIRED) {
+						darkened = true;
+					}
+				} else {
+					consecutiveDarkFrames = 0;
 				}
 			}
 
-			private boolean hasObservedAbsence() {
-				return observedAbsence;
-			}
-
-			private boolean isCurrentlyDetected() {
-				return currentlyDetected;
+			private boolean hasDarkened() {
+				return darkened;
 			}
 		}
 	}

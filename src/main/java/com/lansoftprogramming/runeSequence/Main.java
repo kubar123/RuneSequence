@@ -68,7 +68,12 @@ public class Main {
 							entry -> SequenceParser.parse(entry.getValue().getExpression())
 					));
 
-			SequenceManager sequenceManager = new SequenceManager(namedSequences, configManager.getAbilities(), notifications);
+			SequenceManager sequenceManager = new SequenceManager(
+					namedSequences,
+					configManager.getAbilities(),
+					notifications,
+					templateDetector
+			);
 
 			//Hotkeys
 			SequenceController sequenceController = new SequenceController(sequenceManager);

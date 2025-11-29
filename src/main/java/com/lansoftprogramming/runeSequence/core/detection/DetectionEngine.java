@@ -123,7 +123,7 @@ public class DetectionEngine {
 					detectionResults.add(adapted);
 				}
 
-				sequenceManager.processDetection(detectionResults);
+				sequenceManager.processDetection(screenMat, detectionResults);
 				updateOverlays();
 
 				long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
