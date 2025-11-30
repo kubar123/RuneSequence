@@ -289,6 +289,29 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		return complete;
 	}
 
+	/**
+	 * Called when the visual latch fires. We assume the first ability was just used,
+	 * so advance to the next step and restart timing from the latch moment.
+	 * @return true if the sequence became complete as a result of this jump
+	 */
+	public boolean onLatchStart(long latchTimeMs) {
+		if (complete) {
+			return true;
+		}
+
+		if (isOnLastStep()) {
+			complete = true;
+			return true;
+		}
+
+		currentStepIndex++;
+		Step step = getCurrentStep();
+		stepTimer.startStep(step, abilityConfig);
+		stepTimer.restartAt(latchTimeMs);
+		lastDetections.clear();
+		return false;
+	}
+
 	private boolean isOnLastStep() {
 		return currentStepIndex >= definition.size() - 1;
 	}

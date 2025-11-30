@@ -125,8 +125,15 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	public synchronized void resetActiveSequence() {
 		if (activeSequence != null) {
 			activeSequence.reset();
+			activeSequence.stepTimer.pause();
 		}
 		sequenceComplete = false;
+		if (sequenceController != null && sequenceController.isArmed()) {
+			// If we're already ARMED, manually re-arm the latch tracker because no state change event will fire.
+			gcdLatchTracker.onStateChanged(SequenceController.State.ARMED);
+		} else {
+			gcdLatchTracker.reset();
+		}
 	}
 
 	public synchronized boolean hasActiveSequence() {
@@ -165,6 +172,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		private static final double DARKEN_PERCENT_THRESHOLD = 0.25; // 25% drop from baseline
 		private static final int DARKEN_FRAMES_REQUIRED = 3;
 		private static final double MIN_BASELINE_BRIGHTNESS = 1.0;
+		private static final int MAX_TRACKED_GCD_ABILITIES = 2;
 
 		private boolean awaitingInitialDetection = false; // Waiting for baseline capture
 		private boolean waitingForDarken = false; // Watching for brightness drops
@@ -244,10 +252,18 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			if (!waitingForDarken || sequenceController == null) {
 				return;
 			}
+			long latchTimeMs = System.currentTimeMillis();
 			logger.info("LATCH: tracked abilities darkened -> RUNNING");
+			boolean completed = false;
+			if (activeSequence != null) {
+				completed = activeSequence.onLatchStart(latchTimeMs);
+			}
 			reset();
 			sequenceController.onLatchDetected();
 			notifications.showSuccess("Sequence started!");
+			if (completed) {
+				onSequenceCompleted();
+			}
 		}
 
 		private List<ActiveSequence.DetectionRequirement> selectGcdRequirements() {
@@ -255,9 +271,9 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				return List.of();
 			}
 			List<ActiveSequence.DetectionRequirement> requirements = activeSequence.getDetectionRequirements();
-			List<ActiveSequence.DetectionRequirement> selected = new ArrayList<>(2);
+			List<ActiveSequence.DetectionRequirement> selected = new ArrayList<>(MAX_TRACKED_GCD_ABILITIES);
 			for (ActiveSequence.DetectionRequirement requirement : requirements) {
-				if (selected.size() >= 2) {
+				if (selected.size() >= MAX_TRACKED_GCD_ABILITIES) {
 					break;
 				}
 				AbilityConfig.AbilityData ability = abilityConfig.getAbility(requirement.abilityKey());

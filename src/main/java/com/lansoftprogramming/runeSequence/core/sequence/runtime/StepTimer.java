@@ -1,8 +1,8 @@
 package com.lansoftprogramming.runeSequence.core.sequence.runtime;
 
+import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
-import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 
 import java.util.Map;
 
@@ -18,9 +18,14 @@ public class StepTimer {
 	private boolean isPaused = false;
 
 	public void startStep(Step step, AbilityConfig abilityConfig) {
-		stepStartTimeMs = System.currentTimeMillis();
 		stepDurationMs = calculateStepDuration(step, abilityConfig);
+		restartAt(System.currentTimeMillis());
+	}
+
+	public void restartAt(long startTimeMs) {
+		stepStartTimeMs = startTimeMs;
 		totalPausedTimeMs = 0;
+		pausedAtMs = 0;
 		isPaused = false;
 	}
 
