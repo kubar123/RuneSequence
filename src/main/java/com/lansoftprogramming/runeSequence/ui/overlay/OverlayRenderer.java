@@ -6,13 +6,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.*;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -43,6 +43,7 @@ public class OverlayRenderer {
 	private final JWindow overlayWindow;
 	private final OverlayPanel overlayPanel;
 	private final ConcurrentMap<String, OverlayBorder> activeBorders;
+	private final ThreadPoolExecutor renderExecutor;
 	private volatile boolean overlayVisible = false;
 	private volatile boolean blinkVisible = true;
 
@@ -56,6 +57,7 @@ public class OverlayRenderer {
 		this.overlayWindow = createOverlayWindow();
 		this.overlayPanel = new OverlayPanel();
 		this.blinkTimer = createBlinkTimer();
+		this.renderExecutor = createRenderExecutor();
 
 		overlayWindow.add(overlayPanel);
 		setupWindowProperties();
@@ -84,6 +86,25 @@ public class OverlayRenderer {
 		return timer;
 	}
 
+	private ThreadPoolExecutor createRenderExecutor() {
+		ThreadFactory factory = runnable -> {
+			Thread thread = new Thread(runnable, "overlay-renderer");
+			thread.setDaemon(true);
+			return thread;
+		};
+
+		// Single worker with a tiny queue; drop oldest pending repaint to avoid backlog
+		ThreadPoolExecutor executor = new ThreadPoolExecutor(
+				1, 1,
+				0L, TimeUnit.MILLISECONDS,
+				new ArrayBlockingQueue<>(1),
+				factory,
+				new ThreadPoolExecutor.DiscardOldestPolicy()
+		);
+		executor.prestartAllCoreThreads();
+		return executor;
+	}
+
 	private void setupWindowProperties() {
 		// Cover entire screen initially
 		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
@@ -108,7 +129,30 @@ public class OverlayRenderer {
 	 * Called from DetectionEngine.updateOverlays()
 	 * Borders persist until next update or clearOverlays() call
 	 */
-	public void updateOverlays(java.util.List<DetectionResult> currentAbilities, java.util.List<DetectionResult> nextAbilities) {
+	public void updateOverlays(List<DetectionResult> currentAbilities, List<DetectionResult> nextAbilities) {
+		List<DetectionResult> currentSnapshot = safeCopy(currentAbilities);
+		List<DetectionResult> nextSnapshot = safeCopy(nextAbilities);
+		enqueueRenderTask(() -> processOverlayUpdate(currentSnapshot, nextSnapshot));
+	}
+
+	private List<DetectionResult> safeCopy(List<DetectionResult> source) {
+		if (source == null || source.isEmpty()) {
+			return Collections.emptyList();
+		}
+		return new ArrayList<>(source);
+	}
+
+	private void enqueueRenderTask(Runnable task) {
+		try {
+			renderExecutor.execute(task);
+		} catch (RejectedExecutionException ex) {
+			if (!renderExecutor.isShutdown()) {
+				logger.warn("Render executor rejected task", ex);
+			}
+		}
+	}
+
+	private void processOverlayUpdate(List<DetectionResult> currentAbilities, List<DetectionResult> nextAbilities) {
 		try {
 			Set<String> desiredKeys = new HashSet<>();
 			boolean bordersChanged = false;
@@ -159,13 +203,13 @@ public class OverlayRenderer {
 		}
 	}
 
-	private BorderType determineCurrentBorderType(java.util.List<DetectionResult> currentAbilities, DetectionResult result) {
+	private BorderType determineCurrentBorderType(List<DetectionResult> currentAbilities, DetectionResult result) {
 		// If multiple current abilities, it's an OR group - use purple
 		//Check if result is alternative or not
 		return result.isAlternative ? BorderType.CURRENT_OR_PURPLE : BorderType.CURRENT_GREEN;
 	}
 
-	private BorderType determineNextBorderType(java.util.List<DetectionResult> nextAbilities, DetectionResult result) {
+	private BorderType determineNextBorderType(List<DetectionResult> nextAbilities, DetectionResult result) {
 		// If multiple next abilities, it's an OR group - use dark purple
 		return nextAbilities.size() > 1 ? BorderType.NEXT_OR_DARK_PURPLE : BorderType.NEXT_RED;
 	}
@@ -221,6 +265,10 @@ public class OverlayRenderer {
 	 * Called from DetectionEngine.stop() or when manually clearing
 	 */
 	public void clearOverlays() {
+		enqueueRenderTask(this::clearOverlaysInternal);
+	}
+
+	private void clearOverlaysInternal() {
 		activeBorders.clear();
 		blinkVisible = true;
 		setOverlayVisible(false);
@@ -261,6 +309,12 @@ public class OverlayRenderer {
 	 */
 	public void shutdown() {
 		clearOverlays();
+		renderExecutor.shutdown();
+		try {
+			renderExecutor.awaitTermination(300, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
 		blinkTimer.stop();
 		SwingUtilities.invokeLater(() -> {
 			overlayWindow.setVisible(false);
