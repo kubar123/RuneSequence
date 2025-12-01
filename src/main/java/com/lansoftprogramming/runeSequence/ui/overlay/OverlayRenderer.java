@@ -9,6 +9,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BooleanSupplier;
@@ -108,33 +110,49 @@ public class OverlayRenderer {
 	 */
 	public void updateOverlays(java.util.List<DetectionResult> currentAbilities, java.util.List<DetectionResult> nextAbilities) {
 		try {
-			// Clear existing borders
-			activeBorders.clear();
+			Set<String> desiredKeys = new HashSet<>();
+			boolean bordersChanged = false;
+			boolean currentBordersChanged = false;
 
-			// Add current ability borders (green/purple)
 			if (currentAbilities != null) {
 				for (DetectionResult result : currentAbilities) {
 					BorderType borderType = determineCurrentBorderType(currentAbilities, result);
-					addBorder(result, borderType);
+					if (upsertBorder(result, borderType)) {
+						bordersChanged = true;
+						currentBordersChanged = true;
+					}
+					if (result != null && result.found) {
+						desiredKeys.add(result.templateName);
+					}
 				}
 			}
 
-			// Add next ability borders (red/dark purple)
 			if (nextAbilities != null) {
 				for (DetectionResult result : nextAbilities) {
 					BorderType borderType = determineNextBorderType(nextAbilities, result);
-					addBorder(result, borderType);
+					if (upsertBorder(result, borderType)) {
+						bordersChanged = true;
+					}
+					if (result != null && result.found) {
+						desiredKeys.add(result.templateName);
+					}
 				}
 			}
 
-			resetBlinkState();
+			RemovalChange removalChange = removeStaleBorders(desiredKeys);
+			bordersChanged = bordersChanged || removalChange.anyRemoved;
+			currentBordersChanged = currentBordersChanged || removalChange.currentRemoved;
 
-			// Show/hide overlay window based on whether we have borders
+			if (currentBordersChanged) {
+				resetBlinkState();
+			}
+
 			boolean shouldShow = !activeBorders.isEmpty();
 			setOverlayVisible(shouldShow);
 
-			// Repaint to show changes
-			SwingUtilities.invokeLater(overlayPanel::repaint);
+			if (bordersChanged) {
+				SwingUtilities.invokeLater(overlayPanel::repaint);
+			}
 
 		} catch (Exception e) {
 			logger.error("Error updating overlays", e);
@@ -152,24 +170,25 @@ public class OverlayRenderer {
 		return nextAbilities.size() > 1 ? BorderType.NEXT_OR_DARK_PURPLE : BorderType.NEXT_RED;
 	}
 
-	private void addBorder(DetectionResult result, BorderType borderType) {
+	private boolean upsertBorder(DetectionResult result, BorderType borderType) {
 		if (result == null || !result.found) {
-			System.out.print("OverlayRenderer: Skipping border for " + result.templateName + " (not found)");
-			return;
+			return false;
 		}
 
 		if (result.boundingBox == null) {
 			System.err.println("OverlayRenderer: ERROR - found=true but boundingBox=null for " + result.templateName);
-			return;
+			return false;
 		}
 
 		Rectangle bounds = calculateBorderBounds(result);
+		OverlayBorder existing = activeBorders.get(result.templateName);
+		if (existing != null && existing.borderType == borderType && existing.bounds.equals(bounds)) {
+			return false;
+		}
+
 		OverlayBorder border = new OverlayBorder(result.templateName, bounds, borderType);
-
 		activeBorders.put(result.templateName, border);
-
-		System.out.println("OverlayRenderer: Successfully added " + borderType + " border for " + result.templateName);
-
+		return true;
 	}
 
 	private Rectangle calculateBorderBounds(DetectionResult result) {
@@ -207,6 +226,25 @@ public class OverlayRenderer {
 		setOverlayVisible(false);
 		SwingUtilities.invokeLater(overlayPanel::repaint);
 		logger.debug("Cleared all overlays");
+	}
+
+	private RemovalChange removeStaleBorders(Set<String> desiredKeys) {
+		boolean anyRemoved = false;
+		boolean currentRemoved = false;
+
+		for (String key : new HashSet<>(activeBorders.keySet())) {
+			if (!desiredKeys.contains(key)) {
+				OverlayBorder removed = activeBorders.remove(key);
+				if (removed != null) {
+					anyRemoved = true;
+					if (isCurrentBorder(removed.borderType)) {
+						currentRemoved = true;
+					}
+				}
+			}
+		}
+
+		return new RemovalChange(anyRemoved, currentRemoved);
 	}
 
 	private void setOverlayVisible(boolean visible) {
@@ -279,6 +317,16 @@ public class OverlayRenderer {
 			this.templateName = templateName;
 			this.bounds = bounds;
 			this.borderType = borderType;
+		}
+	}
+
+	private static class RemovalChange {
+		final boolean anyRemoved;
+		final boolean currentRemoved;
+
+		RemovalChange(boolean anyRemoved, boolean currentRemoved) {
+			this.anyRemoved = anyRemoved;
+			this.currentRemoved = currentRemoved;
 		}
 	}
 
