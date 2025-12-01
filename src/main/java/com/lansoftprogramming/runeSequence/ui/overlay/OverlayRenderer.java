@@ -11,12 +11,14 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.BooleanSupplier;
 
 /**
  * OverlayRenderer - Creates click-through overlay windows to draw borders around detected abilities
  */
 public class OverlayRenderer {
 	private static final Logger logger = LoggerFactory.getLogger(OverlayRenderer.class);
+	private static final int BLINK_INTERVAL_MS = 450;
 
 	// Border types and colors - like piano key highlighting
 	public enum BorderType {
@@ -34,18 +36,28 @@ public class OverlayRenderer {
 		}
 	}
 
+	private final BooleanSupplier blinkCurrentEnabled;
+	private final Timer blinkTimer;
 	private final JWindow overlayWindow;
 	private final OverlayPanel overlayPanel;
 	private final ConcurrentMap<String, OverlayBorder> activeBorders;
 	private volatile boolean overlayVisible = false;
+	private volatile boolean blinkVisible = true;
 
 	public OverlayRenderer() {
+		this(() -> false);
+	}
+
+	public OverlayRenderer(BooleanSupplier blinkCurrentEnabled) {
+		this.blinkCurrentEnabled = blinkCurrentEnabled != null ? blinkCurrentEnabled : () -> false;
 		this.activeBorders = new ConcurrentHashMap<>();
 		this.overlayWindow = createOverlayWindow();
 		this.overlayPanel = new OverlayPanel();
+		this.blinkTimer = createBlinkTimer();
 
 		overlayWindow.add(overlayPanel);
 		setupWindowProperties();
+		blinkTimer.start();
 
 		logger.info("OverlayRenderer initialized");
 	}
@@ -62,6 +74,12 @@ public class OverlayRenderer {
 		window.setBackground(UiColorPalette.TRANSPARENT);
 
 		return window;
+	}
+
+	private Timer createBlinkTimer() {
+		Timer timer = new Timer(BLINK_INTERVAL_MS, e -> handleBlinkTick());
+		timer.setRepeats(true);
+		return timer;
 	}
 
 	private void setupWindowProperties() {
@@ -108,6 +126,8 @@ public class OverlayRenderer {
 					addBorder(result, borderType);
 				}
 			}
+
+			resetBlinkState();
 
 			// Show/hide overlay window based on whether we have borders
 			boolean shouldShow = !activeBorders.isEmpty();
@@ -183,6 +203,7 @@ public class OverlayRenderer {
 	 */
 	public void clearOverlays() {
 		activeBorders.clear();
+		blinkVisible = true;
 		setOverlayVisible(false);
 		SwingUtilities.invokeLater(overlayPanel::repaint);
 		logger.debug("Cleared all overlays");
@@ -202,11 +223,48 @@ public class OverlayRenderer {
 	 */
 	public void shutdown() {
 		clearOverlays();
+		blinkTimer.stop();
 		SwingUtilities.invokeLater(() -> {
 			overlayWindow.setVisible(false);
 			overlayWindow.dispose();
 		});
 		logger.info("OverlayRenderer shutdown");
+	}
+
+	private void handleBlinkTick() {
+		if (!blinkCurrentEnabled.getAsBoolean()) {
+			if (!blinkVisible) {
+				blinkVisible = true;
+				SwingUtilities.invokeLater(overlayPanel::repaint);
+			}
+			return;
+		}
+
+		if (!overlayVisible || !hasCurrentBorders()) {
+			if (!blinkVisible) {
+				blinkVisible = true;
+				SwingUtilities.invokeLater(overlayPanel::repaint);
+			}
+			return;
+		}
+
+		blinkVisible = !blinkVisible;
+		SwingUtilities.invokeLater(overlayPanel::repaint);
+	}
+
+	private boolean hasCurrentBorders() {
+		for (OverlayBorder border : activeBorders.values()) {
+			if (isCurrentBorder(border.borderType)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void resetBlinkState() {
+		if (blinkCurrentEnabled.getAsBoolean() && hasCurrentBorders()) {
+			blinkVisible = true;
+		}
 	}
 
 	/**
@@ -254,6 +312,9 @@ public class OverlayRenderer {
 		}
 
 		private void drawBorder(Graphics2D g2d, OverlayBorder border) {
+			if (shouldSkipBorder(border)) {
+				return;
+			}
 			g2d.setColor(border.borderType.color);
 			g2d.setStroke(new BasicStroke(border.borderType.thickness,
 					BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -262,5 +323,16 @@ public class OverlayRenderer {
 			g2d.drawRect(border.bounds.x, border.bounds.y,
 					border.bounds.width, border.bounds.height);
 		}
+
+		private boolean shouldSkipBorder(OverlayBorder border) {
+			if (!blinkCurrentEnabled.getAsBoolean()) {
+				return false;
+			}
+			return !blinkVisible && isCurrentBorder(border.borderType);
+		}
+	}
+
+	private boolean isCurrentBorder(BorderType borderType) {
+		return borderType == BorderType.CURRENT_GREEN || borderType == BorderType.CURRENT_OR_PURPLE;
 	}
 }

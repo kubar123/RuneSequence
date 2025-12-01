@@ -9,6 +9,7 @@ import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
+import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyBindingSource;
@@ -51,7 +52,12 @@ public class Main {
 			// 3. Initialize core components
 			ScreenCapture screenCapture = new ScreenCapture(configManager.getSettings());
 			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
-			OverlayRenderer overlayRenderer = new OverlayRenderer();
+			OverlayRenderer overlayRenderer = new OverlayRenderer(() -> {
+				AppSettings settings = configManager.getSettings();
+				return settings != null
+						&& settings.getUi() != null
+						&& settings.getUi().isBlinkCurrentAbilities();
+			});
 			NotificationService notifications = createNotificationService();
 
 			// 4. Set up the Sequence Manager with our debug rotation

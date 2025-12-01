@@ -60,6 +60,7 @@
     ]
   },
   "ui": {
-    "iconSize": 30
+    "iconSize": 30,
+    "blinkCurrentAbilities": false
   }
 }

@@ -15,6 +15,7 @@ public class IconSizeSettingsPanel extends JPanel {
 	private final ConfigManager configManager;
 	private final int[] supportedSizes;
 	private final JSpinner sizeSpinner;
+	private final JCheckBox blinkCurrentCheck;
 	private final JCheckBox autoSaveCheck;
 	private final JLabel statusLabel;
 
@@ -35,6 +36,9 @@ public class IconSizeSettingsPanel extends JPanel {
 				supportedSizes[supportedSizes.length - 1],
 				1
 		));
+
+		blinkCurrentCheck = new JCheckBox("Blink current ability highlights on overlay");
+		blinkCurrentCheck.setSelected(resolveBlinkPreference());
 
 		autoSaveCheck = new JCheckBox("Auto-save rotations when switching presets");
 		autoSaveCheck.setSelected(resolveAutoSavePreference());
@@ -66,6 +70,11 @@ public class IconSizeSettingsPanel extends JPanel {
 		JLabel helpLabel = new JLabel("Supported sizes: " + Arrays.toString(supportedSizes));
 		helpLabel.setFont(helpLabel.getFont().deriveFont(Font.ITALIC, helpLabel.getFont().getSize() - 1f));
 		formPanel.add(helpLabel, gbc);
+
+		gbc.gridy++;
+		gbc.gridx = 0;
+		gbc.gridwidth = 2;
+		formPanel.add(blinkCurrentCheck, gbc);
 
 		gbc.gridy++;
 		gbc.gridx = 0;
@@ -107,6 +116,7 @@ public class IconSizeSettingsPanel extends JPanel {
 			settings.setUi(new AppSettings.UiSettings());
 		}
 		settings.getUi().setIconSize(resolvedSize);
+		settings.getUi().setBlinkCurrentAbilities(blinkCurrentCheck.isSelected());
 
 		if (settings.getRotation() == null) {
 			settings.setRotation(new AppSettings.RotationSettings());
@@ -116,11 +126,13 @@ public class IconSizeSettingsPanel extends JPanel {
 		try {
 			configManager.saveSettings();
 			statusLabel.setForeground(UiColorPalette.TEXT_SUCCESS);
-			if (adjusted) {
-				statusLabel.setText("Saved icon size (adjusted to nearest): " + resolvedSize + " px; auto-save rotations " + stateLabel());
-			} else {
-				statusLabel.setText("Saved icon size: " + resolvedSize + " px; auto-save rotations " + stateLabel());
-			}
+			String sizeMessage = adjusted
+					? "Saved icon size (adjusted to nearest): " + resolvedSize + " px"
+					: "Saved icon size: " + resolvedSize + " px";
+			String message = sizeMessage
+					+ "; auto-save rotations " + rotationStateLabel()
+					+ "; blinking current highlights " + blinkStateLabel();
+			statusLabel.setText(message);
 		} catch (IOException ex) {
 			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
 			statusLabel.setText("Failed to save settings: " + ex.getMessage());
@@ -150,7 +162,19 @@ public class IconSizeSettingsPanel extends JPanel {
 		return false;
 	}
 
-	private String stateLabel() {
+	private boolean resolveBlinkPreference() {
+		AppSettings settings = configManager.getSettings();
+		if (settings != null && settings.getUi() != null) {
+			return settings.getUi().isBlinkCurrentAbilities();
+		}
+		return false;
+	}
+
+	private String rotationStateLabel() {
 		return autoSaveCheck.isSelected() ? "enabled" : "disabled";
+	}
+
+	private String blinkStateLabel() {
+		return blinkCurrentCheck.isSelected() ? "enabled" : "disabled";
 	}
 }

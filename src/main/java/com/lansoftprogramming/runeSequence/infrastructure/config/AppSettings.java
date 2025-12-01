@@ -342,12 +342,23 @@ public class AppSettings {
 		@JsonProperty("iconSize")
 		private int iconSize = 30; // default icon size in pixels
 
+		@JsonProperty("blinkCurrentAbilities")
+		private boolean blinkCurrentAbilities = false;
+
 		public int getIconSize() {
 			return iconSize;
 		}
 
 		public void setIconSize(int iconSize) {
 			this.iconSize = iconSize;
+		}
+
+		public boolean isBlinkCurrentAbilities() {
+			return blinkCurrentAbilities;
+		}
+
+		public void setBlinkCurrentAbilities(boolean blinkCurrentAbilities) {
+			this.blinkCurrentAbilities = blinkCurrentAbilities;
 		}
 	}
 }
