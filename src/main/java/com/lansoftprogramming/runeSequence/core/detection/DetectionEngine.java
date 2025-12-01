@@ -187,10 +187,13 @@ public class DetectionEngine {
 			}
 
 			Map<String, DetectionResult> preloaded = detector.cacheAbilityLocations(screenMat, abilityKeys);
-			logger.info("Primed ability cache for {} templates ({} hits).", abilityKeys.size(), preloaded.size());
-			notificationService.showSuccess(
-					String.format("Primed %d abilities (%d cached hits).", abilityKeys.size(), preloaded.size())
-			);
+			int totalAbilities = abilityKeys.size();
+			long cachedCount = abilityKeys.stream()
+					.filter(key -> detector.getCachedLocation(key) != null)
+					.count();
+
+			logger.info("Primed ability cache: {}/{} abilities cached.", cachedCount, totalAbilities);
+			notificationService.showSuccess(String.format("Primed %d/%d abilities.", cachedCount, totalAbilities));
 		} catch (Exception e) {
 			logger.error("Failed to prime ability cache.", e);
 		} finally {
