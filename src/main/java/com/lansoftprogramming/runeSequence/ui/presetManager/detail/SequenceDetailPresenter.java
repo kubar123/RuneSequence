@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
+import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DragPreviewModel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.ExpressionBuilder;
@@ -33,7 +34,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private String loadedExpression;
 	private List<SequenceElement> loadedElements;
 	private List<SequenceElement> originalElementsBeforeDrag;
-	private DropPreview currentPreview;
+	private DragPreviewModel currentPreview;
 	private boolean isHighlightActive;
 	private boolean isDragOutsidePanel;
 
@@ -185,6 +186,10 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	@Override
 	public void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex) {
 		logger.info("Drag start: key={}, abilityIndex={}", item.getKey(), abilityIndex);
+		flowView.resetPreview();
+		flowView.setDragOutsidePanel(false);
+		isHighlightActive = false;
+		isDragOutsidePanel = false;
 		// Keep a pristine copy so cancellation can restore the view state.
 		originalElementsBeforeDrag = new ArrayList<>(currentElements);
 		if (!isFromPalette) {
@@ -211,26 +216,33 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	}
 
 	@Override
-	public void onDragMove(AbilityItem draggedItem, Point cursorPos, DropPreview preview) {
-		currentPreview = preview;
-		flowView.clearHighlights();
+	public void onDragMove(AbilityItem draggedItem, DragPreviewModel previewModel) {
+		currentPreview = previewModel;
 		isHighlightActive = false;
 
-		Point detailPanelPoint = SwingUtilities.convertPoint(flowView, cursorPos, view.asComponent());
-		isDragOutsidePanel = !view.asComponent().contains(detailPanelPoint);
+		Point cursorPos = previewModel != null ? previewModel.getCursorInFlowPanel() : null;
+		if (cursorPos != null) {
+			Point detailPanelPoint = SwingUtilities.convertPoint(flowView, cursorPos, view.asComponent());
+			isDragOutsidePanel = !view.asComponent().contains(detailPanelPoint);
+		} else {
+			isDragOutsidePanel = false;
+		}
 
 		flowView.setDragOutsidePanel(isDragOutsidePanel);
 
-		if (!isDragOutsidePanel && preview.isValid()) {
-			isHighlightActive = flowView.highlightDropZone(preview);
+		if (!isDragOutsidePanel && previewModel != null && previewModel.isValid()) {
+			isHighlightActive = flowView.applyPreviewModel(previewModel);
+		} else {
+			flowView.applyPreviewModel(null);
 		}
 	}
 
 	@Override
 	public void onDragEnd(AbilityItem draggedItem, boolean commit) {
-		flowView.clearHighlights();
+		flowView.resetPreview();
 		boolean isFromSequence = !previewElements.equals(currentElements);
 		boolean droppedInTrash = !commit && isFromSequence && isDragOutsidePanel;
+		DropPreview dropPreview = currentPreview != null ? currentPreview.getDropPreview() : null;
 
 		if (commit || droppedInTrash) {
 			if (droppedInTrash) {
@@ -244,28 +256,28 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 						"Commit insert: item={}, type={}, insertIndex={}, zone={}, dropSide={}, fromSequence={}, currentElementCount={}",
 						draggedItem.getKey(),
 						draggedItem.getClass().getSimpleName(),
-						currentPreview.getInsertIndex(),
-						currentPreview.getZoneType(),
-						currentPreview.getDropSide(),
+						dropPreview != null ? dropPreview.getInsertIndex() : -1,
+						dropPreview != null ? dropPreview.getZoneType() : null,
+						dropPreview != null ? dropPreview.getDropSide() : null,
 						isFromSequence,
 						currentElements.size()
 				);
 
-				if (draggedItem instanceof ClipboardInsertItem clipboardItem) {
+				if (draggedItem instanceof ClipboardInsertItem clipboardItem && dropPreview != null) {
 					currentElements = expressionBuilder.insertSequence(
 							new ArrayList<>(previewElements),
 							clipboardItem.getElements(),
-							currentPreview.getInsertIndex(),
-							currentPreview.getZoneType(),
-							currentPreview.getDropSide()
+							dropPreview.getInsertIndex(),
+							dropPreview.getZoneType(),
+							dropPreview.getDropSide()
 					);
-				} else {
+				} else if (dropPreview != null) {
 					currentElements = expressionBuilder.insertAbility(
 							new ArrayList<>(previewElements),
 							draggedItem.getKey(),
-							currentPreview.getInsertIndex(),
-							currentPreview.getZoneType(),
-							currentPreview.getDropSide()
+							dropPreview.getInsertIndex(),
+							dropPreview.getZoneType(),
+							dropPreview.getDropSide()
 					);
 				}
 				previewElements = new ArrayList<>(currentElements);
@@ -299,6 +311,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		isDragOutsidePanel = false;
 		currentPreview = null;
 		originalElementsBeforeDrag = null;
+		flowView.setDragOutsidePanel(false);
 		flowView.renderSequenceElements(currentElements);
 	}
 

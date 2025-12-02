@@ -35,4 +35,23 @@ public class DropPreview {
     public boolean isValid() {
         return zoneType != DropZoneType.NONE;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof DropPreview that)) return false;
+        return insertIndex == that.insertIndex
+            && targetAbilityIndex == that.targetAbilityIndex
+            && zoneType == that.zoneType
+            && dropSide == that.dropSide;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Integer.hashCode(insertIndex);
+        result = 31 * result + (zoneType != null ? zoneType.hashCode() : 0);
+        result = 31 * result + Integer.hashCode(targetAbilityIndex);
+        result = 31 * result + (dropSide != null ? dropSide.hashCode() : 0);
+        return result;
+    }
 }

@@ -1,23 +1,20 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler;
 
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.DropZoneIndicators;
-import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
-import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropSide;
-import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
+import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.*;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Manages card-style drag-and-drop for abilities.
@@ -30,39 +27,51 @@ public class AbilityDragController {
     private static final int MAX_DROP_DISTANCE = 100;
     private static final int GROUP_EDGE_TOLERANCE = 8;
 
-    private boolean isDragOutsidePanel = false;
-    private ImageIcon trashIcon;
-    private JLabel floatingIconLabel;
-    private Icon originalAbilityIcon;
+	private boolean isDragOutsidePanel = false;
+	private ImageIcon trashIcon;
+	private JLabel floatingIconLabel;
+	private Icon originalAbilityIcon;
+	private final Timer previewTimer;
+	private boolean dragPreviewDirty = false;
+	private Point pendingFlowPoint = null;
+	private DragPreviewModel lastPreviewModel;
+	private GeometryCache geometryCache;
 
-    private final JPanel flowPanel;
-    private final DragCallback callback;
+	private final JPanel flowPanel;
+	private final DragCallback callback;
 
-    private DragState currentDrag;
+	private DragState currentDrag;
     private JPanel floatingCard;
     private JComponent glassPane;
-    private DropZoneIndicators indicators;
+	private DropZoneIndicators indicators;
 
-    // Logging state to avoid spam
-    private boolean releasePhaseLogging = false;
-    private Integer lastIndicatorVisualIdx = null;
+	// Logging state to avoid spam
+	private boolean releasePhaseLogging = false;
+	private Integer lastIndicatorVisualIdx = null;
     private DropSide lastIndicatorDropSide = null;
     private DropZoneType lastIndicatorZoneType = null;
     private boolean hasLoggedIndicatorShown = false;
 
-    public interface DragCallback {
-        void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex);
-        void onDragMove(AbilityItem draggedItem, Point cursorPos, DropPreview preview);
-        void onDragEnd(AbilityItem draggedItem, boolean commit);
-        List<SequenceElement> getCurrentElements();
-        Component[] getAllCards();
-    }
+	public interface DragCallback {
+		void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex);
 
-    public AbilityDragController(JPanel flowPanel, DragCallback callback) {
-        this.flowPanel = flowPanel;
-        this.callback = callback;
-        this.indicators = new DropZoneIndicators();
-    }
+		void onDragMove(AbilityItem draggedItem, DragPreviewModel previewModel);
+
+		void onDragEnd(AbilityItem draggedItem, boolean commit);
+
+		List<SequenceElement> getCurrentElements();
+
+		Component[] getAllCards();
+	}
+
+	public AbilityDragController(JPanel flowPanel, DragCallback callback) {
+		this.flowPanel = flowPanel;
+		this.callback = callback;
+		this.indicators = new DropZoneIndicators();
+		this.previewTimer = new Timer(16, e -> runPreviewTick());
+		this.previewTimer.setRepeats(true);
+		this.previewTimer.setCoalesce(true);
+	}
 
     public void setDragOutsidePanel(boolean isOutside) {
         this.isDragOutsidePanel = isOutside;
@@ -174,11 +183,11 @@ public class AbilityDragController {
                            int originalIndex,
                            Point startPoint,
                            int startButton) {
-        currentDrag = new DragState(item, card, isFromPalette, originalIndex, callback.getCurrentElements(), startButton);
+	    currentDrag = new DragState(item, card, isFromPalette, originalIndex, callback.getCurrentElements(), startButton);
 
-        floatingIconLabel = null;
-        originalAbilityIcon = null;
-        floatingCard = createFloatingCard(card);
+	    floatingIconLabel = null;
+	    originalAbilityIcon = null;
+	    floatingCard = createFloatingCard(card);
 
         JRootPane rootPane = SwingUtilities.getRootPane(card);
         if (rootPane != null) {
@@ -199,7 +208,16 @@ public class AbilityDragController {
             );
         }
 
-        callback.onDragStart(item, isFromPalette, originalIndex);
+	    callback.onDragStart(item, isFromPalette, originalIndex);
+
+	    refreshGeometryCache();
+	    lastPreviewModel = null;
+	    pendingFlowPoint = SwingUtilities.convertPoint(card, startPoint, flowPanel);
+	    dragPreviewDirty = true;
+	    if (!previewTimer.isRunning()) {
+		    previewTimer.start();
+	    }
+	    runPreviewTick();
     }
 
     /**
@@ -207,30 +225,46 @@ public class AbilityDragController {
      * Notifies `callback` for real-time layout updates.
      */
     private void handleDrag(MouseEvent e) {
-        if (floatingCard == null || glassPane == null) return;
+	    if (floatingCard == null || glassPane == null) return;
 
-        Point glassPanePoint = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), glassPane);
-        floatingCard.setLocation(
-            glassPanePoint.x - floatingCard.getWidth() / 2,
-            glassPanePoint.y - floatingCard.getHeight() / 2
-        );
+	    Point glassPanePoint = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), glassPane);
+	    floatingCard.setLocation(
+			    glassPanePoint.x - floatingCard.getWidth() / 2,
+			    glassPanePoint.y - floatingCard.getHeight() / 2
+	    );
 
-        // Convert to flow panel's coordinates for drop logic.
-        Point flowPanelPoint = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), flowPanel);
-
-        // Silence preview logs during move
-        releasePhaseLogging = false;
-        DropPreview preview = calculateDropPreview(flowPanelPoint);
-
-        // Update indicators based on preview
-        updateIndicators(preview);
-
-        callback.onDragMove(currentDrag.getDraggedItem(), flowPanelPoint, preview);
-
-        // Refresh layout
-        flowPanel.revalidate();
-        flowPanel.repaint();
+	    pendingFlowPoint = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), flowPanel);
+	    releasePhaseLogging = false;
+	    dragPreviewDirty = true;
     }
+
+	private void runPreviewTick() {
+		if (currentDrag == null) {
+			previewTimer.stop();
+			return;
+		}
+		if (pendingFlowPoint == null) {
+			return;
+		}
+		if (!dragPreviewDirty && lastPreviewModel != null) {
+			return;
+		}
+
+		DragPreviewModel previewModel = calculatePreviewModel(pendingFlowPoint);
+		dragPreviewDirty = false;
+		dispatchPreviewUpdate(previewModel);
+	}
+
+	private void dispatchPreviewUpdate(DragPreviewModel previewModel) {
+		if (Objects.equals(previewModel, lastPreviewModel)) {
+			return;
+		}
+		lastPreviewModel = previewModel;
+		updateIndicators(previewModel);
+		if (previewModel != null) {
+			callback.onDragMove(currentDrag.getDraggedItem(), previewModel);
+		}
+	}
 
     /**
      * Finalizes the drag. Determines if the drop is valid based on `DropPreview`
@@ -253,15 +287,19 @@ public class AbilityDragController {
             }
         }
 
-        Point flowPanelPoint = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), flowPanel);
+	    Point flowPanelPoint = SwingUtilities.convertPoint((Component) e.getSource(), e.getPoint(), flowPanel);
 
-        // Enable condensed logs for the final calculation only
-        releasePhaseLogging = true;
-        DropPreview preview = calculateDropPreview(flowPanelPoint);
-        releasePhaseLogging = false;
+	    pendingFlowPoint = flowPanelPoint;
 
-        boolean insidePanel = flowPanel.contains(flowPanelPoint);
-        boolean commit = preview.isValid() && insidePanel;
+	    // Enable condensed logs for the final calculation only
+	    releasePhaseLogging = true;
+	    DragPreviewModel previewModel = calculatePreviewModel(flowPanelPoint);
+	    releasePhaseLogging = false;
+	    dispatchPreviewUpdate(previewModel);
+
+	    boolean insidePanel = flowPanel.contains(flowPanelPoint);
+	    DropPreview preview = previewModel != null ? previewModel.getDropPreview() : new DropPreview(0, DropZoneType.NONE, -1, DropSide.LEFT);
+	    boolean commit = preview.isValid() && insidePanel;
 
         // One-line drop summary
         logger.info(
@@ -301,201 +339,136 @@ public class AbilityDragController {
         return null;
     }
 
-    /**
-     * Calculates the drop position and type ("AND", "OR", "NEXT") within the sequence.
-     * Uses the nearest card and vertical drag point to determine the precise insertion logic.
-     * elements list by scanning for the target ability, not using the original elementIndex.
-     */
-    private DropPreview calculateDropPreview(Point dragPoint) {
-        Component[] allCards = callback.getAllCards();
-        List<SequenceElement> elements = callback.getCurrentElements();
-
-        if (allCards.length == 0) {
-            return new DropPreview(0, DropZoneType.NEXT, -1, DropSide.RIGHT);
-        }
-
-        // Build list of potential targets
-        List<Component> visualCards = new ArrayList<>();
-        List<Integer> elementIndices = new ArrayList<>();
-        List<Integer> originalIndices = new ArrayList<>();
-        Map<String, Integer> abilityOccurrences = new HashMap<>();
-
-        for (int idx = 0; idx < allCards.length; idx++) {
-            Component c = allCards[idx];
-
-            if (currentDrag != null && c == currentDrag.getDraggedCard()) {
-                if (releasePhaseLogging) {
-                    logger.info("Skipping dragged card at index {}", idx);
-                }
-                continue;
-            }
-
-            Integer elementIdx = extractElementIndex(c);
-            String abilityKey = extractAbilityKey(c);
-            if (abilityKey == null) {
-                continue;
-            }
-            int occurrence = abilityOccurrences.getOrDefault(abilityKey, 0);
-            abilityOccurrences.put(abilityKey, occurrence + 1);
-
-            int mappedIndex = mapAbilityToPreviewIndex(elements, abilityKey, occurrence);
-            if (mappedIndex < 0) {
-                if (releasePhaseLogging) {
-                    logger.info("Skipping card {}: could not map key={} occurrence={} into preview elements", idx, abilityKey, occurrence);
-                }
-                continue;
-            }
-
-            visualCards.add(c);
-            elementIndices.add(mappedIndex);
-            originalIndices.add(idx);
-        }
-
-		if (releasePhaseLogging) {
-			logger.info("Built {} valid targets", visualCards.size());
+	/**
+	 * Calculates the drop preview using cached geometry and returns a UI-friendly snapshot.
+	 */
+	private DragPreviewModel calculatePreviewModel(Point dragPoint) {
+		if (dragPoint == null) {
+			return lastPreviewModel;
 		}
 
-		if (visualCards.isEmpty()) {
-			if (releasePhaseLogging) {
-				logger.info("Preview fallback: no candidate cards, append at end (elementCount={})", elements.size());
+		if (geometryCache == null) {
+			refreshGeometryCache();
+		}
+
+		List<SequenceElement> elements = callback.getCurrentElements();
+		if (elements == null) {
+			elements = List.of();
+		}
+
+		if (geometryCache == null || geometryCache.isEmpty()) {
+			return new DragPreviewModel(
+					new DropPreview(0, DropZoneType.NEXT, -1, DropSide.RIGHT),
+					PreviewSide.RIGHT,
+					false,
+					false,
+					snapshotPoint(dragPoint)
+			);
+		}
+
+		NearestCard nearest = geometryCache.findNearest(dragPoint);
+
+		if (nearest.snapshot == null || nearest.distance > MAX_DROP_DISTANCE) {
+			int lastVisualIdx = geometryCache.getLastVisualIndex();
+			return new DragPreviewModel(
+					new DropPreview(elements.size(), DropZoneType.NEXT, lastVisualIdx, DropSide.RIGHT),
+					PreviewSide.RIGHT,
+					false,
+					false,
+					snapshotPoint(dragPoint)
+			);
+		}
+
+		CardSnapshot target = nearest.snapshot;
+		Rectangle bounds = target.boundsInFlowPanel;
+
+		int cardCenterX = target.center.x;
+		DropSide dropSide = dragPoint.x < cardCenterX ? DropSide.LEFT : DropSide.RIGHT;
+		boolean beyondLeftEdge = dragPoint.x < bounds.x - GROUP_EDGE_TOLERANCE;
+		boolean beyondRightEdge = dragPoint.x > bounds.x + bounds.width + GROUP_EDGE_TOLERANCE;
+
+		int topLimit = target.topLimit;
+		int bottomLimit = target.bottomLimit;
+		int targetElementIndex = target.elementIndex;
+		int targetVisualIndex = target.visualIndex;
+
+		List<SequenceElement> elementsToCheck = currentDrag != null
+				? currentDrag.getOriginalElements()
+				: elements;
+		if (elementsToCheck == null) {
+			elementsToCheck = elements;
+		}
+		DropZoneType existingGroupZone = target.groupZone;
+
+		String targetAbilityKey = target.abilityKey;
+
+		int currentTargetIndex = isAbilityAtIndex(elements, targetElementIndex)
+				? targetElementIndex
+				: findNearestAbilityIndex(elements, targetElementIndex);
+		if (currentTargetIndex == -1 && targetAbilityKey != null) {
+			currentTargetIndex = findAbilityIndexByKey(elements, targetAbilityKey, targetElementIndex);
+			if (releasePhaseLogging && currentTargetIndex != -1 && currentTargetIndex != targetElementIndex) {
+				logger.info("Adjusted target index via key match: preferred={}, resolved={}", targetElementIndex, currentTargetIndex);
 			}
-			return new DropPreview(elements.size(), DropZoneType.NEXT, -1, DropSide.RIGHT);
 		}
-
-        // Find nearest card
-        Component nearestCard = null;
-        int nearestListIdx = -1;
-        double minDistance = Double.MAX_VALUE;
-
-        for (int i = 0; i < visualCards.size(); i++) {
-            Component c = visualCards.get(i);
-            Rectangle boundsInFlowPanel = SwingUtilities.convertRectangle(c.getParent(), c.getBounds(), flowPanel);
-            Point center = new Point(
-                boundsInFlowPanel.x + boundsInFlowPanel.width / 2,
-                boundsInFlowPanel.y + boundsInFlowPanel.height / 2
-            );
-            double dist = dragPoint.distance(center);
-
-            if (releasePhaseLogging) {
-                logger.info("Card {} - center (in flow panel): {}", i, center);
-            }
-
-            if (dist < minDistance) {
-                minDistance = dist;
-                nearestCard = c;
-                nearestListIdx = i;
-            }
-        }
-
-		if (nearestCard == null || minDistance > MAX_DROP_DISTANCE) {
-			int lastOriginalIdx = originalIndices.get(originalIndices.size() - 1);
+		if (currentTargetIndex == -1 && !elements.isEmpty()) {
+			currentTargetIndex = Math.max(0, Math.min(targetElementIndex, elements.size() - 1));
 			if (releasePhaseLogging) {
-				logger.info("Preview fallback: nearest invalid (minDistance={}, limit={}), using NEXT append, lastVisualIdx={}, elementCount={}",
-					minDistance,
-					MAX_DROP_DISTANCE,
-					lastOriginalIdx,
-					elements.size()
+				logger.info("Preview fallback: using clamped index {} (original {}, elementsSize={})",
+						currentTargetIndex,
+						targetElementIndex,
+						elements.size()
 				);
 			}
-			return new DropPreview(elements.size(), DropZoneType.NEXT, lastOriginalIdx, DropSide.RIGHT);
+		}
+		if (releasePhaseLogging && currentTargetIndex != -1 && currentTargetIndex != targetElementIndex) {
+			logger.info("Aligned target index from {} to {}", targetElementIndex, currentTargetIndex);
+		}
+		if (currentTargetIndex < 0) {
+			currentTargetIndex = 0;
 		}
 
-        Rectangle nearestBoundsInFlowPanel = SwingUtilities.convertRectangle(
-            nearestCard.getParent(),
-            nearestCard.getBounds(),
-            flowPanel
-        );
+		if (existingGroupZone == null) {
+			existingGroupZone = resolveGroupZoneAt(elementsToCheck, currentTargetIndex);
+		}
+		if (existingGroupZone == null) {
+			existingGroupZone = resolveGroupZoneAt(elements, currentTargetIndex);
+		}
 
-        int cardCenterX = nearestBoundsInFlowPanel.x + nearestBoundsInFlowPanel.width / 2;
-        DropSide dropSide = dragPoint.x < cardCenterX ? DropSide.LEFT : DropSide.RIGHT;
-        boolean beyondLeftEdge = dragPoint.x < nearestBoundsInFlowPanel.x - GROUP_EDGE_TOLERANCE;
-        boolean beyondRightEdge = dragPoint.x > nearestBoundsInFlowPanel.x + nearestBoundsInFlowPanel.width + GROUP_EDGE_TOLERANCE;
+		GroupBoundaries groupBounds = analyzeGroupBoundaries(elements, currentTargetIndex, existingGroupZone);
 
-        int topLimit = nearestBoundsInFlowPanel.y + ZONE_HEIGHT;
-        int bottomLimit = nearestBoundsInFlowPanel.y + nearestBoundsInFlowPanel.height - ZONE_HEIGHT;
-        int targetElementIndex = elementIndices.get(nearestListIdx);
-        int targetVisualIndex = originalIndices.get(nearestListIdx);
-
-        List<SequenceElement> elementsToCheck = currentDrag != null
-            ? currentDrag.getOriginalElements()
-            : elements;
-        DropZoneType existingGroupZone = extractGroupZoneFromCard(nearestCard);
-
-        String targetAbilityKey = null;
-        if (targetElementIndex < elementsToCheck.size()) {
-            SequenceElement elem = elementsToCheck.get(targetElementIndex);
-            if (elem.isAbility()) {
-                targetAbilityKey = elem.getValue();
-            }
-        }
-
-        int currentTargetIndex = isAbilityAtIndex(elements, targetElementIndex)
-            ? targetElementIndex
-            : findNearestAbilityIndex(elements, targetElementIndex);
-        if (currentTargetIndex == -1 && targetAbilityKey != null) {
-            currentTargetIndex = findAbilityIndexByKey(elements, targetAbilityKey, targetElementIndex);
-            if (releasePhaseLogging && currentTargetIndex != -1 && currentTargetIndex != targetElementIndex) {
-                logger.info("Adjusted target index via key match: preferred={}, resolved={}", targetElementIndex, currentTargetIndex);
-            }
-        }
-        if (currentTargetIndex == -1 && !elements.isEmpty()) {
-            currentTargetIndex = Math.max(0, Math.min(targetElementIndex, elements.size() - 1));
-            if (releasePhaseLogging) {
-                logger.info("Preview fallback: using clamped index {} (original {}, elementsSize={})",
-                    currentTargetIndex,
-                    targetElementIndex,
-                    elements.size()
-                );
-            }
-        }
-        if (releasePhaseLogging && currentTargetIndex != -1 && currentTargetIndex != targetElementIndex) {
-            logger.info("Aligned target index from {} to {}", targetElementIndex, currentTargetIndex);
-        }
-        if (currentTargetIndex < 0) {
-            currentTargetIndex = 0;
-        }
-
-        if (existingGroupZone == null) {
-            existingGroupZone = resolveGroupZoneAt(elementsToCheck, currentTargetIndex);
-        }
-        if (existingGroupZone == null) {
-            existingGroupZone = resolveGroupZoneAt(elements, currentTargetIndex);
-        }
-
-        GroupBoundaries groupBounds = analyzeGroupBoundaries(elements, currentTargetIndex, existingGroupZone);
-
-        DropZoneType zoneType;
-        if (dragPoint.y < topLimit) {
-            zoneType = determineZoneType(
-                existingGroupZone,
-                currentTargetIndex,
-                groupBounds,
-                dropSide,
-                beyondLeftEdge,
-                beyondRightEdge,
-                DropZoneType.AND
-            );
-        } else if (dragPoint.y > bottomLimit) {
-            zoneType = determineZoneType(
-                existingGroupZone,
-                currentTargetIndex,
-                groupBounds,
-                dropSide,
-                beyondLeftEdge,
-                beyondRightEdge,
-                DropZoneType.OR
-            );
-        } else {
-            zoneType = determineZoneType(
-                existingGroupZone,
-                currentTargetIndex,
-                groupBounds,
-                dropSide,
-                beyondLeftEdge,
-                beyondRightEdge,
-                existingGroupZone != null ? existingGroupZone : DropZoneType.NEXT
-            );
-        }
+		DropZoneType zoneType;
+		if (dragPoint.y < topLimit) {
+			zoneType = determineZoneType(
+					existingGroupZone,
+					currentTargetIndex,
+					groupBounds,
+					dropSide,
+					beyondLeftEdge,
+					beyondRightEdge,
+					DropZoneType.AND
+			);
+		} else if (dragPoint.y > bottomLimit) {
+			zoneType = determineZoneType(
+					existingGroupZone,
+					currentTargetIndex,
+					groupBounds,
+					dropSide,
+					beyondLeftEdge,
+					beyondRightEdge,
+					DropZoneType.OR
+			);
+		} else {
+			zoneType = determineZoneType(
+					existingGroupZone,
+					currentTargetIndex,
+					groupBounds,
+					dropSide,
+					beyondLeftEdge,
+					beyondRightEdge,
+					existingGroupZone != null ? existingGroupZone : DropZoneType.NEXT
+			);
+		}
 
 		if (releasePhaseLogging) {
 			logger.info("Zone decision: cursorY={}, topLimit={}, bottomLimit={}, zone={}, groupZone={}, targetElementIndex={}, targetVisualIndex={}",
@@ -530,8 +503,16 @@ public class AbilityDragController {
 			);
 		}
 
-        return new DropPreview(insertIndex, zoneType, targetVisualIndex, dropSide);
-    }
+		PreviewSide previewSide = derivePreviewSide(dragPoint, topLimit, bottomLimit, dropSide);
+
+		return new DragPreviewModel(
+				new DropPreview(insertIndex, zoneType, targetVisualIndex, dropSide),
+				previewSide,
+				previewSide == PreviewSide.TOP,
+				previewSide == PreviewSide.BOTTOM,
+				snapshotPoint(dragPoint)
+		);
+	}
 
     private GroupBoundaries analyzeGroupBoundaries(List<SequenceElement> elements,
                                                    int targetIndex,
@@ -603,6 +584,20 @@ public class AbilityDragController {
         }
         return dropSide == DropSide.LEFT ? currentTargetIndex : currentTargetIndex + 1;
     }
+
+	private PreviewSide derivePreviewSide(Point dragPoint, int topLimit, int bottomLimit, DropSide dropSide) {
+		if (dragPoint.y < topLimit) {
+			return PreviewSide.TOP;
+		}
+		if (dragPoint.y > bottomLimit) {
+			return PreviewSide.BOTTOM;
+		}
+		return dropSide == DropSide.LEFT ? PreviewSide.LEFT : PreviewSide.RIGHT;
+	}
+
+	private Point snapshotPoint(Point point) {
+		return point != null ? new Point(point) : null;
+	}
 
     private static class GroupBoundaries {
         final int start;
@@ -782,14 +777,19 @@ public class AbilityDragController {
         currentDrag = null;
     }
 
-    private void cleanup() {
-        indicators.cleanup();
-        isDragOutsidePanel = false;
+	private void cleanup() {
+		indicators.cleanup();
+		isDragOutsidePanel = false;
+		previewTimer.stop();
+		dragPreviewDirty = false;
+		pendingFlowPoint = null;
+		lastPreviewModel = null;
+		geometryCache = null;
 
-        // reset indicator logging state
-        lastIndicatorVisualIdx = null;
-        lastIndicatorDropSide = null;
-        lastIndicatorZoneType = null;
+		// reset indicator logging state
+		lastIndicatorVisualIdx = null;
+		lastIndicatorDropSide = null;
+		lastIndicatorZoneType = null;
         hasLoggedIndicatorShown = false;
 
         if (floatingCard != null && glassPane != null) {
@@ -817,10 +817,10 @@ public class AbilityDragController {
         }
     }
 
-    private void ensureTrashIconLoaded() {
-        if (trashIcon != null) {
-            return;
-        }
+	private void ensureTrashIconLoaded() {
+		if (trashIcon != null) {
+			return;
+		}
 
         try {
             URL trashUrl = getClass().getResource("/ui/trash-512.png");
@@ -830,29 +830,133 @@ public class AbilityDragController {
                 trashIcon = new ImageIcon(scaledImage);
             }
         } catch (Exception e) {
-            logger.warn("Failed to load trash icon", e);
+	        logger.warn("Failed to load trash icon", e);
         }
-    }
+	}
 
-    /**
-     * Updates drop zone indicators based on current preview.
-     * Condensed logging: show once, then only on change.
-     */
-	private void updateIndicators(DropPreview preview) {
-		if (isDragOutsidePanel) {
+	private void refreshGeometryCache() {
+		Component[] allCards = callback.getAllCards();
+		List<SequenceElement> elements = callback.getCurrentElements();
+		if (elements == null) {
+			elements = List.of();
+		}
+
+		Map<String, Integer> abilityOccurrences = new HashMap<>();
+		List<CardSnapshot> snapshots = new ArrayList<>();
+		int lastVisualIndex = -1;
+
+		for (int idx = 0; idx < allCards.length; idx++) {
+			Component c = allCards[idx];
+
+			if (currentDrag != null && c == currentDrag.getDraggedCard()) {
+				continue;
+			}
+
+			String abilityKey = extractAbilityKey(c);
+			if (abilityKey == null) {
+				continue;
+			}
+			int occurrence = abilityOccurrences.getOrDefault(abilityKey, 0);
+			abilityOccurrences.put(abilityKey, occurrence + 1);
+
+			int mappedIndex = mapAbilityToPreviewIndex(elements, abilityKey, occurrence);
+			if (mappedIndex < 0) {
+				continue;
+			}
+
+			Rectangle boundsInFlow = SwingUtilities.convertRectangle(c.getParent(), c.getBounds(), flowPanel);
+			DropZoneType groupZone = extractGroupZoneFromCard(c);
+			snapshots.add(new CardSnapshot(c, boundsInFlow, mappedIndex, idx, groupZone, abilityKey));
+			lastVisualIndex = idx;
+		}
+
+		geometryCache = new GeometryCache(snapshots, lastVisualIndex);
+	}
+
+	private record NearestCard(CardSnapshot snapshot, double distance) {
+	}
+
+	private static class GeometryCache {
+		private final List<CardSnapshot> snapshots;
+		private final int lastVisualIndex;
+
+		GeometryCache(List<CardSnapshot> snapshots, int lastVisualIndex) {
+			this.snapshots = snapshots;
+			this.lastVisualIndex = lastVisualIndex;
+		}
+
+		boolean isEmpty() {
+			return snapshots == null || snapshots.isEmpty();
+		}
+
+		int getLastVisualIndex() {
+			return lastVisualIndex;
+		}
+
+		NearestCard findNearest(Point dragPoint) {
+			CardSnapshot nearest = null;
+			double minDistance = Double.MAX_VALUE;
+
+			for (CardSnapshot snapshot : snapshots) {
+				double distance = snapshot.distanceTo(dragPoint);
+				if (distance < minDistance) {
+					minDistance = distance;
+					nearest = snapshot;
+				}
+			}
+
+			return new NearestCard(nearest, minDistance);
+		}
+	}
+
+	private static class CardSnapshot {
+		final Component component;
+		final Rectangle boundsInFlowPanel;
+		final Point center;
+		final int elementIndex;
+		final int visualIndex;
+		final DropZoneType groupZone;
+		final String abilityKey;
+		final int topLimit;
+		final int bottomLimit;
+
+		CardSnapshot(Component component,
+		             Rectangle boundsInFlowPanel,
+		             int elementIndex,
+		             int visualIndex,
+		             DropZoneType groupZone,
+		             String abilityKey) {
+			this.component = component;
+			this.boundsInFlowPanel = boundsInFlowPanel;
+			this.elementIndex = elementIndex;
+			this.visualIndex = visualIndex;
+			this.groupZone = groupZone;
+			this.abilityKey = abilityKey;
+			this.center = new Point(
+					boundsInFlowPanel.x + boundsInFlowPanel.width / 2,
+					boundsInFlowPanel.y + boundsInFlowPanel.height / 2
+			);
+			this.topLimit = boundsInFlowPanel.y + ZONE_HEIGHT;
+			this.bottomLimit = boundsInFlowPanel.y + boundsInFlowPanel.height - ZONE_HEIGHT;
+		}
+
+		double distanceTo(Point point) {
+			return point.distance(center);
+		}
+	}
+
+	/**
+	 * Updates drop zone indicators based on current preview.
+	 * Condensed logging: show once, then only on change.
+	 */
+	private void updateIndicators(DragPreviewModel previewModel) {
+		if (isDragOutsidePanel || previewModel == null || !previewModel.isValid()) {
 			indicators.hideIndicators();
 			resetIndicatorState();
 			return;
 		}
 
-		if (!preview.isValid()) {
-			indicators.hideIndicators();
-
-			// reset so next valid show will log once
-			resetIndicatorState();
-			return;
-		}
-
+		DropPreview preview = previewModel.getDropPreview();
 		Component[] allCards = callback.getAllCards();
 
 		if (allCards.length == 0) {
@@ -878,72 +982,76 @@ public class AbilityDragController {
 			return;
 		}
 
-        Component targetCard = allCards[targetVisualIndex];
+		Component targetCard = allCards[targetVisualIndex];
 
-        // Calculate insertion line position
-        Component leftCard = null;
-        Component rightCard = null;
+		// Calculate insertion line position
+		Component leftCard = null;
+		Component rightCard = null;
 
-        if (preview.getDropSide() == DropSide.LEFT) {
-            rightCard = targetCard;
-            if (targetVisualIndex > 0) {
-                leftCard = allCards[targetVisualIndex - 1];
-            }
-        } else {
-            leftCard = targetCard;
-            if (targetVisualIndex + 1 < allCards.length) {
-                rightCard = allCards[targetVisualIndex + 1];
-            }
-        }
+		if (preview.getDropSide() == DropSide.LEFT) {
+			rightCard = targetCard;
+			if (targetVisualIndex > 0) {
+				leftCard = allCards[targetVisualIndex - 1];
+			}
+		} else {
+			leftCard = targetCard;
+			if (targetVisualIndex + 1 < allCards.length) {
+				rightCard = allCards[targetVisualIndex + 1];
+			}
+		}
 
-        indicators.showInsertionLineBetweenCards(leftCard, rightCard, preview.getZoneType(), preview.getDropSide());
+		indicators.showInsertionLineBetweenCards(leftCard, rightCard, preview.getZoneType(), preview.getDropSide());
 
-        // Logging: first show and changes only
-        if (!hasLoggedIndicatorShown) {
-            logger.info("Indicator shown at visualIdx={}, side={}, zone={}",
-                targetVisualIndex, preview.getDropSide(), preview.getZoneType());
-            hasLoggedIndicatorShown = true;
-            lastIndicatorVisualIdx = targetVisualIndex;
-            lastIndicatorDropSide = preview.getDropSide();
-            lastIndicatorZoneType = preview.getZoneType();
-        } else if (!targetVisualIndexEquals(targetVisualIndex)
-                || lastIndicatorDropSide != preview.getDropSide()
-                || lastIndicatorZoneType != preview.getZoneType()) {
-            logger.info("Indicator moved to visualIdx={}, side={}, zone={}",
-                targetVisualIndex, preview.getDropSide(), preview.getZoneType());
-            lastIndicatorVisualIdx = targetVisualIndex;
-            lastIndicatorDropSide = preview.getDropSide();
-            lastIndicatorZoneType = preview.getZoneType();
-        }
+		// Logging: first show and changes only
+		if (!hasLoggedIndicatorShown) {
+			logger.info("Indicator shown at visualIdx={}, side={}, zone={}",
+					targetVisualIndex, preview.getDropSide(), preview.getZoneType());
+			hasLoggedIndicatorShown = true;
+			lastIndicatorVisualIdx = targetVisualIndex;
+			lastIndicatorDropSide = preview.getDropSide();
+			lastIndicatorZoneType = preview.getZoneType();
+		} else if (!targetVisualIndexEquals(targetVisualIndex)
+				|| lastIndicatorDropSide != preview.getDropSide()
+				|| lastIndicatorZoneType != preview.getZoneType()) {
+			logger.info("Indicator moved to visualIdx={}, side={}, zone={}",
+					targetVisualIndex, preview.getDropSide(), preview.getZoneType());
+			lastIndicatorVisualIdx = targetVisualIndex;
+			lastIndicatorDropSide = preview.getDropSide();
+			lastIndicatorZoneType = preview.getZoneType();
+		}
 
-        if (preview.getZoneType() == DropZoneType.NEXT) {
-            return;
-        }
+		if (preview.getZoneType() == DropZoneType.NEXT) {
+			return;
+		}
 
-        DropZoneType indicatorZone = extractGroupZoneFromCard(targetCard);
-        if (indicatorZone == DropZoneType.NEXT) {
-            indicatorZone = null;
-        }
+		DropZoneType indicatorZone = extractGroupZoneFromCard(targetCard);
+		if (indicatorZone == DropZoneType.NEXT) {
+			indicatorZone = null;
+		}
 
-        if (indicatorZone == null) {
-            List<SequenceElement> elementsToCheck = currentDrag != null
-                ? currentDrag.getOriginalElements()
-                : callback.getCurrentElements();
+		if (indicatorZone == null) {
+			List<SequenceElement> elementsToCheck = currentDrag != null
+					? currentDrag.getOriginalElements()
+					: callback.getCurrentElements();
 
-            Integer elementIdx = extractElementIndex(targetCard);
-            if (elementIdx == null) {
-                return;
-            }
+			Integer elementIdx = extractElementIndex(targetCard);
+			if (elementIdx == null) {
+				return;
+			}
 
-            indicatorZone = resolveGroupZoneAt(elementsToCheck, elementIdx);
-        }
+			indicatorZone = resolveGroupZoneAt(elementsToCheck, elementIdx);
+		}
 
-        String groupSymbol = symbolForZone(indicatorZone);
-        String topSymbol = groupSymbol != null ? groupSymbol : "+";
-        String bottomSymbol = groupSymbol != null ? groupSymbol : "/";
+		String groupSymbol = symbolForZone(indicatorZone);
+		String topSymbol = previewModel.isShowTopButton()
+				? (groupSymbol != null ? groupSymbol : "+")
+				: null;
+		String bottomSymbol = previewModel.isShowBottomButton()
+				? (groupSymbol != null ? groupSymbol : "/")
+				: null;
 
-        indicators.showIndicators(targetCard, topSymbol, bottomSymbol);
-    }
+		indicators.showIndicators(targetCard, topSymbol, bottomSymbol);
+	}
 
     // Ensures subsequent logic anchors on an ability node even when the hint lands on a separator.
     private int findNearestAbilityIndex(List<SequenceElement> elements, int hintIndex) {

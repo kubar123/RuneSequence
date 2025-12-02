@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
+import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DragPreviewModel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
@@ -23,6 +24,8 @@ class AbilityFlowView extends JPanel {
 	private final Color defaultBackground;
 	private final Border defaultBorder;
 	private final JPanel emptyDropIndicator;
+	private Component[] cachedAbilityCards;
+	private DragPreviewModel activePreview;
 
 	AbilityFlowView(SequenceDetailService detailService) {
 		super(new WrapLayout(FlowLayout.LEFT, 10, 10));
@@ -40,6 +43,8 @@ class AbilityFlowView extends JPanel {
 	void renderSequenceElements(List<SequenceElement> elements) {
 		hideEmptyDropIndicator();
 		removeAll();
+		activePreview = null;
+		cachedAbilityCards = null;
 
 		int index = 0;
 		while (index < elements.size()) {
@@ -64,29 +69,24 @@ class AbilityFlowView extends JPanel {
 
 		revalidate();
 		repaint();
+		cachedAbilityCards = getAbilityCardArray();
 	}
 
 	void clearHighlights() {
-		setBackground(defaultBackground);
-		setBorder(defaultBorder);
-		hideEmptyDropIndicator();
-
-		for (Component card : getAbilityCardArray()) {
-			if (card instanceof JPanel panel) {
-				panel.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
-				panel.setBorder(UiColorPalette.CARD_BORDER);
-			}
-		}
-		repaint();
+		resetPreview();
 	}
 
-	boolean highlightDropZone(DropPreview preview) {
-		if (preview == null || preview.getZoneType() == null) {
+	boolean applyPreviewModel(DragPreviewModel previewModel) {
+		Component[] cards = getAbilityCardArray();
+		clearPreviewHighlight(cards, activePreview);
+		activePreview = previewModel;
+
+		if (previewModel == null || previewModel.getDropPreview() == null || !previewModel.isValid()) {
+			hideEmptyDropIndicator();
 			return false;
 		}
 
-		Component[] cards = getAbilityCardArray();
-		int targetIndex = preview.getTargetAbilityIndex();
+		DropPreview preview = previewModel.getDropPreview();
 
 		if (cards.length == 0) {
 			highlightEmptyPanel(preview.getZoneType());
@@ -95,23 +95,49 @@ class AbilityFlowView extends JPanel {
 
 		hideEmptyDropIndicator();
 
+		int targetIndex = preview.getTargetAbilityIndex();
 		if (targetIndex >= 0 && targetIndex < cards.length && cards[targetIndex] instanceof JPanel targetCard) {
 			Color highlightColor = getHighlightColor(preview.getZoneType());
 			targetCard.setBackground(highlightColor);
 			targetCard.setBorder(BorderFactory.createLineBorder(highlightColor.darker(), 2));
-			repaint();
+			repaint(targetCard.getBounds());
 			return true;
 		}
 
 		return false;
 	}
 
+	void resetPreview() {
+		Component[] cards = getAbilityCardArray();
+		clearPreviewHighlight(cards, activePreview);
+		activePreview = null;
+		setBackground(defaultBackground);
+		setBorder(defaultBorder);
+		hideEmptyDropIndicator();
+	}
+
+	private void clearPreviewHighlight(Component[] cards, DragPreviewModel previewModel) {
+		if (previewModel == null || previewModel.getDropPreview() == null) {
+			return;
+		}
+		int previousIndex = previewModel.getDropPreview().getTargetAbilityIndex();
+		if (previousIndex >= 0 && previousIndex < cards.length && cards[previousIndex] instanceof JPanel previousCard) {
+			previousCard.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
+			previousCard.setBorder(UiColorPalette.CARD_BORDER);
+			repaint(previousCard.getBounds());
+		}
+	}
+
 	Component[] getAbilityCardArray() {
+		if (cachedAbilityCards != null) {
+			return cachedAbilityCards;
+		}
 		List<Component> cards = new ArrayList<>();
 		for (Component component : getComponents()) {
 			collectAbilityCardsRecursive(component, cards);
 		}
-		return cards.toArray(new Component[0]);
+		cachedAbilityCards = cards.toArray(new Component[0]);
+		return cachedAbilityCards;
 	}
 
 	void setDragOutsidePanel(boolean outsidePanel) {
@@ -237,21 +263,31 @@ class AbilityFlowView extends JPanel {
 	private void showEmptyDropIndicator(Color highlightColor) {
 		emptyDropIndicator.setBackground(highlightColor);
 		emptyDropIndicator.setBorder(BorderFactory.createLineBorder(highlightColor.darker(), 2));
+		boolean added = false;
 		if (emptyDropIndicator.getParent() != this) {
 			add(emptyDropIndicator, 0);
+			added = true;
 		}
+		boolean visibilityChanged = !emptyDropIndicator.isVisible();
 		emptyDropIndicator.setVisible(true);
-		revalidate();
-		repaint();
+		if (added || visibilityChanged) {
+			revalidate();
+		}
+		repaint(emptyDropIndicator.getBounds());
 	}
 
 	private void hideEmptyDropIndicator() {
+		boolean removed = false;
 		if (emptyDropIndicator.getParent() == this) {
 			remove(emptyDropIndicator);
+			removed = true;
+		}
+		boolean visibilityChanged = emptyDropIndicator.isVisible();
+		emptyDropIndicator.setVisible(false);
+		if (removed || visibilityChanged) {
 			revalidate();
 		}
-		emptyDropIndicator.setVisible(false);
-		repaint();
+		repaint(emptyDropIndicator.getBounds());
 	}
 
 	private void collectAbilityCardsRecursive(Component component, List<Component> out) {
