@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
+import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
 import org.slf4j.Logger;
@@ -11,10 +12,12 @@ public class PresetManagerAction implements MenuAction {
 
     private static final Logger logger = LoggerFactory.getLogger(PresetManagerAction.class);
     private final ConfigManager configManager;
+    private final SequenceRunService sequenceRunService;
     private PresetManagerWindow presetManagerWindow;
 
-    public PresetManagerAction(ConfigManager configManager) {
+    public PresetManagerAction(ConfigManager configManager, SequenceRunService sequenceRunService) {
         this.configManager = configManager;
+        this.sequenceRunService = sequenceRunService;
     }
 
     @Override
@@ -22,7 +25,7 @@ public class PresetManagerAction implements MenuAction {
         SwingUtilities.invokeLater(() -> {
             if (presetManagerWindow == null || !presetManagerWindow.isVisible()) {
                 logger.info("Opening Preset Manager window...");
-                presetManagerWindow = new PresetManagerWindowBuilder(configManager).buildAndShow();
+                presetManagerWindow = new PresetManagerWindowBuilder(configManager, sequenceRunService).buildAndShow();
                 if (presetManagerWindow == null) {
                     logger.error("Preset Manager failed to initialize.");
                 }

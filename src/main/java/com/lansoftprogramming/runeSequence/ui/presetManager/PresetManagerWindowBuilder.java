@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
+import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SelectedSequenceIndicator;
@@ -19,9 +20,11 @@ public class PresetManagerWindowBuilder {
 	private static final Logger logger = LoggerFactory.getLogger(PresetManagerWindowBuilder.class);
 
 	private final ConfigManager configManager;
+	private final SequenceRunService sequenceRunService;
 
-	public PresetManagerWindowBuilder(ConfigManager configManager) {
+	public PresetManagerWindowBuilder(ConfigManager configManager, SequenceRunService sequenceRunService) {
 		this.configManager = configManager;
+		this.sequenceRunService = sequenceRunService;
 	}
 
 	public PresetManagerWindow buildAndShow() {
@@ -45,7 +48,8 @@ public class PresetManagerWindowBuilder {
 					listModel,
 					iconLoader,
 					detailService,
-					selectionIndicator
+					selectionIndicator,
+					sequenceRunService
 			);
 		} catch (Exception e) {
 			logger.error("Failed to build PresetManagerWindow", e);

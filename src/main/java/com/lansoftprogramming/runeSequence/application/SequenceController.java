@@ -65,6 +65,13 @@ public class SequenceController implements HotkeyListener {
 		return currentState == State.ARMED;
 	}
 
+	public void resetToReady() {
+		synchronized (this) {
+			setState(State.READY);
+			logger.info("Sequence controller reset to READY.");
+		}
+	}
+
 	public void onLatchDetected() {
 		synchronized (this) {
 			if (currentState == State.ARMED) {

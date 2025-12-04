@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
+import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
@@ -29,6 +30,7 @@ public class PresetManagerWindow extends JFrame {
     private final AbilityIconLoader iconLoader;
     private final SequenceDetailService detailService;
     private final SelectedSequenceIndicator selectionIndicator;
+    private final SequenceRunService sequenceRunService;
 
     private SequenceMasterPanel masterPanel;
     private SequenceDetailPanel detailPanel;
@@ -47,12 +49,14 @@ public class PresetManagerWindow extends JFrame {
             SequenceListModel sequenceListModel,
             AbilityIconLoader iconLoader,
             SequenceDetailService detailService,
-            SelectedSequenceIndicator selectionIndicator) {
+            SelectedSequenceIndicator selectionIndicator,
+            SequenceRunService sequenceRunService) {
         this.configManager = configManager;
         this.sequenceListModel = sequenceListModel;
         this.iconLoader = iconLoader;
         this.detailService = detailService;
         this.selectionIndicator = selectionIndicator;
+        this.sequenceRunService = sequenceRunService;
 
         initializeFrame();
         toastManager = new ToastManager(this);
@@ -78,7 +82,7 @@ public class PresetManagerWindow extends JFrame {
 
     private boolean initializeComponents() {
         try {
-            masterPanel = new SequenceMasterPanel(sequenceListModel, selectionIndicator);
+            masterPanel = new SequenceMasterPanel(sequenceListModel, selectionIndicator, sequenceRunService);
             detailPanel = new SequenceDetailPanel(detailService, notifications);
             palettePanel = new AbilityPalettePanel(
                 configManager.getAbilities(),

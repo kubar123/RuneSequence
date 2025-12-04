@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
+import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 
 import javax.swing.*;
@@ -33,7 +34,11 @@ public class SequenceMasterPanel extends JPanel {
 	private final JButton deleteButton;
 	private final JButton importButton;
 	private final JButton exportButton;
+	private final JButton startButton;
+	private final JButton pauseButton;
+	private final JButton restartButton;
 	private final SelectedSequenceIndicator selectedSequenceIndicator;
+	private final SequenceRunService sequenceRunService;
 
 	/** Listeners to be notified when the list selection changes. */
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
@@ -48,9 +53,11 @@ public class SequenceMasterPanel extends JPanel {
 	 * @param sequenceListModel The data model for the list of sequences.
 	 */
 	public SequenceMasterPanel(SequenceListModel sequenceListModel,
-	                           SelectedSequenceIndicator selectedSequenceIndicator) {
+	                           SelectedSequenceIndicator selectedSequenceIndicator,
+	                           SequenceRunService sequenceRunService) {
 		this.sequenceListModel = Objects.requireNonNull(sequenceListModel, "sequenceListModel cannot be null");
 		this.selectedSequenceIndicator = Objects.requireNonNull(selectedSequenceIndicator, "selectedSequenceIndicator cannot be null");
+		this.sequenceRunService = sequenceRunService;
 		this.selectionListeners = new ArrayList<>();
 		this.addListeners = new ArrayList<>();
 		this.deleteListeners = new ArrayList<>();
@@ -66,6 +73,12 @@ public class SequenceMasterPanel extends JPanel {
 
 		addButton = new JButton("+");
 		addButton.addActionListener(e -> notifyAddListeners());
+		startButton = new JButton("Start");
+		startButton.addActionListener(e -> handleStart());
+		pauseButton = new JButton("Pause");
+		pauseButton.addActionListener(e -> handlePause());
+		restartButton = new JButton("Restart");
+		restartButton.addActionListener(e -> handleRestart());
 
 		ImageIcon trashIcon = null;
 		try {
@@ -103,18 +116,38 @@ public class SequenceMasterPanel extends JPanel {
 	 * Arranges the control buttons and the sequence list within the panel.
 	 */
 	private void layoutComponents() {
-		JPanel controlsPanel = new JPanel(new GridLayout(2, 2, 5, 5));
-		controlsPanel.add(addButton);
-		controlsPanel.add(deleteButton);
-		controlsPanel.add(importButton);
-		controlsPanel.add(exportButton);
+		JPanel runPanel = createRunControlPanel();
+		JPanel controlsPanel = createCrudPanel();
+
+		JPanel topPanel = new JPanel();
+		topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
+		topPanel.add(runPanel);
+		topPanel.add(Box.createVerticalStrut(8));
+		topPanel.add(controlsPanel);
 
 		JScrollPane listScrollPane = new JScrollPane(sequenceList);
 		listScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		listScrollPane.getVerticalScrollBar().setUnitIncrement(5);
 
-		add(controlsPanel, BorderLayout.NORTH);
+		add(topPanel, BorderLayout.NORTH);
 		add(listScrollPane, BorderLayout.CENTER);
+	}
+
+	private JPanel createRunControlPanel() {
+		JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+		panel.add(startButton);
+		panel.add(pauseButton);
+		panel.add(restartButton);
+		return panel;
+	}
+
+	private JPanel createCrudPanel() {
+		JPanel controlsPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+		controlsPanel.add(addButton);
+		controlsPanel.add(deleteButton);
+		controlsPanel.add(importButton);
+		controlsPanel.add(exportButton);
+		return controlsPanel;
 	}
 
 	public void addSelectionListener(Consumer<SequenceListModel.SequenceEntry> listener) {
@@ -191,6 +224,45 @@ public class SequenceMasterPanel extends JPanel {
 	private void notifyImportListeners(String expression) {
 		for (Consumer<String> listener : importListeners) {
 			listener.accept(expression);
+		}
+	}
+
+	private void handleStart() {
+		if (sequenceRunService == null) {
+			if (notificationService != null) {
+				notificationService.showError("Start action unavailable.");
+			}
+			return;
+		}
+		sequenceRunService.start();
+		if (notificationService != null) {
+			notificationService.showSuccess("Start requested.");
+		}
+	}
+
+	private void handlePause() {
+		if (sequenceRunService == null) {
+			if (notificationService != null) {
+				notificationService.showError("Pause action unavailable.");
+			}
+			return;
+		}
+		sequenceRunService.pause();
+		if (notificationService != null) {
+			notificationService.showInfo("Detection paused.");
+		}
+	}
+
+	private void handleRestart() {
+		if (sequenceRunService == null) {
+			if (notificationService != null) {
+				notificationService.showError("Restart action unavailable.");
+			}
+			return;
+		}
+		sequenceRunService.restart();
+		if (notificationService != null) {
+			notificationService.showSuccess("Restart requested.");
 		}
 	}
 
