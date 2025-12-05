@@ -72,6 +72,13 @@ public class SequenceController implements HotkeyListener {
 		}
 	}
 
+	public void setPaused() {
+		synchronized (this) {
+			setState(State.PAUSED);
+			logger.info("Sequence controller set to PAUSED.");
+		}
+	}
+
 	public void onLatchDetected() {
 		synchronized (this) {
 			if (currentState == State.ARMED) {

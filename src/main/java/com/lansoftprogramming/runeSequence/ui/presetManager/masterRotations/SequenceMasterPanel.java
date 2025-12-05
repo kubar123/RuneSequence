@@ -1,7 +1,9 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
+import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -37,8 +39,16 @@ public class SequenceMasterPanel extends JPanel {
 	private final JButton startButton;
 	private final JButton pauseButton;
 	private final JButton restartButton;
+	private final JLabel stateLabel;
 	private final SelectedSequenceIndicator selectedSequenceIndicator;
 	private final SequenceRunService sequenceRunService;
+	private final Color defaultStartBg;
+	private final Color defaultPauseBg;
+	private final Color highlightStartBg;
+	private final Color highlightPauseBg;
+	private final Color defaultStartFg;
+	private final Color defaultPauseFg;
+	private final Color highlightText;
 
 	/** Listeners to be notified when the list selection changes. */
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
@@ -79,6 +89,20 @@ public class SequenceMasterPanel extends JPanel {
 		pauseButton.addActionListener(e -> handlePause());
 		restartButton = new JButton("Restart");
 		restartButton.addActionListener(e -> handleRestart());
+		stateLabel = new JLabel("State: READY");
+		defaultStartBg = startButton.getBackground();
+		defaultPauseBg = pauseButton.getBackground();
+		defaultStartFg = startButton.getForeground();
+		defaultPauseFg = pauseButton.getForeground();
+		highlightStartBg = UiColorPalette.SELECTION_ACTIVE_FILL;
+		highlightPauseBg = UiColorPalette.TOAST_WARNING_ACCENT;
+		highlightText = UiColorPalette.TEXT_INVERSE;
+
+		// Keep UI in sync with controller state
+		if (this.sequenceRunService != null) {
+			this.sequenceRunService.addStateChangeListener((oldState, newState) -> updateStateIndicator(newState));
+			updateStateIndicator(this.sequenceRunService.getCurrentState());
+		}
 
 		ImageIcon trashIcon = null;
 		try {
@@ -138,6 +162,7 @@ public class SequenceMasterPanel extends JPanel {
 		panel.add(startButton);
 		panel.add(pauseButton);
 		panel.add(restartButton);
+		panel.add(stateLabel);
 		return panel;
 	}
 
@@ -235,6 +260,7 @@ public class SequenceMasterPanel extends JPanel {
 			return;
 		}
 		sequenceRunService.start();
+		updateStateIndicator(sequenceRunService.getCurrentState());
 		if (notificationService != null) {
 			notificationService.showSuccess("Start requested.");
 		}
@@ -248,6 +274,7 @@ public class SequenceMasterPanel extends JPanel {
 			return;
 		}
 		sequenceRunService.pause();
+		updateStateIndicator(sequenceRunService.getCurrentState());
 		if (notificationService != null) {
 			notificationService.showInfo("Detection paused.");
 		}
@@ -261,9 +288,26 @@ public class SequenceMasterPanel extends JPanel {
 			return;
 		}
 		sequenceRunService.restart();
+		updateStateIndicator(sequenceRunService.getCurrentState());
 		if (notificationService != null) {
 			notificationService.showSuccess("Restart requested.");
 		}
+	}
+
+	private void updateStateIndicator(SequenceController.State state) {
+		SwingUtilities.invokeLater(() -> {
+			boolean pauseActive = state == SequenceController.State.PAUSED;
+			boolean startActive = !pauseActive;
+
+			startButton.setBackground(startActive ? highlightStartBg : defaultStartBg);
+			pauseButton.setBackground(pauseActive ? highlightPauseBg : defaultPauseBg);
+			startButton.setForeground(startActive ? highlightText : defaultStartFg);
+			pauseButton.setForeground(pauseActive ? highlightText : defaultPauseFg);
+			startButton.setOpaque(true);
+			pauseButton.setOpaque(true);
+
+			stateLabel.setText("State: " + state);
+		});
 	}
 
 	private void importFromClipboard() {
