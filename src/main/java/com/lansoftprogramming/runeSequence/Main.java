@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.application.SequenceManager;
+import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.application.TemplateCache;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
 import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
@@ -143,6 +144,11 @@ public class Main {
 					notifications,
 					configManager.getDetectionInterval()
 			);
+			SequenceRunService sequenceRunService = new SequenceRunService(
+					sequenceController,
+					sequenceManager,
+					detectionEngine
+			);
 
 			detectionEngine.primeActiveSequence();
 			detectionEngine.start();
@@ -154,7 +160,7 @@ public class Main {
 				taskbar.initialize();
 
 				// Add a settings option to the context menu
-				taskbar.addMenuItem("Preset Manager", new PresetManagerAction(configManager));
+				taskbar.addMenuItem("Preset Manager", new PresetManagerAction(configManager, sequenceRunService));
 				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
 				taskbar.addMenuItem("Prime Ability Cache", new PrimeAbilityCacheAction(detectionEngine));
 				taskbar.addMenuItem("Settings", new SettingsAction(configManager));
