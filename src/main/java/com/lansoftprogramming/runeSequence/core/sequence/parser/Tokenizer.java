@@ -12,19 +12,19 @@ public class Tokenizer {
 	public List<Token> tokenize(String expression) {
 
 		logger.debug("Tokenizer: Input expression: '{}'", expression);
-		// Print char codes for debugging Unicode issues
-		for (int i = 0; i < expression.length(); i++) {
-			char c = expression.charAt(i);
-//			logger.debug("  Char[{}]: '{}' (code={})", i, c, (int) c);
-		}
 
 		// Handle "spec" as a special suffix, converting "[ability] spec" to "[ability] + spec"
 		String processedExpression = expression.replaceAll("(?i)\\s+spec\\b", " + spec");
-		logger.debug("Tokenizer: Expression after spec processing: '{}'", processedExpression);
+
+		// Treat line breaks between two abilities as an implicit arrow.
+		// This allows multi-line clipboard payloads to be parsed as a single expression:
+		// "a → b\nc → d" becomes "a → b→c → d".
+		String newlineNormalizedExpression = normalizeLineBreaks(processedExpression);
+		logger.debug("Tokenizer: Expression after newline normalization: '{}'", newlineNormalizedExpression);
 
 		// Stage 1: Add padding around operators and parentheses
 		// Support both Unicode → and ASCII -> by normalizing to the canonical arrow
-		String paddedExpression = processedExpression
+		String paddedExpression = newlineNormalizedExpression
 				.replace("->", "→")
 				.replaceAll("([→+/()])", " $1 ");
 
@@ -86,6 +86,79 @@ public class Tokenizer {
 		return tokens;
 	}
 
+
+	private String normalizeLineBreaks(String input) {
+		if (input == null || input.isEmpty()) {
+			return input;
+		}
+
+		String[] rawLines = input.split("\\R");
+		List<String> logicalLines = new ArrayList<>();
+
+		for (String raw : rawLines) {
+			String cleaned = cleanLine(raw);
+			if (!cleaned.isEmpty()) {
+				logicalLines.add(cleaned);
+			}
+		}
+
+		if (logicalLines.isEmpty()) {
+			return "";
+		}
+
+		StringBuilder out = new StringBuilder(input.length());
+		// Start with the first non-empty line as-is
+		out.append(logicalLines.get(0));
+
+		for (int i = 1; i < logicalLines.size(); i++) {
+			String prev = logicalLines.get(i - 1);
+			String current = logicalLines.get(i);
+
+			char last = prev.charAt(prev.length() - 1);
+			char first = current.charAt(0);
+
+			// If a line boundary sits next to an operator/paren, treat it as spacing only.
+			// Otherwise, treat it as an implicit arrow between abilities.
+			if (isOperatorOrParenChar(last) || isOperatorOrParenChar(first)) {
+				out.append(' ');
+			} else {
+				out.append('→');
+			}
+
+			out.append(current);
+		}
+
+		return out.toString();
+	}
+
+	private String cleanLine(String line) {
+		if (line == null || line.isEmpty()) {
+			return "";
+		}
+
+		StringBuilder sb = new StringBuilder(line.length());
+		for (int i = 0; i < line.length(); i++) {
+			char c = line.charAt(i);
+
+			// Strip line-break characters defensively (split() should already have removed them)
+			if (c == '\n' || c == '\r') {
+				continue;
+			}
+
+			// Drop zero-width / exotic whitespace that often sneaks in from rich text
+			if (c == '\u200B' || c == '\u00A0' || c == '\u202F') {
+				continue;
+			}
+
+			sb.append(c);
+		}
+
+		return sb.toString().trim();
+	}
+
+	private boolean isOperatorOrParenChar(char c) {
+		return c == '→' || c == '+' || c == '/' || c == '(' || c == ')';
+	}
 
 
 	private boolean isOperatorOrParen(String part) {
