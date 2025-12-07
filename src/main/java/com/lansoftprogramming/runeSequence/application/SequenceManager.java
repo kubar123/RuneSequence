@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public class SequenceManager implements SequenceController.StateChangeListener {
 
@@ -27,7 +28,9 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	private ActiveSequence activeSequence;
 	private SequenceController sequenceController;
 	private final GcdLatchTracker gcdLatchTracker = new GcdLatchTracker();
+	private final List<Consumer<SequenceProgress>> progressListeners = new ArrayList<>();
 	private boolean sequenceComplete = false;
+	private String activeSequenceId;
 
 	public SequenceManager(Map<String, SequenceDefinition> namedSequences, AbilityConfig abilityConfig,
 	                       NotificationService notifications, TemplateDetector templateDetector) {
@@ -62,11 +65,14 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 		this.activeSequence = new ActiveSequence(def, abilityConfig);
 		this.sequenceComplete = false;
+		this.activeSequenceId = name;
 
 		if (sequenceController != null) {
 			sequenceController.addStateChangeListener(activeSequence);
 			activeSequence.stepTimer.pause();
 		}
+
+		emitProgressUpdate();
 
 		return true;
 	}
@@ -89,10 +95,17 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		// Keep latch state synced to latest detections before step timers react
 		gcdLatchTracker.onFrame(frame, results);
 
+		int previousStep = activeSequence.getCurrentStepIndex();
+
 		activeSequence.processDetections(results);
 
 		if (activeSequence.isComplete()) {
 			onSequenceCompleted();
+			return;
+		}
+
+		if (activeSequence.getCurrentStepIndex() != previousStep) {
+			emitProgressUpdate();
 		}
 	}
 
@@ -123,17 +136,23 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 
 	public synchronized void resetActiveSequence() {
+		boolean shouldRearm = sequenceController != null && sequenceController.isArmed();
+		resetActiveSequence(shouldRearm);
+	}
+
+	public synchronized void resetActiveSequence(boolean rearmLatchIfArmed) {
 		if (activeSequence != null) {
 			activeSequence.reset();
 			activeSequence.stepTimer.pause();
 		}
 		sequenceComplete = false;
-		if (sequenceController != null && sequenceController.isArmed()) {
+		if (rearmLatchIfArmed && sequenceController != null && sequenceController.isArmed()) {
 			// If we're already ARMED, manually re-arm the latch tracker because no state change event will fire.
 			gcdLatchTracker.onStateChanged(SequenceController.State.ARMED);
 		} else {
 			gcdLatchTracker.reset();
 		}
+		emitProgressUpdate();
 	}
 
 	public synchronized boolean hasActiveSequence() {
@@ -147,6 +166,45 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 	public synchronized boolean shouldDetect() {
 		return activeSequence != null && !sequenceComplete;
+	}
+
+	public void addProgressListener(Consumer<SequenceProgress> listener) {
+		if (listener == null) {
+			return;
+		}
+		synchronized (progressListeners) {
+			progressListeners.add(listener);
+		}
+	}
+
+	public void removeProgressListener(Consumer<SequenceProgress> listener) {
+		if (listener == null) {
+			return;
+		}
+		synchronized (progressListeners) {
+			progressListeners.remove(listener);
+		}
+	}
+
+	public synchronized SequenceProgress snapshotProgress() {
+		if (activeSequence == null) {
+			return SequenceProgress.inactive(activeSequenceId);
+		}
+
+		int stepIndex = activeSequence.getCurrentStepIndex();
+		List<String> stepAbilityKeys = activeSequence.getAbilityKeysForStep(stepIndex);
+		List<String> stepLabels = stepAbilityKeys.stream()
+				.map(this::resolveAbilityLabel)
+				.toList();
+
+		return new SequenceProgress(
+				true,
+				activeSequenceId,
+				stepIndex,
+				activeSequence.getStepCount(),
+				stepLabels,
+				sequenceComplete
+		);
 	}
 
 	@Override
@@ -165,6 +223,84 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 		if (sequenceController != null) {
 			sequenceController.onSequenceCompleted();
+		}
+		emitProgressUpdate();
+	}
+
+	private void emitProgressUpdate() {
+		SequenceProgress progress = snapshotProgress();
+		notifyProgressListeners(progress);
+	}
+
+	private void notifyProgressListeners(SequenceProgress progress) {
+		List<Consumer<SequenceProgress>> listenersCopy;
+		synchronized (progressListeners) {
+			listenersCopy = List.copyOf(progressListeners);
+		}
+		for (Consumer<SequenceProgress> listener : listenersCopy) {
+			try {
+				listener.accept(progress);
+			} catch (Exception e) {
+				logger.error("Error notifying progress listener", e);
+			}
+		}
+	}
+
+	private String resolveAbilityLabel(String abilityKey) {
+		if (abilityKey == null) {
+			return "";
+		}
+		AbilityConfig.AbilityData abilityData = abilityConfig.getAbility(abilityKey);
+		if (abilityData != null && abilityData.getCommonName() != null && !abilityData.getCommonName().isBlank()) {
+			return abilityData.getCommonName();
+		}
+		return abilityKey;
+	}
+
+	public static class SequenceProgress {
+		private final boolean hasActiveSequence;
+		private final String sequenceId;
+		private final int currentStepIndex;
+		private final int totalSteps;
+		private final List<String> currentStepAbilities;
+		private final boolean sequenceComplete;
+
+		private SequenceProgress(boolean hasActiveSequence, String sequenceId, int currentStepIndex, int totalSteps,
+		                         List<String> currentStepAbilities, boolean sequenceComplete) {
+			this.hasActiveSequence = hasActiveSequence;
+			this.sequenceId = sequenceId;
+			this.currentStepIndex = currentStepIndex;
+			this.totalSteps = totalSteps;
+			this.currentStepAbilities = List.copyOf(currentStepAbilities);
+			this.sequenceComplete = sequenceComplete;
+		}
+
+		public static SequenceProgress inactive(String sequenceId) {
+			return new SequenceProgress(false, sequenceId, -1, 0, List.of(), false);
+		}
+
+		public boolean hasActiveSequence() {
+			return hasActiveSequence;
+		}
+
+		public String getSequenceId() {
+			return sequenceId;
+		}
+
+		public int getCurrentStepIndex() {
+			return currentStepIndex;
+		}
+
+		public int getTotalSteps() {
+			return totalSteps;
+		}
+
+		public List<String> getCurrentStepAbilities() {
+			return currentStepAbilities;
+		}
+
+		public boolean isSequenceComplete() {
+			return sequenceComplete;
 		}
 	}
 
@@ -261,6 +397,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			reset();
 			sequenceController.onLatchDetected();
 			notifications.showSuccess("Sequence started!");
+			emitProgressUpdate();
 			if (completed) {
 				onSequenceCompleted();
 			}

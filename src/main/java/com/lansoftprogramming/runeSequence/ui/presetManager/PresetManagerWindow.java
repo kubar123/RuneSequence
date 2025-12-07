@@ -130,9 +130,6 @@ public class PresetManagerWindow extends JFrame {
 			if (expression == null || expression.isBlank()) {
 				return false;
 			}
-			if (!expression.contains("→") && !expression.contains("->")) {
-				return false;
-			}
 			try {
 				SequenceParser.parse(expression);
 				return true;

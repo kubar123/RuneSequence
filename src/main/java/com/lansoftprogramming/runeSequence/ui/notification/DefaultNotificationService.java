@@ -27,7 +27,7 @@ public class DefaultNotificationService implements NotificationService {
 	@Override
 	public void showInfo(String message) {
 		if (toastClient != null) {
-			toastClient.info(message);
+			runOnEdt(() -> toastClient.info(message));
 			return;
 		}
 		showDialog(DEFAULT_TITLE, message, JOptionPane.INFORMATION_MESSAGE);
@@ -36,7 +36,7 @@ public class DefaultNotificationService implements NotificationService {
 	@Override
 	public void showSuccess(String message) {
 		if (toastClient != null) {
-			toastClient.success(message);
+			runOnEdt(() -> toastClient.success(message));
 			return;
 		}
 		showDialog(DEFAULT_TITLE, message, JOptionPane.INFORMATION_MESSAGE);
@@ -45,7 +45,7 @@ public class DefaultNotificationService implements NotificationService {
 	@Override
 	public void showWarning(String message) {
 		if (toastClient != null) {
-			toastClient.warn(message);
+			runOnEdt(() -> toastClient.warn(message));
 			return;
 		}
 		showDialog(DEFAULT_TITLE, message, JOptionPane.WARNING_MESSAGE);
@@ -54,7 +54,7 @@ public class DefaultNotificationService implements NotificationService {
 	@Override
 	public void showError(String message) {
 		if (toastClient != null) {
-			toastClient.error(message);
+			runOnEdt(() -> toastClient.error(message));
 			return;
 		}
 		showDialog(DEFAULT_TITLE, message, JOptionPane.ERROR_MESSAGE);

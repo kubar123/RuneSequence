@@ -5,8 +5,8 @@ import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class SequenceController implements HotkeyListener {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceController.class);
@@ -20,7 +20,7 @@ public class SequenceController implements HotkeyListener {
 
 	private final SequenceManager sequenceManager;
 	private volatile State currentState = State.READY;
-	private final List<StateChangeListener> listeners = new ArrayList<>();
+	private final List<StateChangeListener> listeners = new CopyOnWriteArrayList<>();
 
 	public SequenceController(SequenceManager sequenceManager) {
 		this.sequenceManager = sequenceManager;
@@ -40,9 +40,9 @@ public class SequenceController implements HotkeyListener {
 	@Override
 	public void onRestartSequence() {
 		synchronized (this) {
-			sequenceManager.resetActiveSequence();
-			setState(State.ARMED);
-			logger.info("Sequence restarted - re-armed and awaiting latch");
+			sequenceManager.resetActiveSequence(false);
+			setState(State.READY);
+			logger.info("Sequence restarted - ready for arming");
 		}
 	}
 	public void onSequenceCompleted() {

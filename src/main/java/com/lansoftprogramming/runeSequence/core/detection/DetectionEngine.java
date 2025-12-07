@@ -57,7 +57,10 @@ public class DetectionEngine {
 	}
 
 	public void stop() {
-		if (!isRunning) return;
+		if (!isRunning) {
+			overlay.clearOverlays();
+			return;
+		}
 
 		isRunning = false;
 		if (scheduler != null) {

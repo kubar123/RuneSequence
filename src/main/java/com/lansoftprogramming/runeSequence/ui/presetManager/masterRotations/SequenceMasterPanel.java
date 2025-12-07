@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
 import com.lansoftprogramming.runeSequence.application.SequenceController;
+import com.lansoftprogramming.runeSequence.application.SequenceManager;
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
@@ -39,7 +40,7 @@ public class SequenceMasterPanel extends JPanel {
 	private final JButton startButton;
 	private final JButton pauseButton;
 	private final JButton restartButton;
-	private final JLabel stateLabel;
+	private final JLabel statusLabel;
 	private final SelectedSequenceIndicator selectedSequenceIndicator;
 	private final SequenceRunService sequenceRunService;
 	private final Color defaultStartBg;
@@ -83,13 +84,13 @@ public class SequenceMasterPanel extends JPanel {
 
 		addButton = new JButton("+");
 		addButton.addActionListener(e -> notifyAddListeners());
-		startButton = new JButton("Start");
+		startButton = new JButton("Arm");
 		startButton.addActionListener(e -> handleStart());
 		pauseButton = new JButton("Pause");
 		pauseButton.addActionListener(e -> handlePause());
 		restartButton = new JButton("Restart");
 		restartButton.addActionListener(e -> handleRestart());
-		stateLabel = new JLabel("State: READY");
+		statusLabel = new JLabel("Status: Ready");
 		defaultStartBg = startButton.getBackground();
 		defaultPauseBg = pauseButton.getBackground();
 		defaultStartFg = startButton.getForeground();
@@ -101,6 +102,7 @@ public class SequenceMasterPanel extends JPanel {
 		// Keep UI in sync with controller state
 		if (this.sequenceRunService != null) {
 			this.sequenceRunService.addStateChangeListener((oldState, newState) -> updateStateIndicator(newState));
+			this.sequenceRunService.addProgressListener(progress -> SwingUtilities.invokeLater(this::refreshStatusLabel));
 			updateStateIndicator(this.sequenceRunService.getCurrentState());
 		}
 
@@ -145,6 +147,8 @@ public class SequenceMasterPanel extends JPanel {
 
 		JPanel topPanel = new JPanel();
 		topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
+		runPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+		controlsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 		topPanel.add(runPanel);
 		topPanel.add(Box.createVerticalStrut(8));
 		topPanel.add(controlsPanel);
@@ -158,11 +162,18 @@ public class SequenceMasterPanel extends JPanel {
 	}
 
 	private JPanel createRunControlPanel() {
-		JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-		panel.add(startButton);
-		panel.add(pauseButton);
-		panel.add(restartButton);
-		panel.add(stateLabel);
+		JPanel panel = new JPanel(new BorderLayout(5, 2));
+
+		JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+		buttonRow.add(startButton);
+		buttonRow.add(pauseButton);
+		buttonRow.add(restartButton);
+
+		JPanel statusRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+		statusRow.add(statusLabel);
+
+		panel.add(statusRow, BorderLayout.NORTH);
+		panel.add(buttonRow, BorderLayout.CENTER);
 		return panel;
 	}
 
@@ -259,10 +270,16 @@ public class SequenceMasterPanel extends JPanel {
 			}
 			return;
 		}
+		SequenceManager.SequenceProgress progress = sequenceRunService.getProgressSnapshot();
+
+		if (progress != null && progress.isSequenceComplete()) {
+			sequenceRunService.prepareReadyState();
+		}
+
 		sequenceRunService.start();
 		updateStateIndicator(sequenceRunService.getCurrentState());
 		if (notificationService != null) {
-			notificationService.showSuccess("Start requested.");
+			notificationService.showInfo("Start requested.");
 		}
 	}
 
@@ -297,7 +314,7 @@ public class SequenceMasterPanel extends JPanel {
 	private void updateStateIndicator(SequenceController.State state) {
 		SwingUtilities.invokeLater(() -> {
 			boolean pauseActive = state == SequenceController.State.PAUSED;
-			boolean startActive = !pauseActive;
+			boolean startActive = state == SequenceController.State.READY;
 
 			startButton.setBackground(startActive ? highlightStartBg : defaultStartBg);
 			pauseButton.setBackground(pauseActive ? highlightPauseBg : defaultPauseBg);
@@ -305,9 +322,77 @@ public class SequenceMasterPanel extends JPanel {
 			pauseButton.setForeground(pauseActive ? highlightText : defaultPauseFg);
 			startButton.setOpaque(true);
 			pauseButton.setOpaque(true);
+			updateStartButtonLabel(state);
+			boolean canStart = state == SequenceController.State.READY || state == SequenceController.State.PAUSED;
+			startButton.setEnabled(canStart);
+			restartButton.setEnabled(true);
+			restartButton.setVisible(true);
 
-			stateLabel.setText("State: " + state);
+			refreshStatusLabel();
 		});
+	}
+
+	private void updateStartButtonLabel(SequenceController.State state) {
+		String label = switch (state) {
+			case RUNNING -> "Running";
+			case ARMED -> "Armed";
+			case PAUSED -> "Start";
+			default -> "Arm";
+		};
+		startButton.setText(label);
+	}
+
+	private void refreshStatusLabel() {
+		if (sequenceRunService == null) {
+			statusLabel.setText("Status: Controls unavailable");
+			return;
+		}
+
+		SequenceController.State state = sequenceRunService.getCurrentState();
+		SequenceManager.SequenceProgress progress = sequenceRunService.getProgressSnapshot();
+		boolean detectionRunning = sequenceRunService.isDetectionRunning();
+		String statusText = buildStatusText(state, progress, detectionRunning);
+		statusLabel.setText(statusText);
+	}
+
+	private String buildStatusText(SequenceController.State state,
+	                               SequenceManager.SequenceProgress progress,
+	                               boolean detectionRunning) {
+		if (progress == null || !progress.hasActiveSequence()) {
+			return "Status: No rotation selected";
+		}
+
+		if (progress.isSequenceComplete()) {
+			return "Status: Rotation complete. Restart to run again.";
+		}
+
+		String abilities = describeAbilities(progress);
+		int totalSteps = progress.getTotalSteps();
+		int displayStep = progress.getCurrentStepIndex() >= 0 ? progress.getCurrentStepIndex() + 1 : 0;
+		String stepInfo = totalSteps > 0 && displayStep > 0
+				? "step " + displayStep + "/" + totalSteps
+				: "current step";
+
+		return switch (state) {
+			case PAUSED -> "Status: Paused - detection stopped.";
+			case ARMED -> "Status: Armed - waiting for latch (" + abilities + ").";
+			case RUNNING -> "Status: Running " + stepInfo + " (" + abilities + ").";
+			case READY -> {
+				if (!detectionRunning) {
+					yield "Status: Ready - detection halted.";
+				}
+				yield "Status: Ready - standing by (" + abilities + ").";
+			}
+			default -> "Status: " + state;
+		};
+	}
+
+	private String describeAbilities(SequenceManager.SequenceProgress progress) {
+		if (progress == null || progress.getCurrentStepAbilities() == null
+				|| progress.getCurrentStepAbilities().isEmpty()) {
+			return "looking for abilities";
+		}
+		return String.join(" / ", progress.getCurrentStepAbilities());
 	}
 
 	private void importFromClipboard() {

@@ -1,13 +1,16 @@
 package com.lansoftprogramming.runeSequence.application;
 
 import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.function.Consumer;
 
 /**
  * Bridges UI controls to sequence state changes and detection engine lifecycle.
  */
-public class SequenceRunService {
+public class SequenceRunService implements HotkeyListener {
 
 	private static final Logger logger = LoggerFactory.getLogger(SequenceRunService.class);
 
@@ -53,8 +56,33 @@ public class SequenceRunService {
 		sequenceController.addStateChangeListener(listener);
 	}
 
+	public void addProgressListener(Consumer<SequenceManager.SequenceProgress> listener) {
+		sequenceManager.addProgressListener(listener);
+	}
+
 	public SequenceController.State getCurrentState() {
 		return sequenceController.getState();
+	}
+
+	public SequenceManager.SequenceProgress getProgressSnapshot() {
+		return sequenceManager.snapshotProgress();
+	}
+
+	public synchronized void prepareReadyState() {
+		sequenceController.resetToReady();
+		sequenceManager.resetActiveSequence(false);
+		ensureDetectionRunning();
+		logger.info("Ready requested via UI controls.");
+	}
+
+	@Override
+	public void onStartSequence() {
+		start();
+	}
+
+	@Override
+	public void onRestartSequence() {
+		restart();
 	}
 
 	private void ensureDetectionRunning() {

@@ -86,11 +86,6 @@ public class Main {
 			SequenceController sequenceController = new SequenceController(sequenceManager);
 			sequenceManager.setSequenceController(sequenceController);
 
-			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
-			HotkeyManager hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
-			hotkeyManager.initialize();
-			hotkeyManager.addListener(sequenceController);
-
 
 			// Activate selected rotation or fall back to debug sequence
 			// --- Determine rotation to activate ---
@@ -149,6 +144,11 @@ public class Main {
 					sequenceManager,
 					detectionEngine
 			);
+
+			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
+			HotkeyManager hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
+			hotkeyManager.initialize();
+			hotkeyManager.addListener(sequenceRunService);
 
 			detectionEngine.primeActiveSequence();
 			detectionEngine.start();
