@@ -1,10 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
-import com.lansoftprogramming.runeSequence.application.SequenceController;
-import com.lansoftprogramming.runeSequence.application.SequenceManager;
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -30,26 +27,17 @@ import java.util.function.Predicate;
  * This acts as the "master" view in a master-detail interface, where selecting an item
  * in this panel can update a "detail" view elsewhere.
  */
-public class SequenceMasterPanel extends JPanel {
+public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.SequenceRunView {
 	private final SequenceListModel sequenceListModel;
 	private final JList<SequenceListModel.SequenceEntry> sequenceList;
 	private final JButton addButton;
 	private final JButton deleteButton;
 	private final JButton importButton;
 	private final JButton exportButton;
-	private final JButton startButton;
-	private final JButton pauseButton;
-	private final JButton restartButton;
-	private final JLabel statusLabel;
 	private final SelectedSequenceIndicator selectedSequenceIndicator;
 	private final SequenceRunService sequenceRunService;
-	private final Color defaultStartBg;
-	private final Color defaultPauseBg;
-	private final Color highlightStartBg;
-	private final Color highlightPauseBg;
-	private final Color defaultStartFg;
-	private final Color defaultPauseFg;
-	private final Color highlightText;
+	private final RunControlPanel runControlPanel;
+	private final SequenceRunPresenter runPresenter;
 
 	/** Listeners to be notified when the list selection changes. */
 	private final List<Consumer<SequenceListModel.SequenceEntry>> selectionListeners;
@@ -84,26 +72,19 @@ public class SequenceMasterPanel extends JPanel {
 
 		addButton = new JButton("+");
 		addButton.addActionListener(e -> notifyAddListeners());
-		startButton = new JButton("Arm");
-		startButton.addActionListener(e -> handleStart());
-		pauseButton = new JButton("Pause");
-		pauseButton.addActionListener(e -> handlePause());
-		restartButton = new JButton("Restart");
-		restartButton.addActionListener(e -> handleRestart());
-		statusLabel = new JLabel("Status: Ready");
-		defaultStartBg = startButton.getBackground();
-		defaultPauseBg = pauseButton.getBackground();
-		defaultStartFg = startButton.getForeground();
-		defaultPauseFg = pauseButton.getForeground();
-		highlightStartBg = UiColorPalette.SELECTION_ACTIVE_FILL;
-		highlightPauseBg = UiColorPalette.TOAST_WARNING_ACCENT;
-		highlightText = UiColorPalette.TEXT_INVERSE;
+
+		runControlPanel = new RunControlPanel();
+		runPresenter = new SequenceRunPresenter(sequenceRunService, notificationService);
+		runPresenter.attachView(this);
+		runControlPanel.addStartListener(e -> runPresenter.onStartRequested());
+		runControlPanel.addPauseListener(e -> runPresenter.onPauseRequested());
+		runControlPanel.addRestartListener(e -> runPresenter.onRestartRequested());
 
 		// Keep UI in sync with controller state
 		if (this.sequenceRunService != null) {
-			this.sequenceRunService.addStateChangeListener((oldState, newState) -> updateStateIndicator(newState));
-			this.sequenceRunService.addProgressListener(progress -> SwingUtilities.invokeLater(this::refreshStatusLabel));
-			updateStateIndicator(this.sequenceRunService.getCurrentState());
+			this.sequenceRunService.addStateChangeListener((oldState, newState) -> runPresenter.onStateChanged(oldState, newState));
+			this.sequenceRunService.addProgressListener(runPresenter::onProgressChanged);
+			runPresenter.refreshFromService();
 		}
 
 		ImageIcon trashIcon = null;
@@ -142,7 +123,7 @@ public class SequenceMasterPanel extends JPanel {
 	 * Arranges the control buttons and the sequence list within the panel.
 	 */
 	private void layoutComponents() {
-		JPanel runPanel = createRunControlPanel();
+		JPanel runPanel = runControlPanel;
 		JPanel controlsPanel = createCrudPanel();
 
 		JPanel topPanel = new JPanel();
@@ -159,22 +140,6 @@ public class SequenceMasterPanel extends JPanel {
 
 		add(topPanel, BorderLayout.NORTH);
 		add(listScrollPane, BorderLayout.CENTER);
-	}
-
-	private JPanel createRunControlPanel() {
-		JPanel panel = new JPanel(new BorderLayout(5, 2));
-
-		JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-		buttonRow.add(startButton);
-		buttonRow.add(pauseButton);
-		buttonRow.add(restartButton);
-
-		JPanel statusRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-		statusRow.add(statusLabel);
-
-		panel.add(statusRow, BorderLayout.NORTH);
-		panel.add(buttonRow, BorderLayout.CENTER);
-		return panel;
 	}
 
 	private JPanel createCrudPanel() {
@@ -261,138 +226,6 @@ public class SequenceMasterPanel extends JPanel {
 		for (Consumer<String> listener : importListeners) {
 			listener.accept(expression);
 		}
-	}
-
-	private void handleStart() {
-		if (sequenceRunService == null) {
-			if (notificationService != null) {
-				notificationService.showError("Start action unavailable.");
-			}
-			return;
-		}
-		SequenceManager.SequenceProgress progress = sequenceRunService.getProgressSnapshot();
-
-		if (progress != null && progress.isSequenceComplete()) {
-			sequenceRunService.prepareReadyState();
-		}
-
-		sequenceRunService.start();
-		updateStateIndicator(sequenceRunService.getCurrentState());
-		if (notificationService != null) {
-			notificationService.showInfo("Start requested.");
-		}
-	}
-
-	private void handlePause() {
-		if (sequenceRunService == null) {
-			if (notificationService != null) {
-				notificationService.showError("Pause action unavailable.");
-			}
-			return;
-		}
-		sequenceRunService.pause();
-		updateStateIndicator(sequenceRunService.getCurrentState());
-		if (notificationService != null) {
-			notificationService.showInfo("Detection paused.");
-		}
-	}
-
-	private void handleRestart() {
-		if (sequenceRunService == null) {
-			if (notificationService != null) {
-				notificationService.showError("Restart action unavailable.");
-			}
-			return;
-		}
-		sequenceRunService.restart();
-		updateStateIndicator(sequenceRunService.getCurrentState());
-		if (notificationService != null) {
-			notificationService.showSuccess("Restart requested.");
-		}
-	}
-
-	private void updateStateIndicator(SequenceController.State state) {
-		SwingUtilities.invokeLater(() -> {
-			boolean pauseActive = state == SequenceController.State.PAUSED;
-			boolean startActive = state == SequenceController.State.READY;
-
-			startButton.setBackground(startActive ? highlightStartBg : defaultStartBg);
-			pauseButton.setBackground(pauseActive ? highlightPauseBg : defaultPauseBg);
-			startButton.setForeground(startActive ? highlightText : defaultStartFg);
-			pauseButton.setForeground(pauseActive ? highlightText : defaultPauseFg);
-			startButton.setOpaque(true);
-			pauseButton.setOpaque(true);
-			updateStartButtonLabel(state);
-			boolean canStart = state == SequenceController.State.READY || state == SequenceController.State.PAUSED;
-			startButton.setEnabled(canStart);
-			restartButton.setEnabled(true);
-			restartButton.setVisible(true);
-
-			refreshStatusLabel();
-		});
-	}
-
-	private void updateStartButtonLabel(SequenceController.State state) {
-		String label = switch (state) {
-			case RUNNING -> "Running";
-			case ARMED -> "Armed";
-			case PAUSED -> "Start";
-			default -> "Arm";
-		};
-		startButton.setText(label);
-	}
-
-	private void refreshStatusLabel() {
-		if (sequenceRunService == null) {
-			statusLabel.setText("Status: Controls unavailable");
-			return;
-		}
-
-		SequenceController.State state = sequenceRunService.getCurrentState();
-		SequenceManager.SequenceProgress progress = sequenceRunService.getProgressSnapshot();
-		boolean detectionRunning = sequenceRunService.isDetectionRunning();
-		String statusText = buildStatusText(state, progress, detectionRunning);
-		statusLabel.setText(statusText);
-	}
-
-	private String buildStatusText(SequenceController.State state,
-	                               SequenceManager.SequenceProgress progress,
-	                               boolean detectionRunning) {
-		if (progress == null || !progress.hasActiveSequence()) {
-			return "Status: No rotation selected";
-		}
-
-		if (progress.isSequenceComplete()) {
-			return "Status: Rotation complete. Restart to run again.";
-		}
-
-		String abilities = describeAbilities(progress);
-		int totalSteps = progress.getTotalSteps();
-		int displayStep = progress.getCurrentStepIndex() >= 0 ? progress.getCurrentStepIndex() + 1 : 0;
-		String stepInfo = totalSteps > 0 && displayStep > 0
-				? "step " + displayStep + "/" + totalSteps
-				: "current step";
-
-		return switch (state) {
-			case PAUSED -> "Status: Paused - detection stopped.";
-			case ARMED -> "Status: Armed - waiting for latch (" + abilities + ").";
-			case RUNNING -> "Status: Running " + stepInfo + " (" + abilities + ").";
-			case READY -> {
-				if (!detectionRunning) {
-					yield "Status: Ready - detection halted.";
-				}
-				yield "Status: Ready - standing by (" + abilities + ").";
-			}
-			default -> "Status: " + state;
-		};
-	}
-
-	private String describeAbilities(SequenceManager.SequenceProgress progress) {
-		if (progress == null || progress.getCurrentStepAbilities() == null
-				|| progress.getCurrentStepAbilities().isEmpty()) {
-			return "looking for abilities";
-		}
-		return String.join(" / ", progress.getCurrentStepAbilities());
 	}
 
 	private void importFromClipboard() {
@@ -487,6 +320,27 @@ public class SequenceMasterPanel extends JPanel {
 	 */
 	public void setNotificationService(NotificationService notificationService) {
 		this.notificationService = notificationService;
+		runPresenter.setNotificationService(notificationService);
+	}
+
+	@Override
+	public void setStartButtonState(String label, boolean enabled, boolean highlighted) {
+		runControlPanel.setStartButtonState(label, enabled, highlighted);
+	}
+
+	@Override
+	public void setPauseButtonState(boolean enabled, boolean highlighted) {
+		runControlPanel.setPauseButtonState(enabled, highlighted);
+	}
+
+	@Override
+	public void setRestartButtonEnabled(boolean enabled) {
+		runControlPanel.setRestartButtonEnabled(enabled);
+	}
+
+	@Override
+	public void setStatusText(String text) {
+		runControlPanel.setStatusText(text);
 	}
 
 	/**
