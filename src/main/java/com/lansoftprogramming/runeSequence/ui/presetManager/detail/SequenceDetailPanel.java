@@ -20,6 +20,7 @@ import java.util.List;
 
 public class SequenceDetailPanel extends JPanel implements SequenceDetailPresenter.View {
 	private final JTextField sequenceNameField;
+	private final JPanel tooltipButton;
 	private final JPanel insertButton;
 	private final JButton settingsButton;
 	private final JButton saveButton;
@@ -28,6 +29,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private final SequenceDetailPresenter presenter;
 	private final SequenceDetailService detailService;
 	private final ImageIcon insertIcon;
+	private final ImageIcon tooltipIcon;
 	private final NotificationService notifications;
 
 	public SequenceDetailPanel(SequenceDetailService detailService, NotificationService notifications) {
@@ -38,7 +40,9 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 		sequenceNameField = new JTextField();
 		insertIcon = createInsertIcon();
+		tooltipIcon = createTooltipIcon();
 		insertButton = createInsertButton();
+		tooltipButton = createTooltipButton();
 		settingsButton = new JButton("Settings");
 		saveButton = new JButton("Save");
 		discardButton = new JButton("Discard");
@@ -66,6 +70,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		namePanel.add(sequenceNameField, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+		buttonPanel.add(tooltipButton);
 		buttonPanel.add(insertButton);
 		buttonPanel.add(settingsButton);
 		buttonPanel.add(discardButton);
@@ -115,6 +120,43 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		return panel;
 	}
 
+	private JPanel createTooltipButton() {
+		JPanel panel = new JPanel();
+		panel.setName("tooltipPaletteButton");
+		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		Color baseColor = UIManager.getColor("Button.background");
+		if (baseColor == null) {
+			baseColor = UiColorPalette.UI_CARD_BACKGROUND;
+		}
+		Color hoverColor = baseColor.brighter();
+		panel.setOpaque(true);
+		panel.setBackground(baseColor);
+		panel.setBorder(UiColorPalette.paddedLineBorder(UiColorPalette.UI_CARD_BORDER_STRONG, 2));
+		panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+		JLabel iconLabel = new JLabel(tooltipIcon);
+		iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+		panel.add(Box.createVerticalGlue());
+		panel.add(iconLabel);
+		panel.add(Box.createVerticalGlue());
+
+		panel.setToolTipText("Drag to add a tooltip message");
+		Color finalBaseColor = baseColor;
+		Color finalHoverColor = hoverColor;
+		panel.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				panel.setBackground(finalHoverColor);
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e) {
+				panel.setBackground(finalBaseColor);
+			}
+		});
+		return panel;
+	}
+
 	private void alignInsertButtonSize() {
 		int referenceHeight = Math.max(
 				saveButton.getPreferredSize().height,
@@ -135,6 +177,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		saveButton.addActionListener(e -> presenter.saveSequence());
 		discardButton.addActionListener(e -> presenter.discardChanges());
 		registerInsertDragHandler();
+		registerTooltipDragHandler();
 	}
 
 	public void discardChanges() {
@@ -212,6 +255,18 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		});
 	}
 
+	private void registerTooltipDragHandler() {
+		tooltipButton.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mousePressed(MouseEvent e) {
+				if (!SwingUtilities.isLeftMouseButton(e)) {
+					return;
+				}
+				startTooltipDrag(e);
+			}
+		});
+	}
+
 	private void startClipboardInsertDrag(MouseEvent triggerEvent) {
 		String expression = readClipboardContent();
 		if (expression == null || expression.trim().isEmpty()) {
@@ -236,6 +291,21 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		abilityFlowView.startPaletteDrag(item, insertButton, triggerEvent.getPoint());
 	}
 
+	private void startTooltipDrag(MouseEvent triggerEvent) {
+		String defaultMessage = "New tooltip";
+		String key = "tooltip-" + System.nanoTime();
+
+		com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem item =
+				new com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem(
+						key,
+						defaultMessage,
+						defaultMessage,
+						tooltipIcon
+				);
+
+		abilityFlowView.startPaletteDrag(item, tooltipButton, triggerEvent.getPoint());
+	}
+
 	private ImageIcon createInsertIcon() {
 		int size = 18;
 		int padding = 3;
@@ -250,6 +320,24 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		int mid = size / 2;
 		int arm = mid - padding - 1;
 		g2d.drawLine(mid, mid - arm, mid, mid + arm);
+		g2d.drawLine(mid - arm, mid, mid + arm, mid);
+		g2d.dispose();
+		return new ImageIcon(image);
+	}
+
+	private ImageIcon createTooltipIcon() {
+		int size = 18;
+		int padding = 3;
+		int cornerRadius = 8;
+		BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g2d = image.createGraphics();
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g2d.setColor(UiColorPalette.INSERT_ICON_FILL);
+		g2d.fillRoundRect(padding, padding, size - (padding * 2), size - (padding * 2), cornerRadius, cornerRadius);
+		g2d.setStroke(new BasicStroke(2f));
+		g2d.setColor(UiColorPalette.TEXT_INVERSE);
+		int mid = size / 2;
+		int arm = mid - padding - 1;
 		g2d.drawLine(mid - arm, mid, mid + arm, mid);
 		g2d.dispose();
 		return new ImageIcon(image);

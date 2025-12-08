@@ -21,6 +21,7 @@ class AbilityFlowView extends JPanel {
 	private final SequenceDetailService detailService;
 	private AbilityDragController dragController;
 	private AbilityCardFactory cardFactory;
+	private TooltipEditHandler tooltipEditHandler;
 	private final Color defaultBackground;
 	private final Border defaultBorder;
 	private final JPanel emptyDropIndicator;
@@ -38,6 +39,10 @@ class AbilityFlowView extends JPanel {
 	void attachDragController(AbilityDragController.DragCallback callback) {
 		this.dragController = new AbilityDragController(this, callback);
 		this.cardFactory = new AbilityCardFactory(dragController);
+	}
+
+	void setTooltipEditHandler(TooltipEditHandler tooltipEditHandler) {
+		this.tooltipEditHandler = tooltipEditHandler;
 	}
 
 	void renderSequenceElements(List<SequenceElement> elements) {
@@ -62,6 +67,8 @@ class AbilityFlowView extends JPanel {
 				addStandaloneAbility(element, index);
 			} else if (element.isSeparator()) {
 				add(cardFactory.createSeparatorLabel(element));
+			} else if (element.isTooltip()) {
+				addTooltipCard(element, index);
 			}
 
 			index++;
@@ -237,6 +244,26 @@ class AbilityFlowView extends JPanel {
 			card.putClientProperty("zoneType", null);
 			add(card);
 		}
+	}
+
+	private void addTooltipCard(SequenceElement element, int elementIndex) {
+		JPanel card = cardFactory.createTooltipCard(element.getValue());
+		card.putClientProperty("elementIndex", elementIndex);
+		card.putClientProperty("zoneType", null);
+		if (tooltipEditHandler != null) {
+			card.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mouseClicked(MouseEvent e) {
+					if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+						Object rawIndex = card.getClientProperty("elementIndex");
+						if (rawIndex instanceof Integer idx) {
+							tooltipEditHandler.editTooltipAt(idx);
+						}
+					}
+				}
+			});
+		}
+		add(card);
 	}
 
 	private void highlightEmptyPanel(DropZoneType zoneType) {

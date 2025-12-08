@@ -3,18 +3,22 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
+import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
+import java.awt.image.BufferedImage;
 
 class AbilityCardFactory {
 	private final AbilityDragController dragController;
+	private final ImageIcon tooltipIcon;
 
 	AbilityCardFactory(AbilityDragController dragController) {
 		this.dragController = dragController;
+		this.tooltipIcon = createTooltipIcon();
 	}
 
 	JPanel createAbilityCard(AbilityItem item) {
@@ -62,6 +66,13 @@ class AbilityCardFactory {
 	}
 
 	private String createTooltipText(AbilityItem item) {
+		if (item instanceof TooltipItem tooltipItem) {
+			String message = tooltipItem.getMessage();
+			if (message == null || message.isEmpty()) {
+				return "<html><b>Tooltip</b><br/>(Double-click to edit)</html>";
+			}
+			return "<html>" + escapeHtml(message) + "</html>";
+		}
 		return String.format("<html><b>%s</b><br/>Type: %s<br/>Level: %d</html>",
 				item.getDisplayName(),
 				item.getType(),
@@ -73,5 +84,50 @@ class AbilityCardFactory {
 			return text;
 		}
 		return text.substring(0, maxLength - 3) + "...";
+	}
+
+	JPanel createTooltipCard(String message) {
+		String normalized = message != null ? message : "";
+		String displayName = normalized.isEmpty() ? "Tooltip" : truncateText(normalized, 12);
+		String key = "tooltip-" + Integer.toHexString(normalized.hashCode());
+		TooltipItem item = new TooltipItem(key, displayName, normalized, tooltipIcon);
+		return createAbilityCard(item);
+	}
+
+	private ImageIcon createTooltipIcon() {
+		int size = 18;
+		int padding = 3;
+		int cornerRadius = 8;
+		BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g2d = image.createGraphics();
+		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+		g2d.setColor(UiColorPalette.INSERT_ICON_FILL);
+		g2d.fillRoundRect(padding, padding, size - (padding * 2), size - (padding * 2), cornerRadius, cornerRadius);
+		g2d.setColor(UiColorPalette.TEXT_INVERSE);
+		g2d.setFont(g2d.getFont().deriveFont(Font.BOLD, 10f));
+		FontMetrics fm = g2d.getFontMetrics();
+		String text = "T";
+		int textWidth = fm.stringWidth(text);
+		int textHeight = fm.getAscent();
+		int x = (size - textWidth) / 2;
+		int y = (size + textHeight) / 2 - 2;
+		g2d.drawString(text, x, y);
+		g2d.dispose();
+		return new ImageIcon(image);
+	}
+
+	private String escapeHtml(String text) {
+		StringBuilder builder = new StringBuilder(text.length());
+		for (int i = 0; i < text.length(); i++) {
+			char c = text.charAt(i);
+			switch (c) {
+				case '<' -> builder.append("&lt;");
+				case '>' -> builder.append("&gt;");
+				case '&' -> builder.append("&amp;");
+				case '"' -> builder.append("&quot;");
+				default -> builder.append(c);
+			}
+		}
+		return builder.toString();
 	}
 }

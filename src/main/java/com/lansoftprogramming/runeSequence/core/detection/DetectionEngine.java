@@ -2,8 +2,10 @@ package com.lansoftprogramming.runeSequence.core.detection;
 
 import com.lansoftprogramming.runeSequence.application.SequenceManager;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
+import com.lansoftprogramming.runeSequence.core.sequence.runtime.SequenceTooltip;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import com.lansoftprogramming.runeSequence.ui.overlay.MouseTooltipOverlay;
 import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.slf4j.Logger;
@@ -24,6 +26,7 @@ public class DetectionEngine {
 	private final TemplateDetector detector;
 	private final SequenceManager sequenceManager;
 	private final OverlayRenderer overlay;
+	private final MouseTooltipOverlay tooltipOverlay;
 	private final int detectionIntervalMs;
 	private final NotificationService notificationService;
 
@@ -32,11 +35,13 @@ public class DetectionEngine {
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
+	                       MouseTooltipOverlay tooltipOverlay,
 	                       NotificationService notificationService, int detectionIntervalMs) {
 		this.screenCapture = screenCapture;
 		this.detector = detector;
 		this.sequenceManager = sequenceManager;
 		this.overlay = overlay;
+		this.tooltipOverlay = tooltipOverlay;
 		this.notificationService = notificationService;
 		this.detectionIntervalMs = detectionIntervalMs;
 	}
@@ -59,6 +64,9 @@ public class DetectionEngine {
 	public void stop() {
 		if (!isRunning) {
 			overlay.clearOverlays();
+			if (tooltipOverlay != null) {
+				tooltipOverlay.clear();
+			}
 			return;
 		}
 
@@ -67,6 +75,9 @@ public class DetectionEngine {
 			scheduler.shutdown();
 		}
 		overlay.clearOverlays();
+		if (tooltipOverlay != null) {
+			tooltipOverlay.clear();
+		}
 		logger.info("Detection engine stopped");
 	}
 
@@ -146,9 +157,13 @@ public class DetectionEngine {
 
 		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
 		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
+		List<SequenceTooltip> currentTooltips = sequenceManager.getCurrentTooltips();
 
 
 		overlay.updateOverlays(currentAbilities, nextAbilities);
+		if (tooltipOverlay != null) {
+			tooltipOverlay.showTooltips(currentTooltips);
+		}
 	}
 
 	public boolean isRunning() {

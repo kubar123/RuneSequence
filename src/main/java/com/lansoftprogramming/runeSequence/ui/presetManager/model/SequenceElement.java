@@ -10,7 +10,8 @@ public class SequenceElement {
 		ABILITY,
 		ARROW,
 		PLUS,
-		SLASH
+		SLASH,
+		TOOLTIP
 	}
 
 	private final Type type;
@@ -37,6 +38,10 @@ public class SequenceElement {
 		return new SequenceElement(Type.SLASH, "/");
 	}
 
+	public static SequenceElement tooltip(String message) {
+		return new SequenceElement(Type.TOOLTIP, message);
+	}
+
 	public Type getType() {
 		return type;
 	}
@@ -51,6 +56,10 @@ public class SequenceElement {
 
 	public boolean isSeparator() {
 		return type == Type.ARROW || type == Type.PLUS || type == Type.SLASH;
+	}
+
+	public boolean isTooltip() {
+		return type == Type.TOOLTIP;
 	}
 
 	public boolean isPlus() {

@@ -41,6 +41,11 @@ public final class UiColorPalette {
 	public static final Color OVERLAY_CURRENT_OR = new Color(221, 0, 255, 220);
 	public static final Color OVERLAY_NEXT_OR = new Color(140, 0, 255, 200);
 
+	// --- Tooltip overlay (mouse-follow runtime hints) ---
+	public static final Color TOOLTIP_OVERLAY_BACKGROUND = new Color(20, 20, 20, 220);
+	public static final Color TOOLTIP_OVERLAY_BORDER = new Color(255, 255, 255, 200);
+	public static final Color TOOLTIP_OVERLAY_TEXT = Color.WHITE;
+
 	// --- Ability flow grouping cards (AND/OR grouping chips) ---
 	public static final Color ABILITY_GROUP_AND_BACKGROUND = new Color(220, 255, 223);
 	public static final Color ABILITY_GROUP_OR_BACKGROUND = new Color(196, 163, 231);

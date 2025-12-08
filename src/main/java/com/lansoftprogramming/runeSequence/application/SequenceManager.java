@@ -4,6 +4,8 @@ import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
+import com.lansoftprogramming.runeSequence.core.sequence.runtime.SequenceTooltip;
+import com.lansoftprogramming.runeSequence.core.sequence.runtime.TooltipSchedule;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import org.bytedeco.opencv.opencv_core.Mat;
@@ -23,6 +25,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 	private final AbilityConfig abilityConfig;
 	private final Map<String, SequenceDefinition> namedSequences;
+	private final Map<String, TooltipSchedule> tooltipSchedules;
 	private final NotificationService notifications;
 	private final TemplateDetector templateDetector;
 	private ActiveSequence activeSequence;
@@ -32,10 +35,14 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	private boolean sequenceComplete = false;
 	private String activeSequenceId;
 
-	public SequenceManager(Map<String, SequenceDefinition> namedSequences, AbilityConfig abilityConfig,
-	                       NotificationService notifications, TemplateDetector templateDetector) {
+	public SequenceManager(Map<String, SequenceDefinition> namedSequences,
+	                       Map<String, TooltipSchedule> tooltipSchedules,
+	                       AbilityConfig abilityConfig,
+	                       NotificationService notifications,
+	                       TemplateDetector templateDetector) {
 		this.abilityConfig = Objects.requireNonNull(abilityConfig);
 		this.namedSequences = Objects.requireNonNull(namedSequences);
+		this.tooltipSchedules = tooltipSchedules != null ? Map.copyOf(tooltipSchedules) : Map.of();
 		this.notifications = Objects.requireNonNull(notifications);
 		this.templateDetector = Objects.requireNonNull(templateDetector);
 	}
@@ -121,6 +128,25 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			return List.of();
 		}
 		return activeSequence.getNextAbilities();
+	}
+
+	/**
+	 * Returns tooltip messages associated with the current step of the active sequence.
+	 * Tooltips are display-only annotations and do not influence detection or timing.
+	 */
+	public synchronized List<SequenceTooltip> getCurrentTooltips() {
+		if (activeSequence == null || sequenceComplete) {
+			return List.of();
+		}
+		if (activeSequenceId == null) {
+			return List.of();
+		}
+		TooltipSchedule schedule = tooltipSchedules.get(activeSequenceId);
+		if (schedule == null) {
+			return List.of();
+		}
+		int stepIndex = activeSequence.getCurrentStepIndex();
+		return schedule.getTooltipsForStep(stepIndex);
 	}
 
 	public synchronized List<String> getActiveSequenceAbilityKeys() {

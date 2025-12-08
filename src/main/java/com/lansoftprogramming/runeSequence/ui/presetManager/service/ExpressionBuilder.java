@@ -25,15 +25,21 @@ public class ExpressionBuilder {
 
         StringBuilder sb = new StringBuilder();
         for (SequenceElement element : elements) {
-            sb.append(element.getValue());
+            if (element.isTooltip()) {
+                sb.append('(')
+                    .append(escapeTooltipText(element.getValue()))
+                    .append(')');
+            } else {
+                sb.append(element.getValue());
+            }
         }
         return sb.toString();
     }
 
-    /**
-     * Removes the ability at the specified element index (if valid).
-     */
-    public List<SequenceElement> removeAbilityAt(List<SequenceElement> elements, int abilityElementIndex) {
+	/**
+	 * Removes the ability at the specified element index (if valid).
+	 */
+	public List<SequenceElement> removeAbilityAt(List<SequenceElement> elements, int abilityElementIndex) {
         List<SequenceElement> result = new ArrayList<>(elements);
         if (abilityElementIndex < 0 || abilityElementIndex >= result.size()) {
             return result;
@@ -42,9 +48,25 @@ public class ExpressionBuilder {
         if (!candidate.isAbility()) {
             return result;
         }
-        removeAbilityAtIndexInternal(result, abilityElementIndex);
-        return result;
-    }
+		removeAbilityAtIndexInternal(result, abilityElementIndex);
+		return result;
+	}
+
+	/**
+	 * Removes a tooltip element at the specified index without touching separators.
+	 */
+	public List<SequenceElement> removeTooltipAt(List<SequenceElement> elements, int tooltipElementIndex) {
+		List<SequenceElement> result = new ArrayList<>(elements);
+		if (tooltipElementIndex < 0 || tooltipElementIndex >= result.size()) {
+			return result;
+		}
+		SequenceElement candidate = result.get(tooltipElementIndex);
+		if (!candidate.isTooltip()) {
+			return result;
+		}
+		result.remove(tooltipElementIndex);
+		return result;
+	}
     // remove ability and normalize adjacent separators/arrows to keep sequence parseable
     private void removeAbilityAtIndexInternal(List<SequenceElement> result, int abilityIndex) {
         SequenceElement left = abilityIndex > 0 ? result.get(abilityIndex - 1) : null;
@@ -96,7 +118,7 @@ public class ExpressionBuilder {
     /**
      * Inserts ability with proper grouping based on drop zone.
      */
-    public List<SequenceElement> insertAbility(List<SequenceElement> elements, String abilityKey,
+	public List<SequenceElement> insertAbility(List<SequenceElement> elements, String abilityKey,
                                                 int insertIndex, DropZoneType zoneType, DropSide dropSide) {
         List<SequenceElement> result = new ArrayList<>(elements);
 
@@ -122,6 +144,29 @@ public class ExpressionBuilder {
 
         return result;
     }
+
+	/**
+	 * Inserts a tooltip element at the given structural index.
+	 * Tooltip placement does not alter separators or grouping semantics.
+	 */
+	public List<SequenceElement> insertTooltip(List<SequenceElement> elements,
+	                                           String message,
+	                                           int insertIndex,
+	                                           DropZoneType zoneType,
+	                                           DropSide dropSide) {
+		List<SequenceElement> result = new ArrayList<>(elements);
+		if (message == null) {
+			return result;
+		}
+		if (result.isEmpty()) {
+			result.add(SequenceElement.tooltip(message));
+			return result;
+		}
+
+		int clampedIndex = Math.max(0, Math.min(insertIndex, result.size()));
+		result.add(clampedIndex, SequenceElement.tooltip(message));
+		return result;
+	}
 
     /**
      * Inserts an entire pre-parsed sequence (clipboard payload) at the given drop preview location.
@@ -523,5 +568,14 @@ public class ExpressionBuilder {
             this.startIndex = startIndex;
             this.endIndex = endIndex;
         }
+    }
+
+    private String escapeTooltipText(String message) {
+        if (message == null || message.isEmpty()) {
+            return "";
+        }
+        return message
+            .replace("(", "\\(")
+            .replace(")", "\\)");
     }
 }

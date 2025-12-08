@@ -1,14 +1,11 @@
 package com.lansoftprogramming.runeSequence;
 
 import com.formdev.flatlaf.FlatDarkLaf;
-import com.lansoftprogramming.runeSequence.application.SequenceController;
-import com.lansoftprogramming.runeSequence.application.SequenceManager;
-import com.lansoftprogramming.runeSequence.application.SequenceRunService;
-import com.lansoftprogramming.runeSequence.application.TemplateCache;
+import com.lansoftprogramming.runeSequence.application.*;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
 import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
-import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
+import com.lansoftprogramming.runeSequence.core.sequence.runtime.TooltipSchedule;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
@@ -17,6 +14,7 @@ import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyBindingSo
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
 import com.lansoftprogramming.runeSequence.ui.notification.DefaultNotificationService;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import com.lansoftprogramming.runeSequence.ui.overlay.MouseTooltipOverlay;
 import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
@@ -59,6 +57,7 @@ public class Main {
 						&& settings.getUi() != null
 						&& settings.getUi().isBlinkCurrentAbilities();
 			});
+			MouseTooltipOverlay mouseTooltipOverlay = new MouseTooltipOverlay();
 			NotificationService notifications = createNotificationService();
 
 			// 4. Set up the Sequence Manager with our debug rotation
@@ -68,15 +67,31 @@ public class Main {
 				return;
 			}
 
-			// Parse all presets from the config file
-			Map<String, SequenceDefinition> namedSequences = rotationConfig.getPresets().entrySet().stream()
+			// Parse all presets from the config file and build tooltip schedules
+			TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder();
+			Map<String, TooltipScheduleBuilder.BuildResult> buildResults = rotationConfig.getPresets().entrySet().stream()
 					.collect(Collectors.toMap(
 							Map.Entry::getKey,
-							entry -> SequenceParser.parse(entry.getValue().getExpression())
+							entry -> scheduleBuilder.build(entry.getValue().getExpression())
+					));
+
+			Map<String, SequenceDefinition> namedSequences = buildResults.entrySet().stream()
+					.filter(entry -> entry.getValue().definition() != null)
+					.collect(Collectors.toMap(
+							Map.Entry::getKey,
+							entry -> entry.getValue().definition()
+					));
+
+			Map<String, TooltipSchedule> tooltipSchedules = buildResults.entrySet().stream()
+					.filter(entry -> entry.getValue().definition() != null)
+					.collect(Collectors.toMap(
+							Map.Entry::getKey,
+							entry -> entry.getValue().schedule()
 					));
 
 			SequenceManager sequenceManager = new SequenceManager(
 					namedSequences,
+					tooltipSchedules,
 					configManager.getAbilities(),
 					notifications,
 					templateDetector
@@ -136,6 +151,7 @@ public class Main {
 					templateDetector,
 					sequenceManager,
 					overlayRenderer,
+					mouseTooltipOverlay,
 					notifications,
 					configManager.getDetectionInterval()
 			);
@@ -172,6 +188,7 @@ public class Main {
 				logger.info("Shutdown sequence initiated.");
 				detectionEngine.stop();
 				overlayRenderer.shutdown();
+				mouseTooltipOverlay.shutdown();
 				templateCache.shutdown();
 				if (toastHostWindow != null) {
 					toastHostWindow.dispose();

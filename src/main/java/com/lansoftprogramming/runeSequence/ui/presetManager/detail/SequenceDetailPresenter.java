@@ -8,6 +8,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPrevi
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.ExpressionBuilder;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
+import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		this.previewElements = new ArrayList<>();
 		this.saveListeners = new ArrayList<>();
 		this.flowView.attachDragController(this);
+		this.flowView.setTooltipEditHandler(this::editTooltipAt);
 		this.loadedSequenceName = "";
 		this.loadedExpression = "";
 		this.loadedElements = new ArrayList<>();
@@ -193,23 +195,35 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		// Keep a pristine copy so cancellation can restore the view state.
 		originalElementsBeforeDrag = new ArrayList<>(currentElements);
 		if (!isFromPalette) {
-			int removalIndex = resolveElementIndexForDrag(item, abilityIndex);
-			logger.info("Drag start resolved removalIndex={} for key={} (abilityIndex={})",
-					removalIndex, item.getKey(), abilityIndex);
-			logAbilityOrder("Before removal", currentElements);
-			if (removalIndex >= 0) {
-				List<SequenceElement> working = new ArrayList<>(currentElements);
-				String beforeExpr = expressionBuilder.buildExpression(working);
-				previewElements = expressionBuilder.removeAbilityAt(working, removalIndex);
-				String afterExpr = expressionBuilder.buildExpression(previewElements);
-				logger.info("Removed ability occurrence: key={}, before='{}', after='{}'",
-						item.getKey(), beforeExpr, afterExpr);
+			if (item instanceof TooltipItem) {
+				int removalIndex = resolveTooltipElementIndex(abilityIndex);
+				logger.info("Drag start resolved tooltip removalIndex={} (cardIndex={})", removalIndex, abilityIndex);
+				if (removalIndex >= 0) {
+					List<SequenceElement> working = new ArrayList<>(currentElements);
+					previewElements = expressionBuilder.removeTooltipAt(working, removalIndex);
+				} else {
+					logger.warn("Failed to resolve tooltip index for drag start: abilityIndex={}", abilityIndex);
+					previewElements = new ArrayList<>(currentElements);
+				}
 			} else {
-				logger.warn("Failed to resolve element index for drag start: item={}, abilityIndex={}",
-						item.getKey(), abilityIndex);
-				previewElements = new ArrayList<>(currentElements);
+				int removalIndex = resolveElementIndexForDrag(item, abilityIndex);
+				logger.info("Drag start resolved removalIndex={} for key={} (abilityIndex={})",
+						removalIndex, item.getKey(), abilityIndex);
+				logAbilityOrder("Before removal", currentElements);
+				if (removalIndex >= 0) {
+					List<SequenceElement> working = new ArrayList<>(currentElements);
+					String beforeExpr = expressionBuilder.buildExpression(working);
+					previewElements = expressionBuilder.removeAbilityAt(working, removalIndex);
+					String afterExpr = expressionBuilder.buildExpression(previewElements);
+					logger.info("Removed ability occurrence: key={}, before='{}', after='{}'",
+							item.getKey(), beforeExpr, afterExpr);
+				} else {
+					logger.warn("Failed to resolve element index for drag start: item={}, abilityIndex={}",
+							item.getKey(), abilityIndex);
+					previewElements = new ArrayList<>(currentElements);
+				}
+				logAbilityOrder("After removal", previewElements);
 			}
-			logAbilityOrder("After removal", previewElements);
 		} else {
 			previewElements = new ArrayList<>(currentElements);
 		}
@@ -267,6 +281,14 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 					currentElements = expressionBuilder.insertSequence(
 							new ArrayList<>(previewElements),
 							clipboardItem.getElements(),
+							dropPreview.getInsertIndex(),
+							dropPreview.getZoneType(),
+							dropPreview.getDropSide()
+					);
+				} else if (draggedItem instanceof TooltipItem tooltipItem && dropPreview != null) {
+					currentElements = expressionBuilder.insertTooltip(
+							new ArrayList<>(previewElements),
+							tooltipItem.getMessage(),
 							dropPreview.getInsertIndex(),
 							dropPreview.getZoneType(),
 							dropPreview.getDropSide()
@@ -343,6 +365,63 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		}
 	}
 
+	private void editTooltipAt(int elementIndex) {
+		if (elementIndex < 0 || elementIndex >= currentElements.size()) {
+			return;
+		}
+		SequenceElement element = currentElements.get(elementIndex);
+		if (!element.isTooltip()) {
+			return;
+		}
+
+		String currentMessage = element.getValue();
+		String input = (String) JOptionPane.showInputDialog(
+				view.asComponent(),
+				"Edit tooltip text:",
+				"Edit Tooltip",
+				JOptionPane.PLAIN_MESSAGE,
+				null,
+				null,
+				currentMessage
+		);
+
+		if (input == null) {
+			return;
+		}
+		String trimmed = input.trim();
+		if (!trimmed.isEmpty() && !isValidTooltipMessage(trimmed)) {
+			if (notifications != null) {
+				notifications.showWarning("Tooltip text cannot contain →, +, or / characters.");
+			} else {
+				Toolkit.getDefaultToolkit().beep();
+			}
+			return;
+		}
+
+		List<SequenceElement> updated = new ArrayList<>(currentElements);
+
+		if (trimmed.isEmpty()) {
+			updated = expressionBuilder.removeTooltipAt(updated, elementIndex);
+		} else {
+			updated.set(elementIndex, SequenceElement.tooltip(trimmed));
+		}
+
+		currentElements = updated;
+		previewElements = new ArrayList<>(updated);
+		updateExpression();
+		flowView.renderSequenceElements(currentElements);
+	}
+
+	private boolean isValidTooltipMessage(String message) {
+		for (int i = 0; i < message.length(); i++) {
+			char c = message.charAt(i);
+			if (c == '→' || c == '+' || c == '/') {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private int resolveElementIndexForDrag(AbilityItem item, int abilityIndex) {
 //		if (elementIndex >= 0 && elementIndex < currentElements.size()) {
 //			SequenceElement candidate = currentElements.get(elementIndex);
@@ -377,6 +456,27 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			}
 		}
 
+		return -1;
+	}
+
+	private int resolveTooltipElementIndex(int cardIndex) {
+		if (cardIndex < 0) {
+			return -1;
+		}
+		Component[] cards = flowView.getAbilityCardArray();
+		if (cardIndex >= 0 && cardIndex < cards.length && cards[cardIndex] instanceof JComponent card) {
+			Object rawIndex = card.getClientProperty("elementIndex");
+			if (rawIndex instanceof Integer idx) {
+				if (idx >= 0 && idx < currentElements.size() && currentElements.get(idx).isTooltip()) {
+					return idx;
+				}
+			}
+		}
+		for (int i = 0; i < currentElements.size(); i++) {
+			if (currentElements.get(i).isTooltip()) {
+				return i;
+			}
+		}
 		return -1;
 	}
 

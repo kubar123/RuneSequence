@@ -5,6 +5,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinitio
 import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
 import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipMarkupParser;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,15 @@ import java.util.List;
  */
 public class SequenceVisualService {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceVisualService.class);
+	private final TooltipMarkupParser tooltipMarkupParser;
+
+	public SequenceVisualService() {
+		this(new TooltipMarkupParser());
+	}
+
+	public SequenceVisualService(TooltipMarkupParser tooltipMarkupParser) {
+		this.tooltipMarkupParser = tooltipMarkupParser;
+	}
 
 	/**
 	 * Converts a sequence expression string into a list of visual elements.
@@ -33,13 +43,35 @@ public class SequenceVisualService {
 		}
 
 		try {
-			// Parse expression into AST
-			SequenceDefinition definition = SequenceParser.parse(expression);
+			TooltipMarkupParser.ParseResult parseResult = tooltipMarkupParser.parse(expression);
+			String cleanedExpression = parseResult.cleanedExpression();
+
+			if (cleanedExpression == null || cleanedExpression.trim().isEmpty()) {
+				return tooltipMarkupParser.insertTooltips(
+						new ArrayList<>(),
+						parseResult.tooltipPlacements(),
+						SequenceElement::tooltip
+				);
+			}
+
+			// Parse expression into AST without tooltip annotations
+			SequenceDefinition definition = SequenceParser.parse(cleanedExpression);
 
 			// Convert AST to visual elements
-			return convertDefinitionToElements(definition);
+			List<SequenceElement> baseElements = convertDefinitionToElements(definition);
+			return tooltipMarkupParser.insertTooltips(
+					baseElements,
+					parseResult.tooltipPlacements(),
+					SequenceElement::tooltip
+			);
 		} catch (Exception e) {
-			logger.error("Failed to parse expression: {}", expression, e);
+			logger.error("Failed to parse expression with tooltip handling: {}", expression, e);
+			try {
+				SequenceDefinition fallbackDefinition = SequenceParser.parse(expression);
+				return convertDefinitionToElements(fallbackDefinition);
+			} catch (Exception fallback) {
+				logger.error("Fallback parse without tooltip stripping also failed for expression: {}", expression, fallback);
+			}
 			return new ArrayList<>();
 		}
 	}
