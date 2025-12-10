@@ -1,6 +1,8 @@
 package com.lansoftprogramming.runeSequence.ui.notification;
 
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -11,6 +13,7 @@ import java.awt.*;
  */
 public class DefaultNotificationService implements NotificationService {
 	private static final String DEFAULT_TITLE = "RuneSequence";
+	private static final Logger logger = LoggerFactory.getLogger(DefaultNotificationService.class);
 
 	private final Component parentComponent;
 	private final ToastClient toastClient;
@@ -94,8 +97,17 @@ public class DefaultNotificationService implements NotificationService {
 		}
 		final int[] result = new int[1];
 		try {
+			long startNanos = System.nanoTime();
+			if (logger.isDebugEnabled()) {
+				logger.debug("DefaultNotificationService.invokeAndReturn blocking on EDT for dialog");
+			}
 			SwingUtilities.invokeAndWait(() -> result[0] = supplier.get());
+			if (logger.isDebugEnabled()) {
+				long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+				logger.debug("DefaultNotificationService.invokeAndReturn dialog completed in {}ms", elapsedMs);
+			}
 		} catch (Exception e) {
+			logger.warn("DefaultNotificationService.invokeAndReturn failed; returning NO_OPTION", e);
 			return JOptionPane.NO_OPTION;
 		}
 		return result[0];

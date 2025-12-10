@@ -68,7 +68,9 @@ public class Main {
 			}
 
 			// Parse all presets from the config file and build tooltip schedules
-			TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder();
+			TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder(
+					configManager.getAbilities().getAbilities().keySet()
+			);
 			Map<String, TooltipScheduleBuilder.BuildResult> buildResults = rotationConfig.getPresets().entrySet().stream()
 					.collect(Collectors.toMap(
 							Map.Entry::getKey,

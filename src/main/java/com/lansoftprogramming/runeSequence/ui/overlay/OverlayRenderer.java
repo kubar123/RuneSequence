@@ -44,6 +44,8 @@ public class OverlayRenderer {
 	private final OverlayPanel overlayPanel;
 	private final ConcurrentMap<String, OverlayBorder> activeBorders;
 	private final ThreadPoolExecutor renderExecutor;
+	private long overlayUpdateSeq = 0L;
+	private long overlayRepaintSeq = 0L;
 	private volatile boolean overlayVisible = false;
 	private volatile boolean blinkVisible = true;
 
@@ -153,6 +155,9 @@ public class OverlayRenderer {
 	}
 
 	private void processOverlayUpdate(List<DetectionResult> currentAbilities, List<DetectionResult> nextAbilities) {
+		long updateSeq = ++overlayUpdateSeq;
+		long startNanos = System.nanoTime();
+
 		try {
 			Set<String> desiredKeys = new HashSet<>();
 			boolean bordersChanged = false;
@@ -194,7 +199,17 @@ public class OverlayRenderer {
 			boolean shouldShow = !activeBorders.isEmpty();
 			setOverlayVisible(shouldShow);
 
+			if (logger.isDebugEnabled()) {
+				long elapsedMicros = (System.nanoTime() - startNanos) / 1_000;
+				logger.debug("OverlayRenderer.processOverlayUpdate #{} changed={} activeBorders={} ({}µs)",
+						updateSeq, bordersChanged, activeBorders.size(), elapsedMicros);
+			}
+
 			if (bordersChanged) {
+				long repaintSeq = ++overlayRepaintSeq;
+				if (logger.isDebugEnabled()) {
+					logger.debug("OverlayRenderer posting repaint #{} for update #{}", repaintSeq, updateSeq);
+				}
 				SwingUtilities.invokeLater(overlayPanel::repaint);
 			}
 

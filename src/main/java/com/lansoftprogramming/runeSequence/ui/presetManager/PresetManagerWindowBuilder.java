@@ -32,7 +32,9 @@ public class PresetManagerWindowBuilder {
 			AbilityIconLoader iconLoader = new AbilityIconLoader(
 					configManager.getConfigDir().resolve("Abilities")
 			);
-			SequenceVisualService visualService = new SequenceVisualService();
+			SequenceVisualService visualService = new SequenceVisualService(
+					configManager.getAbilities().getAbilities().keySet()
+			);
 			SequenceDetailService detailService = new SequenceDetailService(
 					configManager,
 					iconLoader,

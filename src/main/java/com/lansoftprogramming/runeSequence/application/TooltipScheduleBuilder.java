@@ -11,10 +11,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.runtime.TooltipSchedule
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Builds a {@link TooltipSchedule} for a given rotation expression.
@@ -32,6 +29,10 @@ public class TooltipScheduleBuilder {
 
 	public TooltipScheduleBuilder() {
 		this(new TooltipMarkupParser());
+	}
+
+	public TooltipScheduleBuilder(Set<String> abilityNames) {
+		this(new TooltipMarkupParser(abilityNames));
 	}
 
 	public TooltipScheduleBuilder(TooltipMarkupParser tooltipMarkupParser) {
@@ -90,20 +91,34 @@ public class TooltipScheduleBuilder {
 
 		for (TooltipMarkupParser.TooltipPlacement placement : placements) {
 			if (placement == null) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Skipping null tooltip placement during schedule build");
+				}
 				continue;
 			}
 			int insertionIndex = placement.insertionIndex();
 			if (insertionIndex < 0 || insertionIndex > maxIndex) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Skipping tooltip placement with out-of-bounds insertionIndex {} (max={})",
+							insertionIndex, maxIndex);
+				}
 				continue;
 			}
 
 			int stepIndex = resolveStepIndexForInsertion(structure, insertionIndex);
 			if (stepIndex < 0) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Skipping tooltip placement at structural index {} with no resolvable step",
+							insertionIndex);
+				}
 				continue;
 			}
 
 			String message = placement.message();
 			if (message == null || message.isBlank()) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Skipping tooltip placement at structural index {} with blank message", insertionIndex);
+				}
 				continue;
 			}
 
@@ -113,6 +128,10 @@ public class TooltipScheduleBuilder {
 
 		if (byStep.isEmpty()) {
 			return TooltipSchedule.empty();
+		}
+
+		if (logger.isDebugEnabled()) {
+			logger.debug("Built TooltipSchedule with tooltips on {} step(s)", byStep.size());
 		}
 
 		return new TooltipSchedule(byStep);

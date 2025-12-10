@@ -32,6 +32,8 @@ public class DetectionEngine {
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
+	private long frameCounter = 0L;
+	private long overlayUpdateCounter = 0L;
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
@@ -82,10 +84,20 @@ public class DetectionEngine {
 	}
 
 	private void processFrame() {
+		long frameId = ++frameCounter;
+		long frameStartNanos = System.nanoTime();
+		if (logger.isDebugEnabled()) {
+			logger.debug("DetectionEngine.processFrame #{} start", frameId);
+		}
+
 		try {
 			if (!sequenceManager.shouldDetect()) {
 				// Ensure overlays are cleared once sequence has finished
 				updateOverlays();
+				if (logger.isDebugEnabled()) {
+					long frameTotalMs = (System.nanoTime() - frameStartNanos) / 1_000_000;
+					logger.debug("DetectionEngine.processFrame #{} completed (no detection) in {}ms", frameId, frameTotalMs);
+				}
 				return;
 			}
 			updateOverlays();
@@ -95,10 +107,14 @@ public class DetectionEngine {
 		}
 
 		try {
-			long startTime = System.nanoTime();
+			long detectStartNanos = System.nanoTime();
 			Mat screenMat = screenCapture.captureScreen();
 			if (screenMat == null || screenMat.empty()) {
 				logger.warn("Screen capture failed; skipping frame.");
+				if (logger.isDebugEnabled()) {
+					long frameTotalMs = (System.nanoTime() - frameStartNanos) / 1_000_000;
+					logger.debug("DetectionEngine.processFrame #{} aborted after failed capture ({}ms)", frameId, frameTotalMs);
+				}
 				return;
 			}
 
@@ -140,9 +156,13 @@ public class DetectionEngine {
 				sequenceManager.processDetection(screenMat, detectionResults);
 				updateOverlays();
 
-				long elapsedMs = (System.nanoTime() - startTime) / 1_000_000;
-				if (elapsedMs > 1300) {
-					logger.warn("Frame processing exceeded budget: {}ms", elapsedMs);
+				long detectElapsedMs = (System.nanoTime() - detectStartNanos) / 1_000_000;
+				if (detectElapsedMs > 1300) {
+					logger.warn("Frame processing exceeded budget: {}ms", detectElapsedMs);
+				}
+				if (logger.isDebugEnabled()) {
+					long frameTotalMs = (System.nanoTime() - frameStartNanos) / 1_000_000;
+					logger.debug("DetectionEngine.processFrame #{} completed in {}ms (detect={}ms)", frameId, frameTotalMs, detectElapsedMs);
 				}
 			} finally {
 				screenMat.close();
@@ -155,10 +175,24 @@ public class DetectionEngine {
 
 	private void updateOverlays() {
 
+		long callId = ++overlayUpdateCounter;
+
 		List<DetectionResult> currentAbilities = sequenceManager.getCurrentAbilities();
 		List<DetectionResult> nextAbilities = sequenceManager.getNextAbilities();
 		List<SequenceTooltip> currentTooltips = sequenceManager.getCurrentTooltips();
 
+		if (logger.isDebugEnabled()) {
+			int currentSize = currentAbilities != null ? currentAbilities.size() : 0;
+			int nextSize = nextAbilities != null ? nextAbilities.size() : 0;
+			int tooltipSize = currentTooltips != null ? currentTooltips.size() : 0;
+			logger.debug(
+					"DetectionEngine.updateOverlays #{} current={}, next={}, tooltips={}",
+					callId,
+					currentSize,
+					nextSize,
+					tooltipSize
+			);
+		}
 
 		overlay.updateOverlays(currentAbilities, nextAbilities);
 		if (tooltipOverlay != null) {

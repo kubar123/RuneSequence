@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Service for converting parsed sequence definitions into visual elements for display.
@@ -23,6 +24,10 @@ public class SequenceVisualService {
 
 	public SequenceVisualService() {
 		this(new TooltipMarkupParser());
+	}
+
+	public SequenceVisualService(Set<String> abilityNames) {
+		this(new TooltipMarkupParser(abilityNames));
 	}
 
 	public SequenceVisualService(TooltipMarkupParser tooltipMarkupParser) {

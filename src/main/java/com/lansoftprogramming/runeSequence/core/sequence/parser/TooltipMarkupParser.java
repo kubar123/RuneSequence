@@ -3,10 +3,7 @@ package com.lansoftprogramming.runeSequence.core.sequence.parser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,6 +18,15 @@ public class TooltipMarkupParser {
 	private static final Logger logger = LoggerFactory.getLogger(TooltipMarkupParser.class);
 	private static final String PLACEHOLDER_PREFIX = "__tooltip";
 	private static final String PLACEHOLDER_SUFFIX = "__";
+	private final Set<String> abilityNames;
+
+	public TooltipMarkupParser() {
+		this(null);
+	}
+
+	public TooltipMarkupParser(Set<String> abilityNames) {
+		this.abilityNames = abilityNames != null ? Set.copyOf(abilityNames) : Set.of();
+	}
 
 	/**
 	 * Extracts tooltip annotations from the given expression.
@@ -95,6 +101,7 @@ public class TooltipMarkupParser {
 		StringBuilder messageBuilder = new StringBuilder();
 		int cursor = startIndex;
 		boolean foundClosing = false;
+		int openIndex = startIndex - 1;
 
 		while (cursor < expression.length()) {
 			char current = expression.charAt(cursor);
@@ -108,7 +115,11 @@ public class TooltipMarkupParser {
 				}
 			}
 
-			if (current == '(') {
+			if (current == '(' && !isEscaped(expression, cursor)) {
+				if (logger.isDebugEnabled()) {
+					logger.debug("Tooltip parser: nested '(' at {} inside candidate starting at {}, treating as structural group",
+							cursor, openIndex);
+				}
 				return null; // unescaped nested paren not allowed inside tooltip text
 			}
 
@@ -122,15 +133,34 @@ public class TooltipMarkupParser {
 		}
 
 		if (!foundClosing) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Tooltip parser: no closing ')' found for candidate starting at {}, treating as structural group",
+						openIndex);
+			}
 			return null;
 		}
 
 		String message = messageBuilder.toString();
 		if (message.isEmpty()) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Tooltip parser: empty tooltip content between parentheses at {}", openIndex);
+			}
 			return null;
 		}
 
 		if (containsStructuralOperator(message)) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Tooltip parser: segment '({})' starting at {} contains structural operators, treating as grouping",
+						message, openIndex);
+			}
+			return null;
+		}
+
+		if (looksLikeAbilitySubExpression(message)) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Tooltip parser: segment '({})' starting at {} looks like an ability-like sub-expression, treating as grouping",
+						message, openIndex);
+			}
 			return null;
 		}
 
@@ -145,6 +175,17 @@ public class TooltipMarkupParser {
 			}
 		}
 		return false;
+	}
+
+	private boolean looksLikeAbilitySubExpression(String text) {
+		if (abilityNames.isEmpty() || text == null) {
+			return false;
+		}
+		String candidate = text.trim();
+		if (candidate.isEmpty()) {
+			return false;
+		}
+		return abilityNames.contains(candidate);
 	}
 
 	private boolean isEscaped(String expression, int index) {
@@ -280,4 +321,3 @@ public class TooltipMarkupParser {
 		T createTooltipElement(String message);
 	}
 }
-
