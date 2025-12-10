@@ -1,7 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
-import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
+import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
@@ -126,13 +126,15 @@ public class PresetManagerWindow extends JFrame {
 		masterPanel.addAddListener(this::handleAddSequence);
 		masterPanel.addDeleteListener(this::handleDeleteSequence);
 
+		TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder(
+				configManager.getAbilities().getAbilities().keySet()
+		);
 		masterPanel.setExpressionValidator(expression -> {
 			if (expression == null || expression.isBlank()) {
 				return false;
 			}
 			try {
-				SequenceParser.parse(expression);
-				return true;
+				return scheduleBuilder.build(expression).definition() != null;
 			} catch (Exception e) {
 				return false;
 			}
@@ -164,6 +166,17 @@ public class PresetManagerWindow extends JFrame {
 
         detailPanel.addSaveListener(result -> {
             sequenceListModel.upsert(result.getPresetId(), result.getPresetData());
+
+            if (sequenceRunService != null) {
+                boolean refreshed = sequenceRunService.refreshSequenceFromExpression(
+                        result.getPresetId(),
+                        result.getPresetData() != null ? result.getPresetData().getExpression() : ""
+                );
+                if (!refreshed) {
+                    logger.warn("Saved preset '{}' could not be parsed into a runnable sequence.", result.getPresetId());
+                }
+            }
+
             if (result.isCreated()) {
                 SwingUtilities.invokeLater(() -> masterPanel.selectSequenceById(result.getPresetId()));
                 currentSelectionId = result.getPresetId();
@@ -322,6 +335,14 @@ public class PresetManagerWindow extends JFrame {
         }
 
         masterPanel.refreshList();
+
+        if (sequenceRunService != null) {
+            boolean switched = sequenceRunService.switchActiveSequence(rotationId);
+            if (!switched && rotationId != null && !rotationId.isBlank()) {
+                logger.warn("Active rotation '{}' could not be applied to the detection engine.", rotationId);
+                notifications.showError("Selected rotation is not available for detection.");
+            }
+        }
     }
 
 	private void createNewPreset(String name, String expression) {

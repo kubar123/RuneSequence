@@ -160,7 +160,8 @@ public class Main {
 			SequenceRunService sequenceRunService = new SequenceRunService(
 					sequenceController,
 					sequenceManager,
-					detectionEngine
+					detectionEngine,
+					scheduleBuilder
 			);
 
 			HotkeyBindingSource bindingSource = new HotkeyBindingSource();

@@ -1,6 +1,8 @@
 package com.lansoftprogramming.runeSequence.application;
 
+import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder.BuildResult;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
+import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +19,18 @@ public class SequenceRunService implements HotkeyListener {
 	private final SequenceController sequenceController;
 	private final SequenceManager sequenceManager;
 	private final DetectionEngine detectionEngine;
+	private final TooltipScheduleBuilder tooltipScheduleBuilder;
 
 	public SequenceRunService(SequenceController sequenceController,
 	                          SequenceManager sequenceManager,
-	                          DetectionEngine detectionEngine) {
+	                          DetectionEngine detectionEngine,
+	                          TooltipScheduleBuilder tooltipScheduleBuilder) {
 		this.sequenceController = sequenceController;
 		this.sequenceManager = sequenceManager;
 		this.detectionEngine = detectionEngine;
+		this.tooltipScheduleBuilder = tooltipScheduleBuilder != null
+				? tooltipScheduleBuilder
+				: new TooltipScheduleBuilder();
 	}
 
 	public synchronized void start() {
@@ -73,6 +80,61 @@ public class SequenceRunService implements HotkeyListener {
 		sequenceManager.resetActiveSequence(false);
 		ensureDetectionRunning();
 		logger.info("Ready requested via UI controls.");
+	}
+
+	/**
+	 * Rebuilds and updates the in-memory sequence definition and tooltip schedule
+	 * for the given preset id based on the provided expression.
+	 *
+	 * @param presetId   identifier of the preset/rotation
+	 * @param expression raw rotation expression (may contain tooltip markup)
+	 * @return true if a usable sequence definition was produced and applied
+	 */
+	public synchronized boolean refreshSequenceFromExpression(String presetId, String expression) {
+		if (presetId == null || presetId.isBlank()) {
+			logger.warn("Ignoring sequence refresh with blank preset id.");
+			return false;
+		}
+
+		BuildResult result = tooltipScheduleBuilder.build(expression != null ? expression : "");
+		SequenceDefinition definition = result.definition();
+		if (definition == null) {
+			logger.warn("Parsed sequence for preset '{}' is unavailable; definition is null.", presetId);
+			sequenceManager.upsertSequence(presetId, null, result.schedule());
+			return false;
+		}
+
+		sequenceManager.upsertSequence(presetId, definition, result.schedule());
+		logger.info("Refreshed in-memory sequence definition for preset '{}'.", presetId);
+		return true;
+	}
+
+	/**
+	 * Switches the active sequence used by detection to the given identifier.
+	 * A null or blank identifier clears the active sequence, halting detections
+	 * until a new rotation is selected.
+	 *
+	 * @param sequenceId the identifier of the sequence to activate, or null to clear
+	 * @return true if the selection was applied or cleared; false if the id could not be resolved
+	 */
+	public synchronized boolean switchActiveSequence(String sequenceId) {
+		if (sequenceId == null || sequenceId.isBlank()) {
+			logger.info("Clearing active sequence selection.");
+			sequenceManager.clearActiveSequence();
+			sequenceController.resetToReady();
+			return true;
+		}
+
+		boolean activated = sequenceManager.activateSequence(sequenceId);
+		if (!activated) {
+			logger.warn("Sequence '{}' not found; unable to switch active sequence.", sequenceId);
+			return false;
+		}
+
+		sequenceManager.resetActiveSequence(false);
+		sequenceController.resetToReady();
+		logger.info("Switched active sequence to '{}'.", sequenceId);
+		return true;
 	}
 
 	@Override

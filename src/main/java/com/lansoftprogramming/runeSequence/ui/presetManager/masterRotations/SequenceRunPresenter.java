@@ -133,8 +133,13 @@ class SequenceRunPresenter {
 			return "Status: No rotation selected";
 		}
 
+		String rotationSuffix = "";
+		if (progress.getSequenceId() != null && !progress.getSequenceId().isBlank()) {
+			rotationSuffix = " [" + progress.getSequenceId() + "]";
+		}
+
 		if (progress.isSequenceComplete()) {
-			return "Status: Rotation complete. Restart to run again.";
+			return "Status: Rotation complete" + rotationSuffix + ". Restart to run again.";
 		}
 
 		String abilities = describeAbilities(progress);
@@ -145,14 +150,14 @@ class SequenceRunPresenter {
 				: "current step";
 
 		return switch (state) {
-			case PAUSED -> "Status: Paused - detection stopped.";
-			case ARMED -> "Status: Armed - waiting for latch (" + abilities + ").";
-			case RUNNING -> "Status: Running " + stepInfo + " (" + abilities + ").";
+			case PAUSED -> "Status: Paused" + rotationSuffix + " - detection stopped.";
+			case ARMED -> "Status: Armed" + rotationSuffix + " - waiting for latch (" + abilities + ").";
+			case RUNNING -> "Status: Running" + rotationSuffix + " " + stepInfo + " (" + abilities + ").";
 			case READY -> {
 				if (!detectionRunning) {
-					yield "Status: Ready - detection halted.";
+					yield "Status: Ready" + rotationSuffix + " - detection halted.";
 				}
-				yield "Status: Ready - standing by (" + abilities + ").";
+				yield "Status: Ready" + rotationSuffix + " - standing by (" + abilities + ").";
 			}
 			default -> "Status: " + state;
 		};

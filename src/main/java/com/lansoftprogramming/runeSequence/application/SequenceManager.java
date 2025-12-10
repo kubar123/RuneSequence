@@ -13,10 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 public class SequenceManager implements SequenceController.StateChangeListener {
@@ -42,7 +40,9 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	                       TemplateDetector templateDetector) {
 		this.abilityConfig = Objects.requireNonNull(abilityConfig);
 		this.namedSequences = Objects.requireNonNull(namedSequences);
-		this.tooltipSchedules = tooltipSchedules != null ? Map.copyOf(tooltipSchedules) : Map.of();
+		this.tooltipSchedules = tooltipSchedules != null
+				? new HashMap<>(tooltipSchedules)
+				: new HashMap<>();
 		this.notifications = Objects.requireNonNull(notifications);
 		this.templateDetector = Objects.requireNonNull(templateDetector);
 	}
@@ -82,6 +82,49 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		emitProgressUpdate();
 
 		return true;
+	}
+
+	/**
+	 * Upserts the runtime definition and tooltip schedule for a named sequence.
+	 * If {@code definition} is null, the sequence is removed from the manager.
+	 */
+	public synchronized void upsertSequence(String id,
+	                                        SequenceDefinition definition,
+	                                        TooltipSchedule schedule) {
+		if (id == null || id.isBlank()) {
+			return;
+		}
+
+		if (definition == null) {
+			namedSequences.remove(id);
+			tooltipSchedules.remove(id);
+			if (id.equals(activeSequenceId)) {
+				clearActiveSequence();
+			}
+			return;
+		}
+
+		namedSequences.put(id, definition);
+		if (schedule != null) {
+			tooltipSchedules.put(id, schedule);
+		} else {
+			tooltipSchedules.remove(id);
+		}
+
+		if (id.equals(activeSequenceId)) {
+			activateSequence(id);
+		}
+	}
+
+	public synchronized void clearActiveSequence() {
+		if (activeSequence != null && sequenceController != null) {
+			sequenceController.removeStateChangeListener(activeSequence);
+		}
+		activeSequence = null;
+		activeSequenceId = null;
+		sequenceComplete = false;
+		gcdLatchTracker.reset();
+		emitProgressUpdate();
 	}
 	/**
 	 * Return the per-occurrence detection requirements (current + next step).
@@ -390,14 +433,19 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				Rectangle roi = resolveRoi(requirement.abilityKey(), frame);
 				if (roi == null) {
 					logger.debug("Latch: ROI unavailable for {} (waiting for cache/search)", requirement.abilityKey());
-					return;
+					continue;
 				}
 				double baseline = templateDetector.measureBrightness(frame, roi);
 				if (baseline < MIN_BASELINE_BRIGHTNESS) {
 					logger.debug("Latch: baseline too low for {} (brightness={})", requirement.abilityKey(), baseline);
-					return;
+					continue;
 				}
 				resolved.add(new TrackedTarget(requirement.instanceId(), requirement.abilityKey(), roi, baseline));
+			}
+
+			if (resolved.isEmpty()) {
+				// Still waiting for at least one usable ROI/baseline; keep awaitingInitialDetection true.
+				return;
 			}
 
 			trackedTargets = List.copyOf(resolved);
