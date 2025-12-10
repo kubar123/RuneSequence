@@ -14,5 +14,17 @@
     "Token.Operator(String)": "A record that represents an operator token (→, +, /). It includes constructor validation to ensure that only valid symbols can be used to create an operator token. Used by the `Tokenizer` and consumed by the `SequenceParser` to structure the AST.",
     "Token.LeftParen()": "A record representing a left parenthesis token '('. Used by the `Tokenizer` and `SequenceParser` to handle nested sub-expressions.",
     "Token.RightParen()": "A record representing a right parenthesis token ')'. Used by the `Tokenizer` and `SequenceParser` to close nested sub-expressions."
+  },
+  "core.sequence.parser.TooltipMarkupParser": {
+    "parse(String)": "Parses tooltip annotations from a raw expression string. Tooltip segments use the syntax `(message)` adjacent to abilities. This method strips them from the expression before handing the cleaned string to the core `SequenceParser`. It returns a `ParseResult` containing the cleaned expression and a list of `TooltipPlacement` instructions that map the original tooltip messages to their correct structural indices, allowing them to be re-attached later.",
+    "insertTooltips(List<T>, List<TooltipPlacement>, TooltipFactory<T>)": "Re-injects tooltip elements into a list of base elements (e.g., visual UI elements) based on the placements computed during parsing. It iterates through the placements and inserts new tooltip objects created by the provided factory at the correct indices, handling offset adjustments as the list grows.",
+    "mapPlacements(String, List<TooltipToken>)": "A private helper that correlates the extracted tooltip tokens with their structural position in the expression. It tokenizes the placeholder-laden expression to determine which ability step or operator each tooltip belongs to, effectively translating raw string positions into logical structural indices."
+  },
+  "core.sequence.parser.TooltipGrammar": {
+    "isValidTooltipMessage(String)": "Validates whether a given string is acceptable as a tooltip message. It ensures the message is not null and does not contain any reserved structural operators (arrow, plus, slash) that would confuse the parser.",
+    "escapeTooltipText(String)": "Escapes special characters within a tooltip message, specifically parentheses `(` and `)`, so they can be safely embedded in the expression string without breaking the parser's grouping logic."
+  },
+  "core.sequence.parser.TooltipStructure": {
+    "linearize(SequenceDefinition)": "Flattens the hierarchical `SequenceDefinition` (AST) into a linear list of `StructuralElement`s. This linear view is essential for consistently mapping tooltip placements to specific steps or operators, ensuring that both the runtime schedule builder and the UI visual service agree on where tooltips should appear."
   }
 }

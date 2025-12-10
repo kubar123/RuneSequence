@@ -24,5 +24,10 @@
   },
   "ui.overlay.toast.ToastClient": {
     "ToastClient": "A small UI-agnostic interface that standardizes how components report user-facing messages. It exposes symmetric `success`, `info`, `warn`, and `error` methods, each with overloads that accept an optional hidden diagnostic string, plus an optional `clearAll` lifecycle hook. Production code usually receives a `ToastManager` instance, which renders animated popups, while background or early-startup code can use the logging-only fallback provided by `ToastManager.loggingFallback`."
+  },
+  "ui.overlay.MouseTooltipOverlay": {
+    "MouseTooltipOverlay()": "Constructor for the tooltip overlay window. It creates an always-on-top, non-focusable, transparent `JWindow` that follows the mouse cursor. It initializes a specific `TooltipPanel` for rendering the text bubble.",
+    "showTooltips(List<SequenceTooltip>)": "Updates the overlay to display the provided list of tooltips. If the list is non-empty, the window becomes visible and tracks the mouse. If empty, the window hides itself after a short grace period.",
+    "positionWindowAtMouse(Point)": "Calculates the correct screen position for the tooltip window relative to the mouse cursor. It ensures the tooltip stays within the screen bounds (handling multiple monitors) and applies an offset so it doesn't obscure the cursor itself."
   }
 }
