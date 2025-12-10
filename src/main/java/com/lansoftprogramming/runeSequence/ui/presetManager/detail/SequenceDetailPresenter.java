@@ -388,8 +388,10 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (input == null) {
 			return;
 		}
-		String trimmed = input.trim();
-		if (!trimmed.isEmpty() && !isValidTooltipMessage(trimmed)) {
+		ExpressionBuilder.TooltipEditResult editResult = expressionBuilder.editTooltipAt(currentElements, elementIndex, input);
+		ExpressionBuilder.TooltipEditStatus status = editResult.status();
+
+		if (status == ExpressionBuilder.TooltipEditStatus.INVALID) {
 			if (notifications != null) {
 				notifications.showWarning("Tooltip text cannot contain →, +, or / characters.");
 			} else {
@@ -398,28 +400,15 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			return;
 		}
 
-		List<SequenceElement> updated = new ArrayList<>(currentElements);
-
-		if (trimmed.isEmpty()) {
-			updated = expressionBuilder.removeTooltipAt(updated, elementIndex);
-		} else {
-			updated.set(elementIndex, SequenceElement.tooltip(trimmed));
+		if (status == ExpressionBuilder.TooltipEditStatus.SKIPPED) {
+			return;
 		}
 
+		List<SequenceElement> updated = new ArrayList<>(editResult.elements());
 		currentElements = updated;
 		previewElements = new ArrayList<>(updated);
 		updateExpression();
 		flowView.renderSequenceElements(currentElements);
-	}
-
-	private boolean isValidTooltipMessage(String message) {
-		for (int i = 0; i < message.length(); i++) {
-			char c = message.charAt(i);
-			if (c == '→' || c == '+' || c == '/') {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	private int resolveElementIndexForDrag(AbilityItem item, int abilityIndex) {

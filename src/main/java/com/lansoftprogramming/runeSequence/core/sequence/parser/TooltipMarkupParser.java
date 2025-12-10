@@ -51,13 +51,37 @@ public class TooltipMarkupParser {
 				TooltipCandidate candidate = readTooltipCandidate(expression, index + 1);
 				if (candidate != null) {
 					String placeholder = PLACEHOLDER_PREFIX + tooltipTokens.size() + PLACEHOLDER_SUFFIX;
-					char nextNonWhitespace = nextNonWhitespace(expression, candidate.endIndex() + 1);
+					boolean hasExtraOuterParens = false;
+
+					int extraOpenIndex = index > 0 && expression.charAt(index - 1) == '(' && !isEscaped(expression, index - 1)
+							? index - 1
+							: -1;
+					int extraCloseIndex = candidate.endIndex() + 1 < expression.length()
+							&& expression.charAt(candidate.endIndex() + 1) == ')'
+							&& !isEscaped(expression, candidate.endIndex() + 1)
+							? candidate.endIndex() + 1
+							: -1;
+
+					if (extraOpenIndex == index - 1 && extraCloseIndex == candidate.endIndex() + 1) {
+						hasExtraOuterParens = true;
+						if (cleanedExpression.length() > 0
+								&& cleanedExpression.charAt(cleanedExpression.length() - 1) == '(') {
+							cleanedExpression.setLength(cleanedExpression.length() - 1);
+						}
+						if (placeholderExpression.length() > 0
+								&& placeholderExpression.charAt(placeholderExpression.length() - 1) == '(') {
+							placeholderExpression.setLength(placeholderExpression.length() - 1);
+						}
+					}
+
+					int lookaheadIndex = hasExtraOuterParens ? (extraCloseIndex + 1) : (candidate.endIndex() + 1);
+					char nextNonWhitespace = nextNonWhitespace(expression, lookaheadIndex);
 
 					maybeInsertGap(cleanedExpression, nextNonWhitespace);
 					appendPlaceholderWithSpacing(placeholderExpression, placeholder, nextNonWhitespace);
 
 					tooltipTokens.add(new TooltipToken(placeholder, candidate.message()));
-					index = candidate.endIndex() + 1;
+					index = hasExtraOuterParens ? (extraCloseIndex + 1) : (candidate.endIndex() + 1);
 					continue;
 				}
 			}
@@ -148,7 +172,7 @@ public class TooltipMarkupParser {
 			return null;
 		}
 
-		if (containsStructuralOperator(message)) {
+		if (TooltipGrammar.containsStructuralOperators(message)) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Tooltip parser: segment '({})' starting at {} contains structural operators, treating as grouping",
 						message, openIndex);
@@ -165,16 +189,6 @@ public class TooltipMarkupParser {
 		}
 
 		return new TooltipCandidate(message, cursor);
-	}
-
-	private boolean containsStructuralOperator(String text) {
-		for (int i = 0; i < text.length(); i++) {
-			char c = text.charAt(i);
-			if (c == '→' || c == '+' || c == '/') {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private boolean looksLikeAbilitySubExpression(String text) {
@@ -218,10 +232,6 @@ public class TooltipMarkupParser {
 		return null;
 	}
 
-	private boolean isBoundary(char c) {
-		return Character.isWhitespace(c) || c == '→' || c == '+' || c == '/' || c == '(' || c == ')';
-	}
-
 	private void maybeInsertGap(StringBuilder cleanedExpression, char nextNonWhitespace) {
 		Character last = lastNonWhitespace(cleanedExpression);
 
@@ -229,20 +239,20 @@ public class TooltipMarkupParser {
 			return;
 		}
 
-		if (!isBoundary(last) && !isBoundary(nextNonWhitespace)) {
+		if (!TooltipGrammar.isStructuralBoundary(last) && !TooltipGrammar.isStructuralBoundary(nextNonWhitespace)) {
 			cleanedExpression.append(' ');
 		}
 	}
 
 	private void appendPlaceholderWithSpacing(StringBuilder builder, String placeholder, char nextNonWhitespace) {
 		Character last = lastNonWhitespace(builder);
-		if (last != null && !isBoundary(last)) {
+		if (last != null && !TooltipGrammar.isStructuralBoundary(last)) {
 			builder.append(' ');
 		}
 
 		builder.append(placeholder);
 
-		if (nextNonWhitespace != 0 && !isBoundary(nextNonWhitespace)) {
+		if (nextNonWhitespace != 0 && !TooltipGrammar.isStructuralBoundary(nextNonWhitespace)) {
 			builder.append(' ');
 		}
 	}

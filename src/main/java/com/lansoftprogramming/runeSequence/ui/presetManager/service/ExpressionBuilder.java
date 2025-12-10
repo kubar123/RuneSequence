@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropSide;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
@@ -27,7 +28,7 @@ public class ExpressionBuilder {
         for (SequenceElement element : elements) {
             if (element.isTooltip()) {
                 sb.append('(')
-                    .append(escapeTooltipText(element.getValue()))
+                    .append(TooltipGrammar.escapeTooltipText(element.getValue()))
                     .append(')');
             } else {
                 sb.append(element.getValue());
@@ -66,6 +67,34 @@ public class ExpressionBuilder {
 		}
 		result.remove(tooltipElementIndex);
 		return result;
+	}
+
+	/**
+	 * Applies an edit to an existing tooltip element. Returns the updated elements and the applied status
+	 * so callers can surface validation feedback without duplicating insertion/removal rules.
+	 */
+	public TooltipEditResult editTooltipAt(List<SequenceElement> elements, int tooltipElementIndex, String newMessage) {
+		List<SequenceElement> base = elements != null ? new ArrayList<>(elements) : new ArrayList<>();
+		if (tooltipElementIndex < 0 || tooltipElementIndex >= base.size()) {
+			return new TooltipEditResult(base, TooltipEditStatus.SKIPPED);
+		}
+		SequenceElement candidate = base.get(tooltipElementIndex);
+		if (!candidate.isTooltip()) {
+			return new TooltipEditResult(base, TooltipEditStatus.SKIPPED);
+		}
+
+		String normalized = newMessage != null ? newMessage.trim() : "";
+		if (normalized.isEmpty()) {
+			base.remove(tooltipElementIndex);
+			return new TooltipEditResult(base, TooltipEditStatus.REMOVED);
+		}
+
+		if (!TooltipGrammar.isValidTooltipMessage(normalized)) {
+			return new TooltipEditResult(new ArrayList<>(elements != null ? elements : List.of()), TooltipEditStatus.INVALID);
+		}
+
+		base.set(tooltipElementIndex, SequenceElement.tooltip(normalized));
+		return new TooltipEditResult(base, TooltipEditStatus.UPDATED);
 	}
     // remove ability and normalize adjacent separators/arrows to keep sequence parseable
     private void removeAbilityAtIndexInternal(List<SequenceElement> result, int abilityIndex) {
@@ -156,6 +185,9 @@ public class ExpressionBuilder {
 	                                           DropSide dropSide) {
 		List<SequenceElement> result = new ArrayList<>(elements);
 		if (message == null) {
+			return result;
+		}
+		if (!TooltipGrammar.isValidTooltipMessage(message)) {
 			return result;
 		}
 		if (result.isEmpty()) {
@@ -570,12 +602,13 @@ public class ExpressionBuilder {
         }
     }
 
-    private String escapeTooltipText(String message) {
-        if (message == null || message.isEmpty()) {
-            return "";
-        }
-        return message
-            .replace("(", "\\(")
-            .replace(")", "\\)");
-    }
+	public enum TooltipEditStatus {
+		UPDATED,
+		REMOVED,
+		INVALID,
+		SKIPPED
+	}
+
+	public record TooltipEditResult(List<SequenceElement> elements, TooltipEditStatus status) {
+	}
 }

@@ -1,11 +1,9 @@
 package com.lansoftprogramming.runeSequence.application;
 
-import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipMarkupParser;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipStructure;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.SequenceTooltip;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.TooltipSchedule;
 import org.slf4j.Logger;
@@ -81,7 +79,7 @@ public class TooltipScheduleBuilder {
 			return TooltipSchedule.empty();
 		}
 
-		List<StructuralElement> structure = linearizeStructure(definition);
+		List<TooltipStructure.StructuralElement> structure = TooltipStructure.linearize(definition);
 		if (structure.isEmpty()) {
 			return TooltipSchedule.empty();
 		}
@@ -137,140 +135,46 @@ public class TooltipScheduleBuilder {
 		return new TooltipSchedule(byStep);
 	}
 
-	private List<StructuralElement> linearizeStructure(SequenceDefinition definition) {
-		List<StructuralElement> out = new ArrayList<>();
-		if (definition == null) {
-			return out;
-		}
-
-		List<Step> steps = definition.getSteps();
-		for (int stepIndex = 0; stepIndex < steps.size(); stepIndex++) {
-			Step step = steps.get(stepIndex);
-			linearizeStep(step, stepIndex, out);
-
-			// Top-level NEXT arrow between steps
-			if (stepIndex < steps.size() - 1) {
-				out.add(StructuralElement.operator("→", stepIndex));
-			}
-		}
-
-		return out;
-	}
-
-	private void linearizeStep(Step step, int stepIndex, List<StructuralElement> out) {
-		List<Term> terms = step.getTerms();
-		for (int termIndex = 0; termIndex < terms.size(); termIndex++) {
-			Term term = terms.get(termIndex);
-			linearizeTerm(term, stepIndex, out);
-
-			// AND separator between terms
-			if (termIndex < terms.size() - 1) {
-				out.add(StructuralElement.operator("+", stepIndex));
-			}
-		}
-	}
-
-	private void linearizeTerm(Term term, int stepIndex, List<StructuralElement> out) {
-		List<Alternative> alternatives = term.getAlternatives();
-		for (int altIndex = 0; altIndex < alternatives.size(); altIndex++) {
-			Alternative alt = alternatives.get(altIndex);
-			linearizeAlternative(alt, stepIndex, out);
-
-			// OR separator between alternatives
-			if (altIndex < alternatives.size() - 1) {
-				out.add(StructuralElement.operator("/", stepIndex));
-			}
-		}
-	}
-
-	private void linearizeAlternative(Alternative alt, int stepIndex, List<StructuralElement> out) {
-		if (alt.isToken()) {
-			out.add(StructuralElement.ability(stepIndex));
-		} else if (alt.isGroup()) {
-			SequenceDefinition subgroup = alt.getSubgroup();
-			if (subgroup == null) {
-				return;
-			}
-			List<Step> subSteps = subgroup.getSteps();
-			for (int i = 0; i < subSteps.size(); i++) {
-				Step subStep = subSteps.get(i);
-				linearizeStep(subStep, stepIndex, out);
-				// Nested NEXT arrows inside the group
-				if (i < subSteps.size() - 1) {
-					out.add(StructuralElement.operator("→", stepIndex));
-				}
-			}
-		}
-	}
-
-	private int resolveStepIndexForInsertion(List<StructuralElement> structure, int insertionIndex) {
+	private int resolveStepIndexForInsertion(List<TooltipStructure.StructuralElement> structure, int insertionIndex) {
 		int size = structure.size();
 		if (size == 0) {
 			return -1;
 		}
 
-		StructuralElement left = insertionIndex > 0 && insertionIndex - 1 < size
+		TooltipStructure.StructuralElement left = insertionIndex > 0 && insertionIndex - 1 < size
 				? structure.get(insertionIndex - 1)
 				: null;
-		StructuralElement right = insertionIndex < size ? structure.get(insertionIndex) : null;
+		TooltipStructure.StructuralElement right = insertionIndex < size ? structure.get(insertionIndex) : null;
 
 		// Arrow adjacency rules:
 		// ability (msg) → ... -> left step
 		if (right != null && right.isArrow() && left != null && left.isAbility()) {
-			return left.stepIndex;
+			return left.stepIndex();
 		}
 		// ... → (msg) ability -> right step
 		if (left != null && left.isArrow() && right != null && right.isAbility()) {
-			return right.stepIndex;
+			return right.stepIndex();
 		}
 
 		// General rule: prefer the nearest ability neighbour
 		if (left != null && left.isAbility()) {
-			return left.stepIndex;
+			return left.stepIndex();
 		}
 		if (right != null && right.isAbility()) {
-			return right.stepIndex;
+			return right.stepIndex();
 		}
 
 		// Fallback: attach to the left element's step, or right if left is absent
 		if (left != null) {
-			return left.stepIndex;
+			return left.stepIndex();
 		}
 		if (right != null) {
-			return right.stepIndex;
+			return right.stepIndex();
 		}
 
 		return -1;
 	}
 
 	public record BuildResult(SequenceDefinition definition, TooltipSchedule schedule) {
-	}
-
-	private static final class StructuralElement {
-		private final boolean ability;
-		private final String operatorSymbol;
-		private final int stepIndex;
-
-		private StructuralElement(boolean ability, String operatorSymbol, int stepIndex) {
-			this.ability = ability;
-			this.operatorSymbol = operatorSymbol;
-			this.stepIndex = stepIndex;
-		}
-
-		static StructuralElement ability(int stepIndex) {
-			return new StructuralElement(true, null, stepIndex);
-		}
-
-		static StructuralElement operator(String symbol, int stepIndex) {
-			return new StructuralElement(false, symbol, stepIndex);
-		}
-
-		boolean isAbility() {
-			return ability;
-		}
-
-		boolean isArrow() {
-			return "→".equals(operatorSymbol);
-		}
 	}
 }

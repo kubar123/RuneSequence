@@ -1,15 +1,16 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipMarkupParser;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class TooltipMarkupParserTest {
 
@@ -265,4 +266,23 @@ class TooltipMarkupParserTest {
 			assertTrue(rebuilt.indexOf('\n') < 0);
 			SequenceParser.parse(rebuilt);
 		}
+
+	@Test
+	void shouldValidateSharedTooltipGrammarRules() {
+		assertTrue(TooltipGrammar.isValidTooltipMessage("Stack here"));
+		assertFalse(TooltipGrammar.isValidTooltipMessage("Stack → here"));
+		assertEquals("Use \\(defense\\)", TooltipGrammar.escapeTooltipText("Use (defense)"));
 	}
+
+	@Test
+	void shouldRejectEditingTooltipThatContainsStructuralSymbols() {
+		List<SequenceElement> elements = new ArrayList<>();
+		elements.add(SequenceElement.ability("A"));
+		elements.add(SequenceElement.tooltip("ok"));
+
+		ExpressionBuilder.TooltipEditResult result = expressionBuilder.editTooltipAt(elements, 1, "bad → tooltip");
+		assertEquals(ExpressionBuilder.TooltipEditStatus.INVALID, result.status());
+		assertEquals(2, result.elements().size());
+		assertEquals("ok", result.elements().get(1).getValue());
+	}
+}

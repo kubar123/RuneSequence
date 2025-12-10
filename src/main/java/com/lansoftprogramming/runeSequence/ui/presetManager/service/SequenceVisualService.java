@@ -1,11 +1,10 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
-import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipMarkupParser;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipStructure;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,59 +89,25 @@ public class SequenceVisualService {
 	 */
 	private List<SequenceElement> convertDefinitionToElements(SequenceDefinition definition) {
 		List<SequenceElement> elements = new ArrayList<>();
-		List<Step> steps = definition.getSteps();
+		List<TooltipStructure.StructuralElement> structure = TooltipStructure.linearize(definition);
 
-		for (int stepIndex = 0; stepIndex < steps.size(); stepIndex++) {
-			Step step = steps.get(stepIndex);
-			List<Term> terms = step.getTerms();
-
-			for (int termIndex = 0; termIndex < terms.size(); termIndex++) {
-				Term term = terms.get(termIndex);
-				List<Alternative> alternatives = term.getAlternatives();
-
-				for (int altIndex = 0; altIndex < alternatives.size(); altIndex++) {
-					Alternative alt = alternatives.get(altIndex);
-
-					// Process the alternative
-					processAlternative(alt, elements);
-
-					// Add separator between alternatives (slash for OR)
-					if (altIndex < alternatives.size() - 1) {
-						elements.add(SequenceElement.slash());
-					}
-				}
-
-				// Add separator between terms (plus for AND)
-				if (termIndex < terms.size() - 1) {
+		for (TooltipStructure.StructuralElement element : structure) {
+			if (element.isAbility()) {
+				elements.add(SequenceElement.ability(element.abilityName()));
+			} else if (element.isOperator()) {
+				char symbol = element.operatorSymbol();
+				if (symbol == TooltipGrammar.ARROW) {
+					elements.add(SequenceElement.arrow());
+				} else if (symbol == TooltipGrammar.AND) {
 					elements.add(SequenceElement.plus());
+				} else if (symbol == TooltipGrammar.OR) {
+					elements.add(SequenceElement.slash());
 				}
-			}
-
-			// Add separator between steps (arrow for sequence)
-			if (stepIndex < steps.size() - 1) {
-				elements.add(SequenceElement.arrow());
 			}
 		}
 
 		logger.debug("Converted definition to {} visual elements", elements.size());
 		return elements;
-	}
-
-	/**
-	 * Processes a single alternative, which can be either a token (ability) or a subgroup.
-	 *
-	 * @param alt The alternative to process
-	 * @param elements The list to add elements to
-	 */
-	private void processAlternative(Alternative alt, List<SequenceElement> elements) {
-		if (alt.isToken()) {
-			// Simple ability token
-			elements.add(SequenceElement.ability(alt.getToken()));
-		} else if (alt.isGroup()) {
-			// Nested subgroup - recursively process
-			List<SequenceElement> subElements = convertDefinitionToElements(alt.getSubgroup());
-			elements.addAll(subElements);
-		}
 	}
 
 	/**
