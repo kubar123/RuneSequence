@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.core.sequence.runtime;
 
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
 import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
 import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
@@ -57,6 +58,29 @@ class StepTimerTest {
 
 		timer.resume();
 		assertTrue(timer.isStepSatisfied(Map.of()), "After resuming, elapsed time should allow the step to satisfy");
+	}
+
+	@Test
+	void shouldHonorOverridesWhenCalculatingStepDuration() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+		AbilityConfig.AbilityData baseData = abilityData(true, (short) 0, (short) 0);
+		abilityConfig.putAbility("Override", baseData);
+
+		AbilitySettingsOverrides overrides = AbilitySettingsOverrides.builder()
+				.castDuration((short) 4) // Override default GCD ticks (3) to 4
+				.build();
+
+		Step step = new Step(List.of(new Term(List.of(new Alternative("Override", overrides)))));
+
+		StepTimer timer = new StepTimer();
+		timer.startStep(step, abilityConfig);
+
+		long expectedDurationMs = 4L * 600;
+		setField(timer, "stepStartTimeMs", System.currentTimeMillis() - expectedDurationMs + 50);
+		assertFalse(timer.isStepSatisfied(Map.of()), "Duration should respect overridden cast duration");
+
+		setField(timer, "stepStartTimeMs", System.currentTimeMillis() - expectedDurationMs - 50);
+		assertTrue(timer.isStepSatisfied(Map.of()), "Step should satisfy after the overridden duration elapses");
 	}
 
 	private AbilityConfig.AbilityData abilityData(boolean triggersGcd, short castDuration, short cooldown) {

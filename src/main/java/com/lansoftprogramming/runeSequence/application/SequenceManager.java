@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.application;
 
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.SequenceTooltip;
@@ -430,7 +431,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 
 			List<TrackedTarget> resolved = new ArrayList<>(gcdRequirements.size());
 			for (ActiveSequence.DetectionRequirement requirement : gcdRequirements) {
-				Rectangle roi = resolveRoi(requirement.abilityKey(), frame);
+				Rectangle roi = resolveRoi(requirement, frame);
 				if (roi == null) {
 					logger.debug("Latch: ROI unavailable for {} (waiting for cache/search)", requirement.abilityKey());
 					continue;
@@ -454,8 +455,12 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			logger.info("ARMED: brightness tracking {} targets; baselines={}", describeTargets(), describeBaselines());
 		}
 
-		private Rectangle resolveRoi(String abilityKey, Mat frame) {
-			return templateDetector.resolveAbilityRoi(frame, abilityKey);
+		private Rectangle resolveRoi(ActiveSequence.DetectionRequirement requirement, Mat frame) {
+			EffectiveAbilityConfig effectiveConfig = requirement.effectiveAbilityConfig();
+			Double threshold = effectiveConfig != null
+					? effectiveConfig.getDetectionThreshold().orElse(null)
+					: null;
+			return templateDetector.resolveAbilityRoi(frame, requirement.abilityKey(), threshold);
 		}
 
 		private void latch() {
@@ -487,8 +492,15 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				if (selected.size() >= MAX_TRACKED_GCD_ABILITIES) {
 					break;
 				}
-				AbilityConfig.AbilityData ability = abilityConfig.getAbility(requirement.abilityKey());
-				if (ability == null || !ability.isTriggersGcd()) {
+				boolean triggersGcd = false;
+				EffectiveAbilityConfig effectiveConfig = requirement.effectiveAbilityConfig();
+				if (effectiveConfig != null) {
+					triggersGcd = effectiveConfig.isTriggersGcd();
+				} else {
+					AbilityConfig.AbilityData ability = abilityConfig.getAbility(requirement.abilityKey());
+					triggersGcd = ability != null && ability.isTriggersGcd();
+				}
+				if (!triggersGcd) {
 					continue;
 				}
 				selected.add(requirement);

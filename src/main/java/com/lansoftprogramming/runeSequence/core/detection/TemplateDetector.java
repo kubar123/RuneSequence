@@ -44,6 +44,37 @@ public class TemplateDetector {
 		return detectTemplate(screen, templateName, false);
 	}
 
+	public DetectionResult detectTemplate(Mat screen, String templateName, boolean isAlternative, Double detectionThreshold) {
+		Mat template = templateCache.getTemplate(templateName);
+		if (template == null) {
+			logger.error("Template not found in cache: {}", templateName);
+
+			System.out.println("TemplateDetector: Template not found in cache: " + templateName);
+			return DetectionResult.notFound(templateName);
+		}
+
+		// First, try searching in the last known location
+		if (lastKnownLocations.containsKey(templateName)) {
+			Rectangle lastRoi = lastKnownLocations.get(templateName);
+			// Add some padding to the ROI to allow for small movements
+			Rectangle searchRoi = new Rectangle(lastRoi.x - 10, lastRoi.y - 10, lastRoi.width + 20, lastRoi.height + 20);
+
+			DetectionResult result = detectTemplateInRegion(screen, templateName, searchRoi, isAlternative, detectionThreshold);
+			if (result.found) {
+				lastKnownLocations.put(templateName, result.boundingBox);
+				return result;
+			}
+		}
+
+		// If not found in the last known location, or if there is no last known location, search the whole screen
+		double threshold = getThresholdForTemplate(templateName, detectionThreshold);
+		DetectionResult result = findBestMatch(screen, template, templateName, threshold, isAlternative);
+		if (result.found) {
+			lastKnownLocations.put(templateName, result.boundingBox);
+		}
+		return result;
+	}
+
 	public Map<String, DetectionResult> cacheAbilityLocations(Mat screen, Collection<String> abilityKeys) {
 		if (screen == null || screen.empty() || abilityKeys == null || abilityKeys.isEmpty()) {
 			return Collections.emptyMap();
@@ -75,34 +106,7 @@ public class TemplateDetector {
 	 * New overload that accepts isAlternative which will be propagated into DetectionResult.
 	 */
 	public DetectionResult detectTemplate(Mat screen, String templateName, boolean isAlternative) {
-		Mat template = templateCache.getTemplate(templateName);
-		if (template == null) {
-			logger.error("Template not found in cache: {}", templateName);
-
-			System.out.println("TemplateDetector: Template not found in cache: " + templateName);
-			return DetectionResult.notFound(templateName);
-		}
-
-		// First, try searching in the last known location
-		if (lastKnownLocations.containsKey(templateName)) {
-			Rectangle lastRoi = lastKnownLocations.get(templateName);
-			// Add some padding to the ROI to allow for small movements
-			Rectangle searchRoi = new Rectangle(lastRoi.x - 10, lastRoi.y - 10, lastRoi.width + 20, lastRoi.height + 20);
-
-			DetectionResult result = detectTemplateInRegion(screen, templateName, searchRoi, isAlternative);
-			if (result.found) {
-				lastKnownLocations.put(templateName, result.boundingBox);
-				return result;
-			}
-		}
-
-		// If not found in the last known location, or if there is no last known location, search the whole screen
-		double threshold = getThresholdForTemplate(templateName);
-		DetectionResult result = findBestMatch(screen, template, templateName, threshold, isAlternative);
-		if (result.found) {
-			lastKnownLocations.put(templateName, result.boundingBox);
-		}
-		return result;
+		return detectTemplate(screen, templateName, isAlternative, null);
 	}
 
 	/**
@@ -130,10 +134,8 @@ public class TemplateDetector {
 		return detectTemplateInRegion(screen, templateName, roi, false);
 	}
 
-	/**
-	 * New overload that accepts isAlternative which will be propagated into DetectionResult.
-	 */
-	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi, boolean isAlternative) {
+	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi, boolean isAlternative,
+	                                              Double detectionThreshold) {
 		Mat template = templateCache.getTemplate(templateName);
 		if (template == null) {
 			logger.warn("Template not found in cache: {}", templateName);
@@ -152,7 +154,7 @@ public class TemplateDetector {
 		Mat roiMat = new Mat(screen, roiRect);
 
 		try {
-			double threshold = getThresholdForTemplate(templateName);
+			double threshold = getThresholdForTemplate(templateName, detectionThreshold);
 			DetectionResult result = findBestMatch(roiMat, template, templateName, threshold, isAlternative);
 
 			// Adjust coordinates back to screen space
@@ -170,10 +172,21 @@ public class TemplateDetector {
 	}
 
 	/**
+	 * New overload that accepts isAlternative which will be propagated into DetectionResult.
+	 */
+	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi, boolean isAlternative) {
+		return detectTemplateInRegion(screen, templateName, roi, isAlternative, null);
+	}
+
+	/**
 	 * Resolve a stable ROI for an ability key, using cached location if valid or falling back to template detection.
 	 * The returned rectangle is guaranteed to fit inside the given frame or {@code null} is returned.
 	 */
 	public Rectangle resolveAbilityRoi(Mat frame, String abilityKey) {
+		return resolveAbilityRoi(frame, abilityKey, null);
+	}
+
+	public Rectangle resolveAbilityRoi(Mat frame, String abilityKey, Double detectionThreshold) {
 		if (frame == null || frame.empty() || abilityKey == null) {
 			return null;
 		}
@@ -183,7 +196,7 @@ public class TemplateDetector {
 			return cached;
 		}
 
-		DetectionResult detection = detectTemplate(frame, abilityKey, false);
+		DetectionResult detection = detectTemplate(frame, abilityKey, false, detectionThreshold);
 		if (detection != null && detection.found && detection.boundingBox != null && isValidRoi(detection.boundingBox, frame)) {
 			updateCachedLocation(abilityKey, detection.boundingBox);
 			return new Rectangle(detection.boundingBox);
@@ -260,7 +273,10 @@ public class TemplateDetector {
 		return new Rectangle(x, y, w, h);
 	}
 
-	private double getThresholdForTemplate(String templateName) {
+	private double getThresholdForTemplate(String templateName, Double overrideThreshold) {
+		if (overrideThreshold != null) {
+			return overrideThreshold;
+		}
 		AbilityConfig.AbilityData abilityData = abilityConfig.getAbility(templateName);
 		if (abilityData != null && abilityData.getDetectionThreshold() != null) {
 			return abilityData.getDetectionThreshold();

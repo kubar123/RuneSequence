@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.core.detection;
 
 import com.lansoftprogramming.runeSequence.application.SequenceManager;
+import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.SequenceTooltip;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
@@ -12,8 +13,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -129,26 +132,30 @@ public class DetectionEngine {
 				}
 
 				List<DetectionResult> detectionResults = new ArrayList<>(requirements.size());
-				Map<String, DetectionResult> detectionByAbility = new ConcurrentHashMap<>();
+				Map<DetectionRequestKey, DetectionResult> detectionByAbility = new ConcurrentHashMap<>();
 
-				Set<String> abilityKeys = new HashSet<>();
+				LinkedHashSet<DetectionRequestKey> detectionRequests = new LinkedHashSet<>();
 				for (ActiveSequence.DetectionRequirement requirement : requirements) {
-					abilityKeys.add(requirement.abilityKey());
+					detectionRequests.add(new DetectionRequestKey(requirement.abilityKey(),
+							resolveDetectionThreshold(requirement)));
 				}
 
-				abilityKeys.parallelStream().forEach(abilityKey -> {
+				detectionRequests.parallelStream().forEach(request -> {
 					long detectionStart = System.nanoTime();
-					DetectionResult baseResult = detector.detectTemplate(screenMat, abilityKey, false);
-					detectionByAbility.put(abilityKey, baseResult);
+					DetectionResult baseResult = detector.detectTemplate(screenMat, request.abilityKey(), false,
+							request.detectionThreshold());
+					detectionByAbility.put(request, baseResult);
 					if (logger.isDebugEnabled()) {
 						long detectionElapsedMicros = (System.nanoTime() - detectionStart) / 1_000;
 						logger.debug("Detection '{}' took {}µs (found={}).",
-								abilityKey, detectionElapsedMicros, baseResult.found);
+								request.abilityKey(), detectionElapsedMicros, baseResult.found);
 					}
 				});
 
 				for (ActiveSequence.DetectionRequirement requirement : requirements) {
-					DetectionResult baseResult = detectionByAbility.get(requirement.abilityKey());
+					DetectionRequestKey key = new DetectionRequestKey(requirement.abilityKey(),
+							resolveDetectionThreshold(requirement));
+					DetectionResult baseResult = detectionByAbility.get(key);
 					DetectionResult adapted = adaptDetectionResult(requirement, baseResult, captureRegion);
 					detectionResults.add(adapted);
 				}
@@ -202,6 +209,11 @@ public class DetectionEngine {
 
 	public boolean isRunning() {
 		return isRunning;
+	}
+
+	private Double resolveDetectionThreshold(ActiveSequence.DetectionRequirement requirement) {
+		EffectiveAbilityConfig effectiveConfig = requirement.effectiveAbilityConfig();
+		return effectiveConfig != null ? effectiveConfig.getDetectionThreshold().orElse(null) : null;
 	}
 
 	private DetectionResult adaptDetectionResult(ActiveSequence.DetectionRequirement requirement,
@@ -270,5 +282,8 @@ public class DetectionEngine {
 			}
 		}
 		return builder.toString();
+	}
+
+	private record DetectionRequestKey(String abilityKey, Double detectionThreshold) {
 	}
 }

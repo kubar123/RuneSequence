@@ -1,10 +1,7 @@
 package com.lansoftprogramming.runeSequence.core.sequence.runtime;
 
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
-import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
+import com.lansoftprogramming.runeSequence.core.sequence.model.*;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import org.junit.jupiter.api.Test;
 
@@ -71,6 +68,36 @@ class ActiveSequenceTest {
 		List<DetectionResult> afterReset = activeSequence.getCurrentAbilities();
 		assertEquals(List.of("Alpha#0", "Beta#0"), afterReset.stream().map(r -> r.templateName).toList());
 		assertTrue(afterReset.stream().allMatch(r -> !r.found), "Reset should clear detection state");
+	}
+
+	@Test
+	void detectionRequirementsShouldExposeEffectiveOverrides() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+		AbilityConfig.AbilityData base = new AbilityConfig.AbilityData();
+		base.setTriggersGcd(true);
+		base.setDetectionThreshold(0.5);
+		abilityConfig.putAbility("Alpha", base);
+
+		AbilitySettingsOverrides overrides = AbilitySettingsOverrides.builder()
+				.triggersGcd(false)
+				.detectionThreshold(0.9)
+				.castDuration((short) 4)
+				.build();
+
+		SequenceDefinition definition = new SequenceDefinition(List.of(
+				new Step(List.of(new Term(List.of(new Alternative("Alpha", overrides)))))
+		));
+
+		ActiveSequence activeSequence = new ActiveSequence(definition, abilityConfig);
+
+		ActiveSequence.DetectionRequirement requirement = activeSequence.getDetectionRequirements().get(0);
+		EffectiveAbilityConfig effective = requirement.effectiveAbilityConfig();
+
+		assertNotNull(effective);
+		assertEquals("Alpha", effective.getAbilityKey());
+		assertFalse(effective.isTriggersGcd(), "Override should apply to triggersGcd");
+		assertEquals(0.9, effective.getDetectionThreshold().orElseThrow());
+		assertEquals(4, effective.getCastDuration());
 	}
 
 	private AbilityConfig abilityConfig(String... names) {

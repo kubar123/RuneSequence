@@ -2,10 +2,7 @@ package com.lansoftprogramming.runeSequence.core.sequence.runtime;
 
 import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
-import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
+import com.lansoftprogramming.runeSequence.core.sequence.model.*;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 
 import java.util.*;
@@ -35,7 +32,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	public ActiveSequence(SequenceDefinition def, AbilityConfig abilityConfig) {
 		this.definition = def;
 		this.abilityConfig = abilityConfig;
-		this.stepInstances = indexInstances(def);
+		this.stepInstances = indexInstances(def, abilityConfig);
 		this.stepTimer = new StepTimer();
 
 		System.out.println("ActiveSequence: Created with " + def.getSteps().size() + " steps");
@@ -123,7 +120,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 		List<DetectionResult> next = buildDetectionsForStep(currentStepIndex + 1);
 		System.out.println("ActiveSequence.getNextAbilities: " + next.size() + " abilities");
-		
+
 		return next;
 	}
 
@@ -222,17 +219,17 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		}
 		for (AbilityInstance instance : stepInstances.get(stepIndex)) {
 			out.putIfAbsent(instance.instanceId,
-					new DetectionRequirement(instance.instanceId, instance.abilityKey, instance.isAlternative));
+					new DetectionRequirement(instance.instanceId, instance.abilityKey, instance.isAlternative, instance.effectiveAbilityConfig));
 		}
 	}
 
-	private List<List<AbilityInstance>> indexInstances(SequenceDefinition def) {
+	private List<List<AbilityInstance>> indexInstances(SequenceDefinition def, AbilityConfig abilityConfig) {
 		List<List<AbilityInstance>> perStep = new ArrayList<>();
 		Map<String, Integer> occurrenceCounters = new HashMap<>();
 		List<Step> steps = def.getSteps();
 		for (Step step : steps) {
 			List<AbilityInstance> collected = new ArrayList<>();
-			collectInstancesFromStep(step, occurrenceCounters, collected, false);
+			collectInstancesFromStep(step, occurrenceCounters, collected, false, abilityConfig);
 			perStep.add(List.copyOf(collected));
 		}
 		return List.copyOf(perStep);
@@ -241,11 +238,12 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	private void collectInstancesFromStep(Step step,
 	                                     Map<String, Integer> occurrenceCounters,
 	                                     List<AbilityInstance> collector,
-	                                     boolean inheritedAlternative) {
+	                                      boolean inheritedAlternative,
+	                                      AbilityConfig abilityConfig) {
 		for (Term term : step.getTerms()) {
 			boolean termIsAlternative = inheritedAlternative || term.getAlternatives().size() > 1;
 			for (Alternative alt : term.getAlternatives()) {
-				collectInstancesFromAlternative(alt, occurrenceCounters, collector, termIsAlternative);
+				collectInstancesFromAlternative(alt, occurrenceCounters, collector, termIsAlternative, abilityConfig);
 			}
 		}
 	}
@@ -253,33 +251,50 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	private void collectInstancesFromAlternative(Alternative alt,
 	                                             Map<String, Integer> occurrenceCounters,
 	                                             List<AbilityInstance> collector,
-	                                             boolean parentTermIsAlternative) {
+	                                             boolean parentTermIsAlternative,
+	                                             AbilityConfig abilityConfig) {
 		if (alt.isToken()) {
 			String abilityKey = alt.getToken();
 			int occurrenceIndex = occurrenceCounters.getOrDefault(abilityKey, 0);
 			String instanceId = abilityKey + "#" + occurrenceIndex;
 			occurrenceCounters.put(abilityKey, occurrenceIndex + 1);
-			AbilityInstance instance = new AbilityInstance(instanceId, abilityKey, parentTermIsAlternative);
+			EffectiveAbilityConfig effectiveConfig = buildEffectiveConfig(alt, abilityKey, abilityConfig);
+			AbilityInstance instance = new AbilityInstance(instanceId, abilityKey, parentTermIsAlternative, effectiveConfig);
 			collector.add(instance);
 			instancesById.put(instanceId, instance);
 			System.out.println("ActiveSequence.collectInstances: instanceId=" + instanceId +
 					" abilityKey=" + abilityKey + " isAlternative=" + parentTermIsAlternative);
 		} else {
 			for (Step step : alt.getSubgroup().getSteps()) {
-				collectInstancesFromStep(step, occurrenceCounters, collector, parentTermIsAlternative);
+				collectInstancesFromStep(step, occurrenceCounters, collector, parentTermIsAlternative, abilityConfig);
 			}
 		}
+	}
+
+	private EffectiveAbilityConfig buildEffectiveConfig(Alternative alt,
+	                                                    String abilityKey,
+	                                                    AbilityConfig abilityConfig) {
+		if (abilityConfig == null) {
+			return null;
+		}
+		AbilityConfig.AbilityData baseAbility = abilityConfig.getAbility(abilityKey);
+		if (baseAbility == null) {
+			return null;
+		}
+		return EffectiveAbilityConfig.from(abilityKey, baseAbility, alt.getAbilitySettingsOverrides());
 	}
 
 	private static final class AbilityInstance {
 		private final String instanceId;
 		private final String abilityKey;
 		private final boolean isAlternative;
+		private final EffectiveAbilityConfig effectiveAbilityConfig;
 
-		private AbilityInstance(String instanceId, String abilityKey, boolean isAlternative) {
+		private AbilityInstance(String instanceId, String abilityKey, boolean isAlternative, EffectiveAbilityConfig effectiveAbilityConfig) {
 			this.instanceId = instanceId;
 			this.abilityKey = abilityKey;
 			this.isAlternative = isAlternative;
+			this.effectiveAbilityConfig = effectiveAbilityConfig;
 		}
 
 		@Override
@@ -288,7 +303,8 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		}
 	}
 
-	public record DetectionRequirement(String instanceId, String abilityKey, boolean isAlternative) {
+	public record DetectionRequirement(String instanceId, String abilityKey, boolean isAlternative,
+	                                   EffectiveAbilityConfig effectiveAbilityConfig) {
 		@Override
 		public String toString() {
 			return instanceId + "->" + abilityKey + "[" + (isAlternative ? "OR" : "AND") + "]";
