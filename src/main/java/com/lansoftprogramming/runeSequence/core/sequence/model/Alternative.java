@@ -9,15 +9,22 @@ public class Alternative {
 
 	private final String token;                 // Ability name (or macro string)
 	private final SequenceDefinition subgroup;  // Nested expression (from parentheses)
+	private final AbilitySettingsOverrides abilitySettingsOverrides;
 
 	public Alternative(String token) {
+		this(token, null);
+	}
+
+	public Alternative(String token, AbilitySettingsOverrides abilitySettingsOverrides) {
 		this.token = token;
 		this.subgroup = null;
+		this.abilitySettingsOverrides = abilitySettingsOverrides;
 	}
 
 	public Alternative(SequenceDefinition subgroup) {
 		this.token = null;
 		this.subgroup = subgroup;
+		this.abilitySettingsOverrides = null;
 	}
 
 	public boolean isToken() {
@@ -34,6 +41,10 @@ public class Alternative {
 
 	public SequenceDefinition getSubgroup() {
 		return subgroup;
+	}
+
+	public AbilitySettingsOverrides getAbilitySettingsOverrides() {
+		return abilitySettingsOverrides;
 	}
 
 	@Override

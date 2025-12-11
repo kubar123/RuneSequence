@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.core.sequence.runtime;
 
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
+import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
 import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 
@@ -66,22 +67,18 @@ public class StepTimer {
 		long maxTicks = 0;
 		// The duration of a step is determined by the ability within it that takes the longest to be ready again.
 		// This can be its cast time, its global cooldown (GCD), or its specific cooldown.
-		for (String token : step.getDetectableTokens(abilityConfig)) {
-			AbilityConfig.AbilityData data = abilityConfig.getAbility(token);
-			if(data==null){
-				continue;
-			}
+		for (EffectiveAbilityConfig ability : step.getEffectiveAbilityConfigs(abilityConfig)) {
 			// 1. Determine the time taken by the ability's execution (cast or GCD).
 			// A specific cast_duration overrides the default GCD.
 			long castOrGcdTicks = 0;
-			if (data.getCastDuration() > 0) {
-				castOrGcdTicks = data.getCastDuration();
-			} else if (data.isTriggersGcd()) {
+			if (ability.getCastDuration() > 0) {
+				castOrGcdTicks = ability.getCastDuration();
+			} else if (ability.isTriggersGcd()) {
 				castOrGcdTicks = DEFAULT_GCD_TICKS;
 			}
 			// 2. Get the ability's own cooldown, which is independent of the GCD.
 			// The value from the config is already in ticks.
-			short cooldownTicks = data.getCooldown();
+			short cooldownTicks = ability.getCooldown();
 			// 3. The effective time for this ability is the longer of its execution time and its cooldown.
 			short effectiveTicks = (short) Math.max(castOrGcdTicks, cooldownTicks);
 			// 4. The step's total duration is dictated by the longest effective time of any ability in it.

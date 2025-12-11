@@ -26,21 +26,30 @@ public class Step {
 	 * Flatten all detectable tokens in this step for detection engine
 	 */
 	public List<String> getDetectableTokens(AbilityConfig abilityConfig) {
-		List<String> out = new ArrayList<>();
+		return getEffectiveAbilityConfigs(abilityConfig).stream()
+				.map(EffectiveAbilityConfig::getAbilityKey)
+				.toList();
+	}
+
+	public List<EffectiveAbilityConfig> getEffectiveAbilityConfigs(AbilityConfig abilityConfig) {
+		List<EffectiveAbilityConfig> out = new ArrayList<>();
 		for (Term t : terms) {
 			for (Alternative alt : t.getAlternatives()) {
-				collectDetectable(alt, abilityConfig, out);
+				collectEffectiveConfigs(alt, abilityConfig, out);
 			}
 		}
 		return out;
 	}
 
-	private void collectDetectable(Alternative alt, AbilityConfig abilityCfg, List<String> out) {
+	private void collectEffectiveConfigs(Alternative alt,
+	                                     AbilityConfig abilityCfg,
+	                                     List<EffectiveAbilityConfig> out) {
 		if (alt.isToken()) {
 			String tokenName = alt.getToken();
-
-			if (abilityCfg.getAbility(tokenName) != null) {
-				out.add(tokenName);
+			AbilityConfig.AbilityData data = abilityCfg.getAbility(tokenName);
+			if (data != null) {
+				AbilitySettingsOverrides overrides = alt.getAbilitySettingsOverrides();
+				out.add(EffectiveAbilityConfig.from(tokenName, data, overrides));
 				logger.trace("Added token '{}'", tokenName);
 			} else {
 				logger.debug("Token '{}' not found in AbilityConfig. Available abilities: {}", tokenName, abilityCfg.getAbilities().keySet());
@@ -50,7 +59,7 @@ public class Step {
 			for (Step step : alt.getSubgroup().getSteps()) {
 				for (Term term : step.getTerms()) {
 					for (Alternative alternative : term.getAlternatives()) {
-						collectDetectable(alternative, abilityCfg, out);
+						collectEffectiveConfigs(alternative, abilityCfg, out);
 					}
 				}
 			}
