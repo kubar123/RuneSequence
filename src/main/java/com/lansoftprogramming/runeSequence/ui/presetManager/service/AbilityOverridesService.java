@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilitySettingsOverridesMapper;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
+import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetRotationDefaults;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 
 import java.util.*;
@@ -47,6 +48,33 @@ public class AbilityOverridesService {
 		}
 
 		return overridesMapper.toConfig(perInstance);
+	}
+
+	public PresetRotationDefaults extractRotationDefaults(PresetAbilitySettings abilitySettings) {
+		if (abilitySettings == null) {
+			return null;
+		}
+		PresetRotationDefaults defaults = abilitySettings.getRotationDefaults();
+		if (defaults == null || defaults.isEmpty()) {
+			return null;
+		}
+		return defaults;
+	}
+
+	public PresetAbilitySettings applyRotationDefaults(PresetAbilitySettings abilitySettings, PresetRotationDefaults defaults) {
+		if (defaults == null || defaults.isEmpty()) {
+			if (abilitySettings != null) {
+				abilitySettings.setRotationDefaults(null);
+				if (abilitySettings.getPerInstance() == null || abilitySettings.getPerInstance().isEmpty()) {
+					return null;
+				}
+			}
+			return abilitySettings;
+		}
+
+		PresetAbilitySettings out = abilitySettings != null ? abilitySettings : new PresetAbilitySettings();
+		out.setRotationDefaults(defaults);
+		return out;
 	}
 
 	public Map<String, AbilitySettingsOverrides> extractOverridesByLabel(List<SequenceElement> elements) {

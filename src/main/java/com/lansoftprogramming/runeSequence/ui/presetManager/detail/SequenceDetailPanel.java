@@ -181,6 +181,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private void registerEventHandlers() {
 		saveButton.addActionListener(e -> presenter.saveSequence());
 		discardButton.addActionListener(e -> presenter.discardChanges());
+		settingsButton.addActionListener(e -> presenter.openRotationSettings());
 		registerInsertDragHandler();
 		registerTooltipDragHandler();
 	}
@@ -242,6 +243,14 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	@Override
 	public JComponent asComponent() {
 		return this;
+	}
+
+	@Override
+	public void showRotationSettings(String presetId, RotationConfig.PresetData presetData) {
+		Window owner = SwingUtilities.getWindowAncestor(this);
+		String rotationName = sequenceNameField.getText();
+		RotationSettingsDialog dialog = new RotationSettingsDialog(owner, rotationName, presetData);
+		dialog.setVisible(true);
 	}
 
 	public interface SaveListener {

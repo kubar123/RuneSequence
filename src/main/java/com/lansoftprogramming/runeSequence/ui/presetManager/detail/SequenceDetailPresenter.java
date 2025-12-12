@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
+import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetRotationDefaults;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DragPreviewModel;
@@ -40,6 +41,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private String loadedExpression;
 	private List<SequenceElement> loadedElements;
 	private Map<String, AbilitySettingsOverrides> loadedOverrides;
+	private PresetRotationDefaults loadedRotationDefaults;
 	private List<SequenceElement> originalElementsBeforeDrag;
 	private SequenceElement draggedAbilityElement;
 	private DragPreviewModel currentPreview;
@@ -66,6 +68,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		this.loadedExpression = "";
 		this.loadedElements = new ArrayList<>();
 		this.loadedOverrides = Map.of();
+		this.loadedRotationDefaults = null;
 	}
 
 	void addSaveListener(SequenceDetailPanel.SaveListener listener) {
@@ -96,6 +99,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		List<SequenceElement> parsedElements = detailService.parseSequenceExpression(loadedExpression, overridesByLabel);
 		loadedElements = parsedElements != null ? new ArrayList<>(parsedElements) : new ArrayList<>();
 		loadedOverrides = overridesService.extractOverridesByLabel(loadedElements);
+		loadedRotationDefaults = overridesService.extractRotationDefaults(presetData.getAbilitySettings());
 		currentElements = new ArrayList<>(loadedElements);
 		previewElements = new ArrayList<>(loadedElements);
 		flowView.renderSequenceElements(currentElements);
@@ -114,6 +118,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		loadedExpression = "";
 		loadedElements = new ArrayList<>();
 		loadedOverrides = Map.of();
+		loadedRotationDefaults = null;
 		draggedAbilityElement = null;
 		flowView.renderSequenceElements(currentElements);
 	}
@@ -135,7 +140,18 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		Map<String, AbilitySettingsOverrides> currentOverrides = overridesService.extractOverridesByLabel(currentElements);
 		Map<String, AbilitySettingsOverrides> baselineOverrides = loadedOverrides != null ? loadedOverrides : Map.of();
-		return !currentOverrides.equals(baselineOverrides);
+		if (!currentOverrides.equals(baselineOverrides)) {
+			return true;
+		}
+
+		PresetRotationDefaults currentRotationDefaults = overridesService.extractRotationDefaults(
+				currentPreset != null ? currentPreset.getAbilitySettings() : null
+		);
+		PresetRotationDefaults baselineRotationDefaults = loadedRotationDefaults;
+		if (baselineRotationDefaults == null) {
+			return currentRotationDefaults != null;
+		}
+		return !baselineRotationDefaults.equals(currentRotationDefaults);
 	}
 
 	void saveSequence() {
@@ -147,6 +163,10 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		String expression = expressionBuilder.buildExpression(currentElements);
 		PresetAbilitySettings abilitySettings = overridesService.buildAbilitySettings(currentElements);
+		PresetRotationDefaults currentRotationDefaults = overridesService.extractRotationDefaults(
+				currentPreset != null ? currentPreset.getAbilitySettings() : null
+		);
+		abilitySettings = overridesService.applyRotationDefaults(abilitySettings, currentRotationDefaults);
 		Map<String, AbilitySettingsOverrides> currentOverrides = overridesService.extractOverridesByLabel(currentElements);
 
 		SequenceDetailService.SaveOutcome outcome = detailService.saveSequence(
@@ -188,6 +208,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		loadedExpression = expression;
 		loadedElements = new ArrayList<>(currentElements);
 		loadedOverrides = new java.util.LinkedHashMap<>(currentOverrides);
+		loadedRotationDefaults = currentRotationDefaults;
 
 		view.setSequenceName(trimmedName);
 		notifySaveListeners(result);
@@ -202,7 +223,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (currentPreset != null) {
 			currentPreset.setName(loadedSequenceName);
 			currentPreset.setExpression(loadedExpression);
-			currentPreset.setAbilitySettings(overridesService.buildAbilitySettings(loadedElements));
+			PresetAbilitySettings abilitySettings = overridesService.buildAbilitySettings(loadedElements);
+			abilitySettings = overridesService.applyRotationDefaults(abilitySettings, loadedRotationDefaults);
+			currentPreset.setAbilitySettings(abilitySettings);
 		}
 
 		currentElements = new ArrayList<>(loadedElements);
@@ -213,6 +236,16 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 	void startPaletteDrag(AbilityItem item, JPanel card, Point startPoint) {
 		flowView.startPaletteDrag(item, card, startPoint);
+	}
+
+	void openRotationSettings() {
+		if (currentPreset == null) {
+			if (notifications != null) {
+				notifications.showWarning("No rotation selected.");
+			}
+			return;
+		}
+		view.showRotationSettings(currentPresetId, currentPreset);
 	}
 
 	@Override
@@ -540,5 +573,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		String getSequenceName();
 
 		JComponent asComponent();
+
+		void showRotationSettings(String presetId, RotationConfig.PresetData presetData);
 	}
 }
