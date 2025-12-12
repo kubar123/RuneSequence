@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.core.sequence.model;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -78,6 +79,34 @@ public class AbilitySettingsOverrides {
 				cooldown == null &&
 				detectionThreshold == null &&
 				mask == null;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+
+		AbilitySettingsOverrides that = (AbilitySettingsOverrides) o;
+
+		if (!Objects.equals(type, that.type)) return false;
+		if (!Objects.equals(level, that.level)) return false;
+		if (!Objects.equals(triggersGcd, that.triggersGcd)) return false;
+		if (!Objects.equals(castDuration, that.castDuration)) return false;
+		if (!Objects.equals(cooldown, that.cooldown)) return false;
+		if (!Objects.equals(detectionThreshold, that.detectionThreshold)) return false;
+		return Objects.equals(mask, that.mask);
+	}
+
+	@Override
+	public int hashCode() {
+		int result = type != null ? type.hashCode() : 0;
+		result = 31 * result + (level != null ? level.hashCode() : 0);
+		result = 31 * result + (triggersGcd != null ? triggersGcd.hashCode() : 0);
+		result = 31 * result + (castDuration != null ? castDuration.hashCode() : 0);
+		result = 31 * result + (cooldown != null ? cooldown.hashCode() : 0);
+		result = 31 * result + (detectionThreshold != null ? detectionThreshold.hashCode() : 0);
+		result = 31 * result + (mask != null ? mask.hashCode() : 0);
+		return result;
 	}
 
 	public static final class Builder {

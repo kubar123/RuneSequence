@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
@@ -11,7 +12,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Service for converting parsed sequence definitions into visual elements for display.
@@ -41,6 +45,19 @@ public class SequenceVisualService {
 	 * @return List of SequenceElement objects representing the visual structure
 	 */
 	public List<SequenceElement> parseToVisualElements(String expression) {
+		return parseToVisualElements(expression, null);
+	}
+
+	/**
+	 * Converts a sequence expression string into a list of visual elements and attaches any known
+	 * per-instance overrides keyed by instance label.
+	 *
+	 * @param expression The sequence expression string (e.g., "ability1 -> ability2 + ability3")
+	 * @param overridesByLabel Map of instanceLabel -> AbilitySettingsOverrides (may be null)
+	 * @return List of SequenceElement objects representing the visual structure
+	 */
+	public List<SequenceElement> parseToVisualElements(String expression,
+	                                                   Map<String, AbilitySettingsOverrides> overridesByLabel) {
 		if (expression == null || expression.trim().isEmpty()) {
 			logger.debug("Empty expression provided");
 			return new ArrayList<>();
@@ -62,7 +79,7 @@ public class SequenceVisualService {
 			SequenceDefinition definition = SequenceParser.parse(cleanedExpression);
 
 			// Convert AST to visual elements
-			List<SequenceElement> baseElements = convertDefinitionToElements(definition);
+			List<SequenceElement> baseElements = convertDefinitionToElements(definition, overridesByLabel);
 			return tooltipMarkupParser.insertTooltips(
 					baseElements,
 					parseResult.tooltipPlacements(),
@@ -72,7 +89,7 @@ public class SequenceVisualService {
 			logger.error("Failed to parse expression with tooltip handling: {}", expression, e);
 			try {
 				SequenceDefinition fallbackDefinition = SequenceParser.parse(expression);
-				return convertDefinitionToElements(fallbackDefinition);
+				return convertDefinitionToElements(fallbackDefinition, overridesByLabel);
 			} catch (Exception fallback) {
 				logger.error("Fallback parse without tooltip stripping also failed for expression: {}", expression, fallback);
 			}
@@ -88,12 +105,21 @@ public class SequenceVisualService {
 	 * @return List of visual elements with abilities and separators
 	 */
 	private List<SequenceElement> convertDefinitionToElements(SequenceDefinition definition) {
+		return convertDefinitionToElements(definition, null);
+	}
+
+	private List<SequenceElement> convertDefinitionToElements(SequenceDefinition definition,
+	                                                          Map<String, AbilitySettingsOverrides> overridesByLabel) {
 		List<SequenceElement> elements = new ArrayList<>();
 		List<TooltipStructure.StructuralElement> structure = TooltipStructure.linearize(definition);
 
 		for (TooltipStructure.StructuralElement element : structure) {
 			if (element.isAbility()) {
-				elements.add(SequenceElement.ability(element.abilityName()));
+				AbilityTokenParts parts = parseAbilityToken(element.abilityName());
+				AbilitySettingsOverrides overrides = parts.instanceLabel() != null && overridesByLabel != null
+						? overridesByLabel.get(parts.instanceLabel())
+						: null;
+				elements.add(SequenceElement.ability(parts.abilityKey(), parts.instanceLabel(), overrides));
 			} else if (element.isOperator()) {
 				char symbol = element.operatorSymbol();
 				if (symbol == TooltipGrammar.ARROW) {
@@ -118,10 +144,27 @@ public class SequenceVisualService {
 	 * @return List of ability keys in order
 	 */
 	public List<String> extractAbilityKeys(String expression) {
-		List<SequenceElement> elements = parseToVisualElements(expression);
+		List<SequenceElement> elements = parseToVisualElements(expression, null);
 		return elements.stream()
 				.filter(SequenceElement::isAbility)
-				.map(SequenceElement::getValue)
+				.map(SequenceElement::getAbilityKey)
+				.filter(java.util.Objects::nonNull)
 				.toList();
 	}
+
+	private AbilityTokenParts parseAbilityToken(String token) {
+		if (token == null || token.isBlank()) {
+			return new AbilityTokenParts(token, null);
+		}
+		Matcher matcher = INSTANCE_LABEL_PATTERN.matcher(token);
+		if (matcher.matches()) {
+			return new AbilityTokenParts(matcher.group(1), matcher.group(2));
+		}
+		return new AbilityTokenParts(token, null);
+	}
+
+	private record AbilityTokenParts(String abilityKey, String instanceLabel) {
+	}
+
+	private static final Pattern INSTANCE_LABEL_PATTERN = Pattern.compile("(.+?)\\[\\*(\\d+)\\]$");
 }

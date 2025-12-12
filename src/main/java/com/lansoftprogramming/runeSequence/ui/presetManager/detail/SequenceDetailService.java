@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
@@ -12,9 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class SequenceDetailService {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailService.class);
@@ -34,6 +33,10 @@ public class SequenceDetailService {
 
 	public List<SequenceElement> parseSequenceExpression(String expression) {
 		return visualService.parseToVisualElements(expression);
+	}
+
+	public List<SequenceElement> parseSequenceExpression(String expression, Map<String, AbilitySettingsOverrides> overridesByLabel) {
+		return visualService.parseToVisualElements(expression, overridesByLabel);
 	}
 
 	public AbilityItem createAbilityItem(String abilityKey) {
@@ -70,7 +73,8 @@ public class SequenceDetailService {
 	public SaveOutcome saveSequence(String existingId,
 									RotationConfig.PresetData referencePreset,
 									String sequenceName,
-									String expression) {
+									String expression,
+									RotationConfig.AbilitySettings abilitySettings) {
 		if (sequenceName == null || sequenceName.isBlank()) {
 			return SaveOutcome.validationFailure("Sequence name must not be empty");
 		}
@@ -83,7 +87,7 @@ public class SequenceDetailService {
 
 			Map<String, RotationConfig.PresetData> presets = rotations.getPresets();
 			if (presets == null) {
-				presets = new java.util.HashMap<>();
+				presets = new HashMap<>();
 				rotations.setPresets(presets);
 			}
 
@@ -99,6 +103,7 @@ public class SequenceDetailService {
 
 			presetData.setName(sequenceName);
 			presetData.setExpression(expression);
+			presetData.setAbilitySettings(abilitySettings);
 
 			configManager.saveRotations();
 			logger.info("Saved sequence '{}' with id {}", sequenceName, targetId);
@@ -131,6 +136,158 @@ public class SequenceDetailService {
 		}
 
 		return UUID.randomUUID().toString();
+	}
+
+	public Map<String, AbilitySettingsOverrides> toDomainOverrides(RotationConfig.AbilitySettings abilitySettings) {
+		if (abilitySettings == null || abilitySettings.getPerInstance() == null) {
+			return Map.of();
+		}
+		Map<String, AbilitySettingsOverrides> domain = new LinkedHashMap<>();
+		for (Map.Entry<String, RotationConfig.AbilitySettingsOverrides> entry : abilitySettings.getPerInstance().entrySet()) {
+			AbilitySettingsOverrides converted = toDomainOverrides(entry.getValue());
+			if (converted != null && !converted.isEmpty()) {
+				domain.put(entry.getKey(), converted);
+			}
+		}
+		return domain;
+	}
+
+	public Map<String, AbilitySettingsOverrides> extractOverridesByLabel(List<SequenceElement> elements) {
+		if (elements == null || elements.isEmpty()) {
+			return Map.of();
+		}
+		Map<String, AbilitySettingsOverrides> out = new LinkedHashMap<>();
+		for (SequenceElement element : elements) {
+			if (!element.isAbility() || !element.hasOverrides()) {
+				continue;
+			}
+			String label = element.getInstanceLabel();
+			if (label == null || label.isBlank()) {
+				continue;
+			}
+			AbilitySettingsOverrides overrides = element.getAbilitySettingsOverrides();
+			if (overrides != null && !overrides.isEmpty()) {
+				out.put(label, overrides);
+			}
+		}
+		return out;
+	}
+
+	public RotationConfig.AbilitySettings buildAbilitySettings(List<SequenceElement> elements) {
+		if (elements == null || elements.isEmpty()) {
+			return null;
+		}
+		Map<String, RotationConfig.AbilitySettingsOverrides> perInstance = new LinkedHashMap<>();
+
+		for (SequenceElement element : elements) {
+			if (!element.isAbility() || !element.hasOverrides()) {
+				continue;
+			}
+			String label = element.getInstanceLabel();
+			if (label == null || label.isBlank()) {
+				continue;
+			}
+			RotationConfig.AbilitySettingsOverrides overrides = toConfigOverrides(element.getAbilitySettingsOverrides());
+			if (overrides != null) {
+				perInstance.put(label, overrides);
+			}
+		}
+
+		if (perInstance.isEmpty()) {
+			return null;
+		}
+
+		RotationConfig.AbilitySettings abilitySettings = new RotationConfig.AbilitySettings();
+		abilitySettings.setPerInstance(perInstance);
+		return abilitySettings;
+	}
+
+	public List<SequenceElement> normalizeAbilityElements(List<SequenceElement> elements) {
+		if (elements == null) {
+			return new ArrayList<>();
+		}
+		Set<String> usedLabels = collectExistingLabels(elements);
+		int nextLabel = 1;
+		List<SequenceElement> normalized = new ArrayList<>(elements.size());
+
+		for (SequenceElement element : elements) {
+			if (!element.isAbility() || !element.hasOverrides()) {
+				normalized.add(element);
+				continue;
+			}
+			String label = element.getInstanceLabel();
+			if (label != null && !label.isBlank()) {
+				normalized.add(element);
+				continue;
+			}
+			while (usedLabels.contains(String.valueOf(nextLabel))) {
+				nextLabel++;
+			}
+			String assigned = String.valueOf(nextLabel++);
+			usedLabels.add(assigned);
+			normalized.add(element.withInstanceLabel(assigned));
+		}
+
+		return normalized;
+	}
+
+	private Set<String> collectExistingLabels(List<SequenceElement> elements) {
+		Set<String> labels = new HashSet<>();
+		for (SequenceElement element : elements) {
+			if (!element.isAbility()) {
+				continue;
+			}
+			String label = element.getInstanceLabel();
+			if (label != null && !label.isBlank()) {
+				labels.add(label);
+			}
+		}
+		return labels;
+	}
+
+	private AbilitySettingsOverrides toDomainOverrides(RotationConfig.AbilitySettingsOverrides overrides) {
+		if (overrides == null) {
+			return null;
+		}
+		AbilitySettingsOverrides.Builder builder = AbilitySettingsOverrides.builder();
+		if (overrides.getType() != null) {
+			builder.type(overrides.getType());
+		}
+		if (overrides.getLevel() != null) {
+			builder.level(overrides.getLevel());
+		}
+		if (overrides.getTriggersGcd() != null) {
+			builder.triggersGcd(overrides.getTriggersGcd());
+		}
+		if (overrides.getCastDuration() != null) {
+			builder.castDuration(overrides.getCastDuration());
+		}
+		if (overrides.getCooldown() != null) {
+			builder.cooldown(overrides.getCooldown());
+		}
+		if (overrides.getDetectionThreshold() != null) {
+			builder.detectionThreshold(overrides.getDetectionThreshold());
+		}
+		if (overrides.getMask() != null) {
+			builder.mask(overrides.getMask());
+		}
+		AbilitySettingsOverrides built = builder.build();
+		return built.isEmpty() ? AbilitySettingsOverrides.empty() : built;
+	}
+
+	private RotationConfig.AbilitySettingsOverrides toConfigOverrides(AbilitySettingsOverrides overrides) {
+		if (overrides == null || overrides.isEmpty()) {
+			return null;
+		}
+		RotationConfig.AbilitySettingsOverrides config = new RotationConfig.AbilitySettingsOverrides();
+		overrides.getTypeOverride().ifPresent(config::setType);
+		overrides.getLevelOverride().ifPresent(config::setLevel);
+		overrides.getTriggersGcdOverride().ifPresent(config::setTriggersGcd);
+		overrides.getCastDurationOverride().ifPresent(config::setCastDuration);
+		overrides.getCooldownOverride().ifPresent(config::setCooldown);
+		overrides.getDetectionThresholdOverride().ifPresent(config::setDetectionThreshold);
+		overrides.getMaskOverride().ifPresent(config::setMask);
+		return config;
 	}
 
 	public static class SaveResult {

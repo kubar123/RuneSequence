@@ -46,13 +46,14 @@ public class Step {
 	                                     List<EffectiveAbilityConfig> out) {
 		if (alt.isToken()) {
 			String tokenName = alt.getToken();
-			AbilityConfig.AbilityData data = abilityCfg.getAbility(tokenName);
+			String abilityKey = baseAbilityKey(tokenName);
+			AbilityConfig.AbilityData data = abilityCfg.getAbility(abilityKey);
 			if (data != null) {
 				AbilitySettingsOverrides overrides = alt.getAbilitySettingsOverrides();
-				out.add(EffectiveAbilityConfig.from(tokenName, data, overrides));
-				logger.trace("Added token '{}'", tokenName);
+				out.add(EffectiveAbilityConfig.from(abilityKey, data, overrides));
+				logger.trace("Added token '{}'", abilityKey);
 			} else {
-				logger.debug("Token '{}' not found in AbilityConfig. Available abilities: {}", tokenName, abilityCfg.getAbilities().keySet());
+				logger.debug("Token '{}' not found in AbilityConfig. Available abilities: {}", abilityKey, abilityCfg.getAbilities().keySet());
 			}
 		} else {
 			// Handle subgroup - recursively process ALL steps, not just first
@@ -96,11 +97,12 @@ public class Step {
 
 		if (alt.isToken()) {
 			String tokenName = alt.getToken();
-			DetectionResult existing = lastDetections.get(tokenName);
+			String abilityKey = baseAbilityKey(tokenName);
+			DetectionResult existing = lastDetections.get(abilityKey);
 			DetectionResult r;
 			if (existing == null) {
 				// Not found - create a notFound with the correct isAlternative flag
-				r = DetectionResult.notFound(tokenName, parentTermIsAlternative);
+				r = DetectionResult.notFound(abilityKey, parentTermIsAlternative);
 			} else {
 				// Use the existing result's isAlternative if it was set during detection,
 				// otherwise use the parentTermIsAlternative from sequence structure
@@ -143,5 +145,16 @@ public class Step {
 	@Override
 	public String toString() {
 		return String.join(" + ", terms.stream().map(Object::toString).toList());
+	}
+
+	private String baseAbilityKey(String tokenName) {
+		if (tokenName == null) {
+			return null;
+		}
+		int labelStart = tokenName.lastIndexOf("[*");
+		if (labelStart >= 0 && tokenName.endsWith("]") && labelStart < tokenName.length() - 2) {
+			return tokenName.substring(0, labelStart);
+		}
+		return tokenName;
 	}
 }

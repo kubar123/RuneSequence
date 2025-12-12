@@ -198,7 +198,8 @@ class AbilityFlowView extends JPanel {
 		AbilityGroupPanel groupPanel = new AbilityGroupPanel(groupColor);
 
 		SequenceElement firstElement = elements.get(startIndex);
-		AbilityItem firstItem = detailService.createAbilityItem(firstElement.getValue());
+		String firstKey = firstElement.getAbilityKey() != null ? firstElement.getAbilityKey() : firstElement.getValue();
+		AbilityItem firstItem = detailService.createAbilityItem(firstKey);
 		if (firstItem != null) {
 			JPanel card = cardFactory.createAbilityCard(firstItem);
 			card.putClientProperty("elementIndex", startIndex);
@@ -219,7 +220,10 @@ class AbilityFlowView extends JPanel {
 			if (currentIndex + 1 < elements.size() && elements.get(currentIndex + 1).isAbility()) {
 				int abilityElementIndex = currentIndex + 1;
 				SequenceElement abilityElement = elements.get(abilityElementIndex);
-				AbilityItem abilityItem = detailService.createAbilityItem(abilityElement.getValue());
+				String abilityKey = abilityElement.getAbilityKey() != null
+						? abilityElement.getAbilityKey()
+						: abilityElement.getValue();
+				AbilityItem abilityItem = detailService.createAbilityItem(abilityKey);
 				if (abilityItem != null) {
 					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem);
 					abilityCard.putClientProperty("elementIndex", abilityElementIndex);
@@ -237,7 +241,8 @@ class AbilityFlowView extends JPanel {
 	}
 
 	private void addStandaloneAbility(SequenceElement element, int elementIndex) {
-		AbilityItem item = detailService.createAbilityItem(element.getValue());
+		String abilityKey = element.getAbilityKey() != null ? element.getAbilityKey() : element.getValue();
+		AbilityItem item = detailService.createAbilityItem(abilityKey);
 		if (item != null) {
 			JPanel card = cardFactory.createAbilityCard(item);
 			card.putClientProperty("elementIndex", elementIndex);

@@ -30,6 +30,8 @@ public class ExpressionBuilder {
                 sb.append('(')
                     .append(TooltipGrammar.escapeTooltipText(element.getValue()))
                     .append(')');
+            } else if (element.isAbility()) {
+                sb.append(element.formatAbilityToken());
             } else {
                 sb.append(element.getValue());
             }
@@ -144,30 +146,42 @@ public class ExpressionBuilder {
         cleanupAfterRemoval(result, cleanupIndex);
     }
 
-    /**
-     * Inserts ability with proper grouping based on drop zone.
-     */
+	/**
+	 * Inserts ability with proper grouping based on drop zone.
+	 */
 	public List<SequenceElement> insertAbility(List<SequenceElement> elements, String abilityKey,
+                                                int insertIndex, DropZoneType zoneType, DropSide dropSide) {
+		return insertAbility(elements, SequenceElement.ability(abilityKey), insertIndex, zoneType, dropSide);
+	}
+
+	/**
+	 * Inserts ability with proper grouping based on drop zone, preserving metadata such as instance labels and overrides.
+	 */
+	public List<SequenceElement> insertAbility(List<SequenceElement> elements, SequenceElement abilityElement,
                                                 int insertIndex, DropZoneType zoneType, DropSide dropSide) {
         List<SequenceElement> result = new ArrayList<>(elements);
 
+        if (abilityElement == null || !abilityElement.isAbility()) {
+            return result;
+        }
+
         if (result.isEmpty()) {
-            result.add(SequenceElement.ability(abilityKey));
+            result.add(abilityElement);
             return result;
         }
 
         logger.debug("insertAbility: key={}, insertIndex={}, zoneType={}, dropSide={}, elements.size={}",
-            abilityKey, insertIndex, zoneType, dropSide, result.size());
+            abilityElement.getAbilityKey(), insertIndex, zoneType, dropSide, result.size());
 
         switch (zoneType) {
             case AND:
-                insertIntoGroup(result, abilityKey, insertIndex, SequenceElement.Type.PLUS, dropSide);
+                insertIntoGroup(result, abilityElement, insertIndex, SequenceElement.Type.PLUS, dropSide);
                 break;
             case OR:
-                insertIntoGroup(result, abilityKey, insertIndex, SequenceElement.Type.SLASH, dropSide);
+                insertIntoGroup(result, abilityElement, insertIndex, SequenceElement.Type.SLASH, dropSide);
                 break;
             case NEXT:
-                insertAsNextStep(result, abilityKey, insertIndex);
+                insertAsNextStep(result, abilityElement, insertIndex);
                 break;
         }
 
@@ -252,7 +266,7 @@ public class ExpressionBuilder {
         if ((zoneType == DropZoneType.AND || zoneType == DropZoneType.OR)
                 && payload.size() == 1
                 && payload.get(0).isAbility()) {
-            return insertAbility(base, payload.get(0).getValue(), insertIndex, zoneType, dropSide);
+            return insertAbility(base, payload.get(0), insertIndex, zoneType, dropSide);
         }
 
         logger.warn("insertSequence: unsupported combination zone={} payloadSize={}", zoneType, payload.size());
@@ -289,12 +303,12 @@ public class ExpressionBuilder {
      * - dropSide RIGHT: insert AFTER the ability at insertIndex
      */
     private void insertIntoGroup(List<SequenceElement> elements,
-                              String abilityKey,
+                              SequenceElement abilityElement,
                               int insertIndex,
                               SequenceElement.Type requestedGroupType,
                               DropSide dropSide) {
         if (elements.isEmpty()) {
-            elements.add(SequenceElement.ability(abilityKey));
+            elements.add(abilityElement);
             return;
         }
 
@@ -309,7 +323,7 @@ public class ExpressionBuilder {
                     : SequenceElement.slash();
                 elements.add(separator);
             }
-            elements.add(SequenceElement.ability(abilityKey));
+            elements.add(abilityElement);
             logger.debug("Inserted at end");
             return;
         }
@@ -327,7 +341,7 @@ public class ExpressionBuilder {
 
             if (!elements.get(targetAbilityIndex).isAbility()) {
                 // Fallback to insertAsNextStep if no ability found
-                insertAsNextStep(elements, abilityKey, insertIndex);
+                insertAsNextStep(elements, abilityElement, insertIndex);
                 return;
             }
         }
@@ -358,14 +372,14 @@ public class ExpressionBuilder {
         if (dropSide == DropSide.LEFT) {
             // Insert BEFORE target ability
             insertPosition = insertIndex;
-            elements.add(insertPosition, SequenceElement.ability(abilityKey));
+            elements.add(insertPosition, abilityElement);
             elements.add(insertPosition + 1, separator);
             logger.debug("LEFT insertion at {} (before target)", insertPosition);
         } else {
             // Insert AFTER target ability
             insertPosition = insertIndex;
             elements.add(insertPosition, separator);
-            elements.add(insertPosition + 1, SequenceElement.ability(abilityKey));
+            elements.add(insertPosition + 1, abilityElement);
             logger.debug("RIGHT insertion at {} (after target)", insertPosition);
         }
     }
@@ -430,14 +444,14 @@ public class ExpressionBuilder {
      * Inserts ability as a new sequential step (with arrow separator).
      * When inserting after an ability that's in a group, this splits the group.
      */
-    private void insertAsNextStep(List<SequenceElement> elements, String abilityKey, int insertIndex) {
+    private void insertAsNextStep(List<SequenceElement> elements, SequenceElement abilityElement, int insertIndex) {
         insertIndex = Math.max(0, Math.min(insertIndex, elements.size()));
 
         logger.debug("insertAsNextStep: key={}, insertIndex={}, elements={}",
-            abilityKey, insertIndex, buildExpression(elements));
+            abilityElement.getAbilityKey(), insertIndex, buildExpression(elements));
 
         if (insertIndex == 0) {
-            elements.add(0, SequenceElement.ability(abilityKey));
+            elements.add(0, abilityElement);
             if (elements.size() > 1 && elements.get(1).isAbility()) {
                 elements.add(1, SequenceElement.arrow());
             }
@@ -448,7 +462,7 @@ public class ExpressionBuilder {
             if (!elements.isEmpty() && elements.get(elements.size() - 1).isAbility()) {
                 elements.add(SequenceElement.arrow());
             }
-            elements.add(SequenceElement.ability(abilityKey));
+            elements.add(abilityElement);
             return;
         }
 
@@ -477,7 +491,7 @@ public class ExpressionBuilder {
                     // Replace the group separator with arrow to split the group
                     elements.set(insertIndex, SequenceElement.arrow());
                     // Insert the new ability after the arrow
-                    elements.add(insertIndex + 1, SequenceElement.ability(abilityKey));
+                    elements.add(insertIndex + 1, abilityElement);
                     // Check if we need another arrow after the new ability
                     if (insertIndex + 2 < elements.size() && elements.get(insertIndex + 2).isAbility()) {
                         elements.add(insertIndex + 2, SequenceElement.arrow());
@@ -487,7 +501,7 @@ public class ExpressionBuilder {
                     // Just insert normally
                     logger.debug("  Group already ended, inserting normally");
                     elements.add(insertIndex, SequenceElement.arrow());
-                    elements.add(insertIndex + 1, SequenceElement.ability(abilityKey));
+                    elements.add(insertIndex + 1, abilityElement);
                     if (atElement.isAbility()) {
                         elements.add(insertIndex + 2, SequenceElement.arrow());
                     }
@@ -496,7 +510,7 @@ public class ExpressionBuilder {
                 // Standalone ability - standard insertion
                 logger.debug("  Standalone ability, standard insertion");
                 elements.add(insertIndex, SequenceElement.arrow());
-                elements.add(insertIndex + 1, SequenceElement.ability(abilityKey));
+                elements.add(insertIndex + 1, abilityElement);
                 if (atElement.isAbility()) {
                     elements.add(insertIndex + 2, SequenceElement.arrow());
                 }
@@ -504,7 +518,7 @@ public class ExpressionBuilder {
         } else {
             // beforeElement is a separator
             logger.debug("  Before element is separator, inserting after it");
-            elements.add(insertIndex, SequenceElement.ability(abilityKey));
+            elements.add(insertIndex, abilityElement);
             if (atElement.isAbility()) {
                 elements.add(insertIndex + 1, SequenceElement.arrow());
             }

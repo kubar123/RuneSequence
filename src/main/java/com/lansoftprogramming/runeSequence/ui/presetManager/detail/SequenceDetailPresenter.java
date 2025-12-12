@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
@@ -16,6 +17,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailPresenter.class);
@@ -34,7 +36,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private String loadedSequenceName;
 	private String loadedExpression;
 	private List<SequenceElement> loadedElements;
+	private Map<String, AbilitySettingsOverrides> loadedOverrides;
 	private List<SequenceElement> originalElementsBeforeDrag;
+	private SequenceElement draggedAbilityElement;
 	private DragPreviewModel currentPreview;
 	private boolean isHighlightActive;
 	private boolean isDragOutsidePanel;
@@ -56,6 +60,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		this.loadedSequenceName = "";
 		this.loadedExpression = "";
 		this.loadedElements = new ArrayList<>();
+		this.loadedOverrides = Map.of();
 	}
 
 	void addSaveListener(SequenceDetailPanel.SaveListener listener) {
@@ -76,13 +81,16 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		this.currentPresetId = presetId;
 		this.currentPreset = presetData;
+		this.draggedAbilityElement = null;
 		view.setSequenceName(presetData.getName());
 
 		loadedSequenceName = presetData.getName() != null ? presetData.getName() : "";
 		loadedExpression = presetData.getExpression() != null ? presetData.getExpression() : "";
 
-		List<SequenceElement> parsedElements = detailService.parseSequenceExpression(loadedExpression);
+		Map<String, AbilitySettingsOverrides> overridesByLabel = detailService.toDomainOverrides(presetData.getAbilitySettings());
+		List<SequenceElement> parsedElements = detailService.parseSequenceExpression(loadedExpression, overridesByLabel);
 		loadedElements = parsedElements != null ? new ArrayList<>(parsedElements) : new ArrayList<>();
+		loadedOverrides = detailService.extractOverridesByLabel(loadedElements);
 		currentElements = new ArrayList<>(loadedElements);
 		previewElements = new ArrayList<>(loadedElements);
 		flowView.renderSequenceElements(currentElements);
@@ -100,6 +108,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		loadedSequenceName = "";
 		loadedExpression = "";
 		loadedElements = new ArrayList<>();
+		loadedOverrides = Map.of();
+		draggedAbilityElement = null;
 		flowView.renderSequenceElements(currentElements);
 	}
 
@@ -114,20 +124,32 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		String currentExpression = expressionBuilder.buildExpression(currentElements);
 		String loadedExpr = loadedExpression != null ? loadedExpression : "";
-		return !currentExpression.equals(loadedExpr);
+		if (!currentExpression.equals(loadedExpr)) {
+			return true;
+		}
+
+		Map<String, AbilitySettingsOverrides> currentOverrides = detailService.extractOverridesByLabel(currentElements);
+		Map<String, AbilitySettingsOverrides> baselineOverrides = loadedOverrides != null ? loadedOverrides : Map.of();
+		return !currentOverrides.equals(baselineOverrides);
 	}
 
 	void saveSequence() {
 		String sequenceName = view.getSequenceName();
 		String trimmedName = sequenceName != null ? sequenceName.trim() : "";
 
+		currentElements = detailService.normalizeAbilityElements(currentElements);
+		previewElements = new ArrayList<>(currentElements);
+
 		String expression = expressionBuilder.buildExpression(currentElements);
+		RotationConfig.AbilitySettings abilitySettings = detailService.buildAbilitySettings(currentElements);
+		Map<String, AbilitySettingsOverrides> currentOverrides = detailService.extractOverridesByLabel(currentElements);
 
 		SequenceDetailService.SaveOutcome outcome = detailService.saveSequence(
 				currentPresetId,
 				currentPreset,
 				trimmedName,
-				expression
+				expression,
+				abilitySettings
 		);
 
 		if (!outcome.isSuccess()) {
@@ -154,11 +176,13 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (currentPreset != null) {
 			currentPreset.setName(trimmedName);
 			currentPreset.setExpression(expression);
+			currentPreset.setAbilitySettings(abilitySettings);
 		}
 
 		loadedSequenceName = trimmedName;
 		loadedExpression = expression;
 		loadedElements = new ArrayList<>(currentElements);
+		loadedOverrides = new java.util.LinkedHashMap<>(currentOverrides);
 
 		view.setSequenceName(trimmedName);
 		notifySaveListeners(result);
@@ -173,6 +197,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (currentPreset != null) {
 			currentPreset.setName(loadedSequenceName);
 			currentPreset.setExpression(loadedExpression);
+			currentPreset.setAbilitySettings(detailService.buildAbilitySettings(loadedElements));
 		}
 
 		currentElements = new ArrayList<>(loadedElements);
@@ -192,6 +217,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		flowView.setDragOutsidePanel(false);
 		isHighlightActive = false;
 		isDragOutsidePanel = false;
+		draggedAbilityElement = null;
 		// Keep a pristine copy so cancellation can restore the view state.
 		originalElementsBeforeDrag = new ArrayList<>(currentElements);
 		if (!isFromPalette) {
@@ -212,6 +238,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 				logAbilityOrder("Before removal", currentElements);
 				if (removalIndex >= 0) {
 					List<SequenceElement> working = new ArrayList<>(currentElements);
+					if (removalIndex < currentElements.size()) {
+						draggedAbilityElement = currentElements.get(removalIndex);
+					}
 					String beforeExpr = expressionBuilder.buildExpression(working);
 					previewElements = expressionBuilder.removeAbilityAt(working, removalIndex);
 					String afterExpr = expressionBuilder.buildExpression(previewElements);
@@ -294,9 +323,12 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 							dropPreview.getDropSide()
 					);
 				} else if (dropPreview != null) {
+					SequenceElement abilityElement = draggedAbilityElement != null
+							? draggedAbilityElement
+							: SequenceElement.ability(draggedItem.getKey());
 					currentElements = expressionBuilder.insertAbility(
 							new ArrayList<>(previewElements),
-							draggedItem.getKey(),
+							abilityElement,
 							dropPreview.getInsertIndex(),
 							dropPreview.getZoneType(),
 							dropPreview.getDropSide()
@@ -333,6 +365,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		isDragOutsidePanel = false;
 		currentPreview = null;
 		originalElementsBeforeDrag = null;
+		draggedAbilityElement = null;
 		flowView.setDragOutsidePanel(false);
 		flowView.renderSequenceElements(currentElements);
 	}
@@ -361,6 +394,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (currentPreset != null) {
 			String newExpression = expressionBuilder.buildExpression(currentElements);
 			currentPreset.setExpression(newExpression);
+			currentPreset.setAbilitySettings(detailService.buildAbilitySettings(currentElements));
 			logger.debug("Updated expression: {}", newExpression);
 		}
 	}
@@ -428,9 +462,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 					continue;
 				}
 				if (abilityCounter == abilityIndex) {
-					if (!element.getValue().equals(item.getKey())) {
+					if (!abilityKeyOf(element).equals(item.getKey())) {
 						logger.warn("Ability index points to mismatched key: expected={}, found={}, abilityIndex={}",
-								item.getKey(), element.getValue(), abilityIndex);
+								item.getKey(), element.getAbilityKey(), abilityIndex);
 					}
 					return i;
 				}
@@ -440,7 +474,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		for (int i = 0; i < currentElements.size(); i++) {
 			SequenceElement element = currentElements.get(i);
-			if (element.isAbility() && element.getValue().equals(item.getKey())) {
+			if (element.isAbility() && abilityKeyOf(element).equals(item.getKey())) {
 				return i;
 			}
 		}
@@ -469,6 +503,14 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		return -1;
 	}
 
+	private String abilityKeyOf(SequenceElement element) {
+		if (element == null) {
+			return "";
+		}
+		String abilityKey = element.getAbilityKey();
+		return abilityKey != null ? abilityKey : element.getValue();
+	}
+
 	private void logAbilityOrder(String label, List<SequenceElement> elements) {
 		StringBuilder sb = new StringBuilder(label).append(": ");
 		int counter = 0;
@@ -480,7 +522,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			if (counter > 0) {
 				sb.append(" | ");
 			}
-			sb.append(counter).append("->").append(element.getValue()).append("(elemIdx=").append(i).append(")");
+			String labelValue = element.isAbility() ? element.formatAbilityToken() : element.getValue();
+			sb.append(counter).append("->").append(labelValue).append("(elemIdx=").append(i).append(")");
 			counter++;
 		}
 		logger.info(sb.toString());

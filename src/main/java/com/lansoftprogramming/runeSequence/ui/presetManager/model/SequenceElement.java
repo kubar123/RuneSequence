@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.model;
 
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+
 /**
  * Represents a visual element in a sequence display.
  * Can be either an ability or a separator (arrow).
@@ -16,30 +18,43 @@ public class SequenceElement {
 
 	private final Type type;
 	private final String value;
+	private final String instanceLabel;
+	private final AbilitySettingsOverrides abilitySettingsOverrides;
 
-	private SequenceElement(Type type, String value) {
+	private SequenceElement(Type type,
+	                        String value,
+	                        String instanceLabel,
+	                        AbilitySettingsOverrides abilitySettingsOverrides) {
 		this.type = type;
 		this.value = value;
+		this.instanceLabel = instanceLabel;
+		this.abilitySettingsOverrides = abilitySettingsOverrides;
 	}
 
 	public static SequenceElement ability(String abilityKey) {
-		return new SequenceElement(Type.ABILITY, abilityKey);
+		return new SequenceElement(Type.ABILITY, abilityKey, null, null);
+	}
+
+	public static SequenceElement ability(String abilityKey,
+	                                      String instanceLabel,
+	                                      AbilitySettingsOverrides abilitySettingsOverrides) {
+		return new SequenceElement(Type.ABILITY, abilityKey, instanceLabel, abilitySettingsOverrides);
 	}
 
 	public static SequenceElement arrow() {
-		return new SequenceElement(Type.ARROW, "→");
+		return new SequenceElement(Type.ARROW, "→", null, null);
 	}
 
 	public static SequenceElement plus() {
-		return new SequenceElement(Type.PLUS, "+");
+		return new SequenceElement(Type.PLUS, "+", null, null);
 	}
 
 	public static SequenceElement slash() {
-		return new SequenceElement(Type.SLASH, "/");
+		return new SequenceElement(Type.SLASH, "/", null, null);
 	}
 
 	public static SequenceElement tooltip(String message) {
-		return new SequenceElement(Type.TOOLTIP, message);
+		return new SequenceElement(Type.TOOLTIP, message, null, null);
 	}
 
 	public Type getType() {
@@ -48,6 +63,18 @@ public class SequenceElement {
 
 	public String getValue() {
 		return value;
+	}
+
+	public String getAbilityKey() {
+		return type == Type.ABILITY ? value : null;
+	}
+
+	public String getInstanceLabel() {
+		return instanceLabel;
+	}
+
+	public AbilitySettingsOverrides getAbilitySettingsOverrides() {
+		return abilitySettingsOverrides;
 	}
 
 	public boolean isAbility() {
@@ -70,8 +97,43 @@ public class SequenceElement {
 		return type == Type.SLASH;
 	}
 
+	public boolean hasOverrides() {
+		return abilitySettingsOverrides != null && !abilitySettingsOverrides.isEmpty();
+	}
+
+	public SequenceElement withInstanceLabel(String label) {
+		if (type != Type.ABILITY) {
+			return this;
+		}
+		return new SequenceElement(type, value, label, abilitySettingsOverrides);
+	}
+
+	public SequenceElement withOverrides(AbilitySettingsOverrides overrides) {
+		if (type != Type.ABILITY) {
+			return this;
+		}
+		return new SequenceElement(type, value, instanceLabel, overrides);
+	}
+
+	public String formatAbilityToken() {
+		if (type != Type.ABILITY) {
+			return value;
+		}
+		if (instanceLabel == null || instanceLabel.isBlank()) {
+			return value;
+		}
+		return value + "[*" + instanceLabel + "]";
+	}
+
 	@Override
 	public String toString() {
+		if (type == Type.ABILITY) {
+			return "SequenceElement{type=" + type +
+					", abilityKey='" + value + '\'' +
+					", instanceLabel='" + instanceLabel + '\'' +
+					", overrides=" + abilitySettingsOverrides +
+					'}';
+		}
 		return "SequenceElement{type=" + type + ", value='" + value + "'}";
 	}
 }
