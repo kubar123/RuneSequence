@@ -14,6 +14,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.Sele
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceListModel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceMasterPanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.palette.AbilityPalettePanel;
+import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,7 @@ public class PresetManagerWindow extends JFrame {
     private final SequenceListModel sequenceListModel;
     private final AbilityIconLoader iconLoader;
     private final SequenceDetailService detailService;
+    private final AbilityOverridesService overridesService;
     private final SelectedSequenceIndicator selectionIndicator;
     private final SequenceRunService sequenceRunService;
 
@@ -49,12 +51,14 @@ public class PresetManagerWindow extends JFrame {
             SequenceListModel sequenceListModel,
             AbilityIconLoader iconLoader,
             SequenceDetailService detailService,
+            AbilityOverridesService overridesService,
             SelectedSequenceIndicator selectionIndicator,
             SequenceRunService sequenceRunService) {
         this.configManager = configManager;
         this.sequenceListModel = sequenceListModel;
         this.iconLoader = iconLoader;
         this.detailService = detailService;
+        this.overridesService = overridesService;
         this.selectionIndicator = selectionIndicator;
         this.sequenceRunService = sequenceRunService;
 
@@ -83,7 +87,7 @@ public class PresetManagerWindow extends JFrame {
     private boolean initializeComponents() {
         try {
             masterPanel = new SequenceMasterPanel(sequenceListModel, selectionIndicator, sequenceRunService);
-            detailPanel = new SequenceDetailPanel(detailService, notifications);
+            detailPanel = new SequenceDetailPanel(detailService, overridesService, notifications);
             palettePanel = new AbilityPalettePanel(
                 configManager.getAbilities(),
                 configManager.getAbilityCategories(),

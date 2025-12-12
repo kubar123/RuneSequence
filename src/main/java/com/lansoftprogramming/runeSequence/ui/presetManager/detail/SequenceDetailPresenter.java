@@ -8,6 +8,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.Ability
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DragPreviewModel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
+import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.ExpressionBuilder;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
@@ -24,6 +25,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailPresenter.class);
 
 	private final SequenceDetailService detailService;
+	private final AbilityOverridesService overridesService;
 	private final AbilityFlowView flowView;
 	private final View view;
 	private final ExpressionBuilder expressionBuilder;
@@ -45,10 +47,12 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private boolean isDragOutsidePanel;
 
 	SequenceDetailPresenter(SequenceDetailService detailService,
+	                        AbilityOverridesService overridesService,
 	                        AbilityFlowView flowView,
 	                        View view,
 	                        NotificationService notifications) {
 		this.detailService = detailService;
+		this.overridesService = overridesService;
 		this.flowView = flowView;
 		this.view = view;
 		this.notifications = notifications;
@@ -88,10 +92,10 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		loadedSequenceName = presetData.getName() != null ? presetData.getName() : "";
 		loadedExpression = presetData.getExpression() != null ? presetData.getExpression() : "";
 
-		Map<String, AbilitySettingsOverrides> overridesByLabel = detailService.toDomainOverrides(presetData.getAbilitySettings());
+		Map<String, AbilitySettingsOverrides> overridesByLabel = overridesService.toDomainOverrides(presetData.getAbilitySettings());
 		List<SequenceElement> parsedElements = detailService.parseSequenceExpression(loadedExpression, overridesByLabel);
 		loadedElements = parsedElements != null ? new ArrayList<>(parsedElements) : new ArrayList<>();
-		loadedOverrides = detailService.extractOverridesByLabel(loadedElements);
+		loadedOverrides = overridesService.extractOverridesByLabel(loadedElements);
 		currentElements = new ArrayList<>(loadedElements);
 		previewElements = new ArrayList<>(loadedElements);
 		flowView.renderSequenceElements(currentElements);
@@ -129,7 +133,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			return true;
 		}
 
-		Map<String, AbilitySettingsOverrides> currentOverrides = detailService.extractOverridesByLabel(currentElements);
+		Map<String, AbilitySettingsOverrides> currentOverrides = overridesService.extractOverridesByLabel(currentElements);
 		Map<String, AbilitySettingsOverrides> baselineOverrides = loadedOverrides != null ? loadedOverrides : Map.of();
 		return !currentOverrides.equals(baselineOverrides);
 	}
@@ -138,12 +142,12 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		String sequenceName = view.getSequenceName();
 		String trimmedName = sequenceName != null ? sequenceName.trim() : "";
 
-		currentElements = detailService.normalizeAbilityElements(currentElements);
+		currentElements = overridesService.normalizeAbilityElements(currentElements);
 		previewElements = new ArrayList<>(currentElements);
 
 		String expression = expressionBuilder.buildExpression(currentElements);
-		PresetAbilitySettings abilitySettings = detailService.buildAbilitySettings(currentElements);
-		Map<String, AbilitySettingsOverrides> currentOverrides = detailService.extractOverridesByLabel(currentElements);
+		PresetAbilitySettings abilitySettings = overridesService.buildAbilitySettings(currentElements);
+		Map<String, AbilitySettingsOverrides> currentOverrides = overridesService.extractOverridesByLabel(currentElements);
 
 		SequenceDetailService.SaveOutcome outcome = detailService.saveSequence(
 				currentPresetId,

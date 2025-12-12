@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
+import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
@@ -28,12 +29,16 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private final AbilityFlowView abilityFlowView;
 	private final SequenceDetailPresenter presenter;
 	private final SequenceDetailService detailService;
+	private final AbilityOverridesService overridesService;
 	private final ImageIcon insertIcon;
 	private final ImageIcon tooltipIcon;
 	private final NotificationService notifications;
 
-	public SequenceDetailPanel(SequenceDetailService detailService, NotificationService notifications) {
+	public SequenceDetailPanel(SequenceDetailService detailService,
+	                           AbilityOverridesService overridesService,
+	                           NotificationService notifications) {
 		this.detailService = detailService;
+		this.overridesService = overridesService;
 		this.notifications = notifications;
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -47,7 +52,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		saveButton = new JButton("Save");
 		discardButton = new JButton("Discard");
 		abilityFlowView = new AbilityFlowView(detailService);
-		presenter = new SequenceDetailPresenter(detailService, abilityFlowView, this, notifications);
+		presenter = new SequenceDetailPresenter(detailService, overridesService, abilityFlowView, this, notifications);
 
 		alignInsertButtonSize();
 		layoutComponents();

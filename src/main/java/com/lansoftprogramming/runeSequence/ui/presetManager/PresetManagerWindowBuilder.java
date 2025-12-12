@@ -1,11 +1,11 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
-import com.lansoftprogramming.runeSequence.infrastructure.config.AbilitySettingsOverridesMapper;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SelectedSequenceIndicator;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceListModel;
+import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.SequenceVisualService;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import org.slf4j.Logger;
@@ -36,11 +36,13 @@ public class PresetManagerWindowBuilder {
 			SequenceVisualService visualService = new SequenceVisualService(
 					configManager.getAbilities().getAbilities().keySet()
 			);
+			AbilityOverridesService overridesService = new AbilityOverridesService(
+					new com.lansoftprogramming.runeSequence.infrastructure.config.AbilitySettingsOverridesMapper()
+			);
 			SequenceDetailService detailService = new SequenceDetailService(
 					configManager,
 					iconLoader,
-					visualService,
-					new AbilitySettingsOverridesMapper()
+					visualService
 			);
 			SelectedSequenceIndicator selectionIndicator = SelectedSequenceIndicator.forSettings(
 					configManager.getSettings()
@@ -52,6 +54,7 @@ public class PresetManagerWindowBuilder {
 					listModel,
 					iconLoader,
 					detailService,
+					overridesService,
 					selectionIndicator,
 					sequenceRunService
 			);
