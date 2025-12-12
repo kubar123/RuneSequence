@@ -198,7 +198,7 @@ class AbilityFlowView extends JPanel {
 		AbilityGroupPanel groupPanel = new AbilityGroupPanel(groupColor);
 
 		SequenceElement firstElement = elements.get(startIndex);
-		String firstKey = firstElement.getAbilityKey() != null ? firstElement.getAbilityKey() : firstElement.getValue();
+		String firstKey = firstElement.getResolvedAbilityKey();
 		AbilityItem firstItem = detailService.createAbilityItem(firstKey);
 		if (firstItem != null) {
 			JPanel card = cardFactory.createAbilityCard(firstItem);
@@ -217,13 +217,11 @@ class AbilityFlowView extends JPanel {
 
 			groupPanel.add(cardFactory.createSeparatorLabel(separator));
 
-			if (currentIndex + 1 < elements.size() && elements.get(currentIndex + 1).isAbility()) {
-				int abilityElementIndex = currentIndex + 1;
-				SequenceElement abilityElement = elements.get(abilityElementIndex);
-				String abilityKey = abilityElement.getAbilityKey() != null
-						? abilityElement.getAbilityKey()
-						: abilityElement.getValue();
-				AbilityItem abilityItem = detailService.createAbilityItem(abilityKey);
+				if (currentIndex + 1 < elements.size() && elements.get(currentIndex + 1).isAbility()) {
+					int abilityElementIndex = currentIndex + 1;
+					SequenceElement abilityElement = elements.get(abilityElementIndex);
+					String abilityKey = abilityElement.getResolvedAbilityKey();
+					AbilityItem abilityItem = detailService.createAbilityItem(abilityKey);
 				if (abilityItem != null) {
 					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem);
 					abilityCard.putClientProperty("elementIndex", abilityElementIndex);
@@ -241,7 +239,7 @@ class AbilityFlowView extends JPanel {
 	}
 
 	private void addStandaloneAbility(SequenceElement element, int elementIndex) {
-		String abilityKey = element.getAbilityKey() != null ? element.getAbilityKey() : element.getValue();
+		String abilityKey = element.getResolvedAbilityKey();
 		AbilityItem item = detailService.createAbilityItem(abilityKey);
 		if (item != null) {
 			JPanel card = cardFactory.createAbilityCard(item);

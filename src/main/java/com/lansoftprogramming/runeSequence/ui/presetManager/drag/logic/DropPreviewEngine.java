@@ -218,7 +218,7 @@ public class DropPreviewEngine {
 			if (!element.isAbility()) {
 				continue;
 			}
-			if (abilityKey.equals(resolveAbilityKey(element))) {
+			if (abilityKey.equals(element.getResolvedAbilityKey())) {
 				if (matchCount == occurrence) {
 					return i;
 				}
@@ -352,7 +352,7 @@ public class DropPreviewEngine {
 		int bestDistance = Integer.MAX_VALUE;
 		for (int i = 0; i < elements.size(); i++) {
 			SequenceElement element = elements.get(i);
-			if (!element.isAbility() || !abilityKey.equals(resolveAbilityKey(element))) {
+			if (!element.isAbility() || !abilityKey.equals(element.getResolvedAbilityKey())) {
 				continue;
 			}
 			int distance = preferredIndex >= 0 ? Math.abs(i - preferredIndex) : 0;
@@ -392,14 +392,6 @@ public class DropPreviewEngine {
 			right++;
 		}
 		return -1;
-	}
-
-	private String resolveAbilityKey(SequenceElement element) {
-		if (element == null) {
-			return null;
-		}
-		String key = element.getAbilityKey();
-		return key != null ? key : element.getValue();
 	}
 
 	public static class GeometryCache {

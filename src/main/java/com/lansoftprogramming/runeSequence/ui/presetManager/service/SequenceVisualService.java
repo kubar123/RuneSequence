@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityToken;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
@@ -14,8 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Service for converting parsed sequence definitions into visual elements for display.
@@ -115,11 +114,12 @@ public class SequenceVisualService {
 
 		for (TooltipStructure.StructuralElement element : structure) {
 			if (element.isAbility()) {
-				AbilityTokenParts parts = parseAbilityToken(element.abilityName());
-				AbilitySettingsOverrides overrides = parts.instanceLabel() != null && overridesByLabel != null
-						? overridesByLabel.get(parts.instanceLabel())
+				AbilityToken abilityToken = AbilityToken.parse(element.abilityName());
+				String instanceLabel = abilityToken.getInstanceLabel().orElse(null);
+				AbilitySettingsOverrides overrides = instanceLabel != null && overridesByLabel != null
+						? overridesByLabel.get(instanceLabel)
 						: null;
-				elements.add(SequenceElement.ability(parts.abilityKey(), parts.instanceLabel(), overrides));
+				elements.add(SequenceElement.ability(abilityToken.getAbilityKey(), instanceLabel, overrides));
 			} else if (element.isOperator()) {
 				char symbol = element.operatorSymbol();
 				if (symbol == TooltipGrammar.ARROW) {
@@ -151,20 +151,4 @@ public class SequenceVisualService {
 				.filter(java.util.Objects::nonNull)
 				.toList();
 	}
-
-	private AbilityTokenParts parseAbilityToken(String token) {
-		if (token == null || token.isBlank()) {
-			return new AbilityTokenParts(token, null);
-		}
-		Matcher matcher = INSTANCE_LABEL_PATTERN.matcher(token);
-		if (matcher.matches()) {
-			return new AbilityTokenParts(matcher.group(1), matcher.group(2));
-		}
-		return new AbilityTokenParts(token, null);
-	}
-
-	private record AbilityTokenParts(String abilityKey, String instanceLabel) {
-	}
-
-	private static final Pattern INSTANCE_LABEL_PATTERN = Pattern.compile("(.+?)\\[\\*(\\d+)\\]$");
 }

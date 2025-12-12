@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.model;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityToken;
 
 /**
  * Represents a visual element in a sequence display.
@@ -77,6 +78,19 @@ public class SequenceElement {
 		return abilitySettingsOverrides;
 	}
 
+	/**
+	 * Returns the canonical ability key for this element, falling back to value for legacy callers.
+	 */
+	public String getResolvedAbilityKey() {
+		if (!isAbility()) {
+			return null;
+		}
+		if (value != null && !value.isBlank()) {
+			return value;
+		}
+		return getValue();
+	}
+
 	public boolean isAbility() {
 		return type == Type.ABILITY;
 	}
@@ -119,10 +133,7 @@ public class SequenceElement {
 		if (type != Type.ABILITY) {
 			return value;
 		}
-		if (instanceLabel == null || instanceLabel.isBlank()) {
-			return value;
-		}
-		return value + "[*" + instanceLabel + "]";
+		return AbilityToken.format(value, instanceLabel);
 	}
 
 	@Override

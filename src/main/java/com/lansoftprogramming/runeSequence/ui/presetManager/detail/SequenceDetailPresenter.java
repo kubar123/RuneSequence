@@ -507,8 +507,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (element == null) {
 			return "";
 		}
-		String abilityKey = element.getAbilityKey();
-		return abilityKey != null ? abilityKey : element.getValue();
+		String abilityKey = element.getResolvedAbilityKey();
+		return abilityKey != null ? abilityKey : "";
 	}
 
 	private void logAbilityOrder(String label, List<SequenceElement> elements) {

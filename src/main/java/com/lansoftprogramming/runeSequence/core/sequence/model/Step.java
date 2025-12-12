@@ -148,13 +148,6 @@ public class Step {
 	}
 
 	private String baseAbilityKey(String tokenName) {
-		if (tokenName == null) {
-			return null;
-		}
-		int labelStart = tokenName.lastIndexOf("[*");
-		if (labelStart >= 0 && tokenName.endsWith("]") && labelStart < tokenName.length() - 2) {
-			return tokenName.substring(0, labelStart);
-		}
-		return tokenName;
+		return AbilityToken.baseAbilityKey(tokenName);
 	}
 }
