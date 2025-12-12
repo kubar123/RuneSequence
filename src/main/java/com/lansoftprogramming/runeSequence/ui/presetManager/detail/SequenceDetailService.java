@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
@@ -64,6 +65,26 @@ public class SequenceDetailService {
 			logger.warn("Failed to create ability item for key: {}", abilityKey, e);
 			return null;
 		}
+	}
+
+	public AbilityConfig.AbilityData resolveBaseAbilityData(String abilityKey) {
+		try {
+			if (abilityKey == null || abilityKey.isBlank()) {
+				return null;
+			}
+			return configManager.getAbilities().getAbility(abilityKey);
+		} catch (Exception e) {
+			logger.warn("Failed to resolve base ability data for key: {}", abilityKey, e);
+			return null;
+		}
+	}
+
+	public EffectiveAbilityConfig resolveEffectiveAbilityConfig(String abilityKey, AbilitySettingsOverrides overrides) {
+		AbilityConfig.AbilityData baseAbility = resolveBaseAbilityData(abilityKey);
+		if (baseAbility == null) {
+			return null;
+		}
+		return EffectiveAbilityConfig.from(abilityKey, baseAbility, overrides);
 	}
 
 	private String getDisplayName(AbilityConfig.AbilityData abilityData, String fallbackKey) {

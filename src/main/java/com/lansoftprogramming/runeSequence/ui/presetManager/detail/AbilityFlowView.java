@@ -16,12 +16,14 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntConsumer;
 
 class AbilityFlowView extends JPanel {
 	private final SequenceDetailService detailService;
 	private AbilityDragController dragController;
 	private AbilityCardFactory cardFactory;
 	private TooltipEditHandler tooltipEditHandler;
+	private IntConsumer abilityPropertiesHandler;
 	private final Color defaultBackground;
 	private final Border defaultBorder;
 	private final JPanel emptyDropIndicator;
@@ -43,6 +45,10 @@ class AbilityFlowView extends JPanel {
 
 	void setTooltipEditHandler(TooltipEditHandler tooltipEditHandler) {
 		this.tooltipEditHandler = tooltipEditHandler;
+	}
+
+	void setAbilityPropertiesHandler(IntConsumer handler) {
+		this.abilityPropertiesHandler = handler;
 	}
 
 	void renderSequenceElements(List<SequenceElement> elements) {
@@ -201,9 +207,10 @@ class AbilityFlowView extends JPanel {
 		String firstKey = firstElement.getResolvedAbilityKey();
 		AbilityItem firstItem = detailService.createAbilityItem(firstKey);
 		if (firstItem != null) {
-			JPanel card = cardFactory.createAbilityCard(firstItem);
+			JPanel card = cardFactory.createAbilityCard(firstItem, firstElement.hasOverrides());
 			card.putClientProperty("elementIndex", startIndex);
 			card.putClientProperty("zoneType", zoneForGroupType(groupType));
+			attachAbilityPopup(card);
 			groupPanel.add(card);
 		}
 
@@ -223,9 +230,10 @@ class AbilityFlowView extends JPanel {
 					String abilityKey = abilityElement.getResolvedAbilityKey();
 					AbilityItem abilityItem = detailService.createAbilityItem(abilityKey);
 				if (abilityItem != null) {
-					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem);
+					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem, abilityElement.hasOverrides());
 					abilityCard.putClientProperty("elementIndex", abilityElementIndex);
 					abilityCard.putClientProperty("zoneType", zoneForGroupType(groupType));
+					attachAbilityPopup(abilityCard);
 					groupPanel.add(abilityCard);
 				}
 				currentIndex += 2;
@@ -242,9 +250,10 @@ class AbilityFlowView extends JPanel {
 		String abilityKey = element.getResolvedAbilityKey();
 		AbilityItem item = detailService.createAbilityItem(abilityKey);
 		if (item != null) {
-			JPanel card = cardFactory.createAbilityCard(item);
+			JPanel card = cardFactory.createAbilityCard(item, element.hasOverrides());
 			card.putClientProperty("elementIndex", elementIndex);
 			card.putClientProperty("zoneType", null);
+			attachAbilityPopup(card);
 			add(card);
 		}
 	}
@@ -267,6 +276,37 @@ class AbilityFlowView extends JPanel {
 			});
 		}
 		add(card);
+	}
+
+	private void attachAbilityPopup(JPanel card) {
+		if (card == null) {
+			return;
+		}
+		card.addMouseListener(new MouseAdapter() {
+			private void maybeShowPopup(MouseEvent e) {
+				if (abilityPropertiesHandler == null || !e.isPopupTrigger()) {
+					return;
+				}
+				Object rawIndex = card.getClientProperty("elementIndex");
+				if (rawIndex instanceof Integer idx) {
+					JPopupMenu menu = new JPopupMenu();
+					JMenuItem properties = new JMenuItem("Properties\u2026");
+					properties.addActionListener(action -> abilityPropertiesHandler.accept(idx));
+					menu.add(properties);
+					menu.show(e.getComponent(), e.getX(), e.getY());
+				}
+			}
+
+			@Override
+			public void mousePressed(MouseEvent e) {
+				maybeShowPopup(e);
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				maybeShowPopup(e);
+			}
+		});
 	}
 
 	private void highlightEmptyPanel(DropZoneType zoneType) {

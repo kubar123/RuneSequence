@@ -1,6 +1,8 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
+import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetRotationDefaults;
@@ -42,6 +44,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private List<SequenceElement> loadedElements;
 	private Map<String, AbilitySettingsOverrides> loadedOverrides;
 	private PresetRotationDefaults loadedRotationDefaults;
+	private Map<String, AbilitySettingsOverrides> loadedPerAbilityOverrides;
+	private Map<String, AbilitySettingsOverrides> currentPerAbilityOverrides;
 	private List<SequenceElement> originalElementsBeforeDrag;
 	private SequenceElement draggedAbilityElement;
 	private DragPreviewModel currentPreview;
@@ -64,11 +68,14 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		this.saveListeners = new ArrayList<>();
 		this.flowView.attachDragController(this);
 		this.flowView.setTooltipEditHandler(this::editTooltipAt);
+		this.flowView.setAbilityPropertiesHandler(this::openAbilityPropertiesAt);
 		this.loadedSequenceName = "";
 		this.loadedExpression = "";
 		this.loadedElements = new ArrayList<>();
 		this.loadedOverrides = Map.of();
 		this.loadedRotationDefaults = null;
+		this.loadedPerAbilityOverrides = Map.of();
+		this.currentPerAbilityOverrides = new java.util.LinkedHashMap<>();
 	}
 
 	void addSaveListener(SequenceDetailPanel.SaveListener listener) {
@@ -96,10 +103,13 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		loadedExpression = presetData.getExpression() != null ? presetData.getExpression() : "";
 
 		Map<String, AbilitySettingsOverrides> overridesByLabel = overridesService.toDomainOverrides(presetData.getAbilitySettings());
+		Map<String, AbilitySettingsOverrides> perAbilityOverrides = overridesService.toDomainPerAbilityOverrides(presetData.getAbilitySettings());
 		List<SequenceElement> parsedElements = detailService.parseSequenceExpression(loadedExpression, overridesByLabel);
 		loadedElements = parsedElements != null ? new ArrayList<>(parsedElements) : new ArrayList<>();
 		loadedOverrides = overridesService.extractOverridesByLabel(loadedElements);
 		loadedRotationDefaults = overridesService.extractRotationDefaults(presetData.getAbilitySettings());
+		loadedPerAbilityOverrides = new java.util.LinkedHashMap<>(perAbilityOverrides);
+		currentPerAbilityOverrides = new java.util.LinkedHashMap<>(loadedPerAbilityOverrides);
 		currentElements = new ArrayList<>(loadedElements);
 		previewElements = new ArrayList<>(loadedElements);
 		flowView.renderSequenceElements(currentElements);
@@ -151,7 +161,13 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (baselineRotationDefaults == null) {
 			return currentRotationDefaults != null;
 		}
-		return !baselineRotationDefaults.equals(currentRotationDefaults);
+		if (!baselineRotationDefaults.equals(currentRotationDefaults)) {
+			return true;
+		}
+
+		Map<String, AbilitySettingsOverrides> baselinePerAbility = loadedPerAbilityOverrides != null ? loadedPerAbilityOverrides : Map.of();
+		Map<String, AbilitySettingsOverrides> currentPerAbility = currentPerAbilityOverrides != null ? currentPerAbilityOverrides : Map.of();
+		return !baselinePerAbility.equals(currentPerAbility);
 	}
 
 	void saveSequence() {
@@ -167,6 +183,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 				currentPreset != null ? currentPreset.getAbilitySettings() : null
 		);
 		abilitySettings = overridesService.applyRotationDefaults(abilitySettings, currentRotationDefaults);
+		abilitySettings = overridesService.applyPerAbilityOverrides(abilitySettings, currentPerAbilityOverrides);
 		Map<String, AbilitySettingsOverrides> currentOverrides = overridesService.extractOverridesByLabel(currentElements);
 
 		SequenceDetailService.SaveOutcome outcome = detailService.saveSequence(
@@ -209,6 +226,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		loadedElements = new ArrayList<>(currentElements);
 		loadedOverrides = new java.util.LinkedHashMap<>(currentOverrides);
 		loadedRotationDefaults = currentRotationDefaults;
+		loadedPerAbilityOverrides = currentPerAbilityOverrides != null
+				? new java.util.LinkedHashMap<>(currentPerAbilityOverrides)
+				: Map.of();
 
 		view.setSequenceName(trimmedName);
 		notifySaveListeners(result);
@@ -225,11 +245,15 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			currentPreset.setExpression(loadedExpression);
 			PresetAbilitySettings abilitySettings = overridesService.buildAbilitySettings(loadedElements);
 			abilitySettings = overridesService.applyRotationDefaults(abilitySettings, loadedRotationDefaults);
+			abilitySettings = overridesService.applyPerAbilityOverrides(abilitySettings, loadedPerAbilityOverrides);
 			currentPreset.setAbilitySettings(abilitySettings);
 		}
 
 		currentElements = new ArrayList<>(loadedElements);
 		previewElements = new ArrayList<>(loadedElements);
+		currentPerAbilityOverrides = loadedPerAbilityOverrides != null
+				? new java.util.LinkedHashMap<>(loadedPerAbilityOverrides)
+				: new java.util.LinkedHashMap<>();
 		view.setSequenceName(loadedSequenceName);
 		flowView.renderSequenceElements(currentElements);
 	}
@@ -432,7 +456,11 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (currentPreset != null) {
 			String newExpression = expressionBuilder.buildExpression(currentElements);
 			currentPreset.setExpression(newExpression);
-			currentPreset.setAbilitySettings(overridesService.buildAbilitySettings(currentElements));
+			PresetRotationDefaults rotationDefaults = overridesService.extractRotationDefaults(currentPreset.getAbilitySettings());
+			PresetAbilitySettings abilitySettings = overridesService.buildAbilitySettings(currentElements);
+			abilitySettings = overridesService.applyRotationDefaults(abilitySettings, rotationDefaults);
+			abilitySettings = overridesService.applyPerAbilityOverrides(abilitySettings, currentPerAbilityOverrides);
+			currentPreset.setAbilitySettings(abilitySettings);
 			logger.debug("Updated expression: {}", newExpression);
 		}
 	}
@@ -481,6 +509,145 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		previewElements = new ArrayList<>(updated);
 		updateExpression();
 		flowView.renderSequenceElements(currentElements);
+	}
+
+	private void openAbilityPropertiesAt(int elementIndex) {
+		if (elementIndex < 0 || elementIndex >= currentElements.size()) {
+			return;
+		}
+		SequenceElement element = currentElements.get(elementIndex);
+		if (!element.isAbility()) {
+			return;
+		}
+
+		String abilityKey = element.getResolvedAbilityKey();
+		if (abilityKey == null || abilityKey.isBlank()) {
+			return;
+		}
+
+		AbilityItem item = detailService.createAbilityItem(abilityKey);
+		if (item == null) {
+			return;
+		}
+
+		AbilityConfig.AbilityData rawBaseAbility = detailService.resolveBaseAbilityData(abilityKey);
+		AbilitySettingsOverrides rotationWideOverrides = currentPerAbilityOverrides != null
+				? currentPerAbilityOverrides.get(abilityKey)
+				: null;
+		EffectiveAbilityConfig baseAbility = rawBaseAbility != null
+				? detailService.resolveEffectiveAbilityConfig(abilityKey, rotationWideOverrides)
+				: null;
+		AbilitySettingsOverrides currentOverridesForInstance = element.getAbilitySettingsOverrides();
+
+		Window owner = SwingUtilities.getWindowAncestor(view.asComponent());
+		AbilityPropertiesDialog dialog = new AbilityPropertiesDialog(owner, item, baseAbility, rotationWideOverrides, currentOverridesForInstance);
+		dialog.setVisible(true);
+
+		AbilityPropertiesDialog.Result result = dialog.getResult();
+		if (result == null) {
+			return;
+		}
+
+		AbilitySettingsOverrides updatedOverrides = result.overrides();
+		if (updatedOverrides != null && updatedOverrides.isEmpty()) {
+			updatedOverrides = null;
+		}
+
+		AbilitySettingsOverrides updatedRotationWideOverrides = rotationWideOverrides;
+		AbilitySettingsOverrides updatedInstanceOverrides = updatedOverrides;
+		if (result.hasAnyApplyToAll()) {
+			updatedRotationWideOverrides = applyRotationWideOverrides(rotationWideOverrides, updatedOverrides, result);
+			updatedInstanceOverrides = stripAppliedRotationFields(updatedOverrides, result);
+		}
+
+		if (currentPerAbilityOverrides == null) {
+			currentPerAbilityOverrides = new java.util.LinkedHashMap<>();
+		}
+		if (updatedRotationWideOverrides == null || updatedRotationWideOverrides.isEmpty()) {
+			currentPerAbilityOverrides.remove(abilityKey);
+		} else {
+			currentPerAbilityOverrides.put(abilityKey, updatedRotationWideOverrides);
+		}
+
+		List<SequenceElement> updated = new ArrayList<>(currentElements);
+		updated.set(elementIndex, element.withOverrides(updatedInstanceOverrides != null && updatedInstanceOverrides.isEmpty() ? null : updatedInstanceOverrides));
+
+		currentElements = overridesService.normalizeAbilityElements(updated);
+		previewElements = new ArrayList<>(currentElements);
+		updateExpression();
+		flowView.renderSequenceElements(currentElements);
+	}
+
+	private AbilitySettingsOverrides applyRotationWideOverrides(AbilitySettingsOverrides existingRotationWide,
+	                                                           AbilitySettingsOverrides sourceOverrides,
+	                                                           AbilityPropertiesDialog.Result result) {
+		AbilitySettingsOverrides existing = existingRotationWide != null ? existingRotationWide : AbilitySettingsOverrides.empty();
+		AbilitySettingsOverrides source = sourceOverrides != null ? sourceOverrides : AbilitySettingsOverrides.empty();
+
+		AbilitySettingsOverrides.Builder builder = AbilitySettingsOverrides.builder();
+		existing.getTypeOverride().ifPresent(builder::type);
+		existing.getLevelOverride().ifPresent(builder::level);
+		existing.getTriggersGcdOverride().ifPresent(builder::triggersGcd);
+		existing.getCastDurationOverride().ifPresent(builder::castDuration);
+		existing.getCooldownOverride().ifPresent(builder::cooldown);
+		existing.getDetectionThresholdOverride().ifPresent(builder::detectionThreshold);
+		existing.getMaskOverride().ifPresent(builder::mask);
+
+		if (result.applyTriggersGcdToAll()) {
+			source.getTriggersGcdOverride().ifPresentOrElse(builder::triggersGcd, () -> builder.triggersGcd(null));
+		} else if (existing.getTriggersGcdOverride().isPresent()) {
+			builder.triggersGcd(null);
+		}
+		if (result.applyCastDurationToAll()) {
+			source.getCastDurationOverride().ifPresentOrElse(builder::castDuration, () -> builder.castDuration(null));
+		} else if (existing.getCastDurationOverride().isPresent()) {
+			builder.castDuration(null);
+		}
+		if (result.applyCooldownToAll()) {
+			source.getCooldownOverride().ifPresentOrElse(builder::cooldown, () -> builder.cooldown(null));
+		} else if (existing.getCooldownOverride().isPresent()) {
+			builder.cooldown(null);
+		}
+		if (result.applyDetectionThresholdToAll()) {
+			source.getDetectionThresholdOverride().ifPresentOrElse(builder::detectionThreshold, () -> builder.detectionThreshold(null));
+		} else if (existing.getDetectionThresholdOverride().isPresent()) {
+			builder.detectionThreshold(null);
+		}
+		if (result.applyMaskToAll()) {
+			source.getMaskOverride().ifPresentOrElse(builder::mask, () -> builder.mask(null));
+		} else if (existing.getMaskOverride().isPresent()) {
+			builder.mask(null);
+		}
+
+		AbilitySettingsOverrides out = builder.build();
+		return out.isEmpty() ? null : out;
+	}
+
+	private AbilitySettingsOverrides stripAppliedRotationFields(AbilitySettingsOverrides instanceOverrides,
+	                                                           AbilityPropertiesDialog.Result result) {
+		if (instanceOverrides == null || instanceOverrides.isEmpty()) {
+			return null;
+		}
+		AbilitySettingsOverrides.Builder builder = AbilitySettingsOverrides.builder();
+		instanceOverrides.getTypeOverride().ifPresent(builder::type);
+		instanceOverrides.getLevelOverride().ifPresent(builder::level);
+		if (!result.applyTriggersGcdToAll()) {
+			instanceOverrides.getTriggersGcdOverride().ifPresent(builder::triggersGcd);
+		}
+		if (!result.applyCastDurationToAll()) {
+			instanceOverrides.getCastDurationOverride().ifPresent(builder::castDuration);
+		}
+		if (!result.applyCooldownToAll()) {
+			instanceOverrides.getCooldownOverride().ifPresent(builder::cooldown);
+		}
+		if (!result.applyDetectionThresholdToAll()) {
+			instanceOverrides.getDetectionThresholdOverride().ifPresent(builder::detectionThreshold);
+		}
+		if (!result.applyMaskToAll()) {
+			instanceOverrides.getMaskOverride().ifPresent(builder::mask);
+		}
+		AbilitySettingsOverrides out = builder.build();
+		return out.isEmpty() ? null : out;
 	}
 
 	private int resolveElementIndexForDrag(AbilityItem item, int abilityIndex) {

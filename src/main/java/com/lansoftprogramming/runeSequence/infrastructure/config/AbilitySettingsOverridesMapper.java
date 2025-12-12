@@ -13,17 +13,11 @@ import java.util.Map;
 public class AbilitySettingsOverridesMapper {
 
 	public Map<String, AbilitySettingsOverrides> toDomain(PresetAbilitySettings abilitySettings) {
-		if (abilitySettings == null || abilitySettings.getPerInstance() == null) {
-			return Map.of();
-		}
-		Map<String, AbilitySettingsOverrides> domain = new LinkedHashMap<>();
-		for (Map.Entry<String, PresetAbilityOverrides> entry : abilitySettings.getPerInstance().entrySet()) {
-			AbilitySettingsOverrides converted = toDomain(entry.getValue());
-			if (converted != null && !converted.isEmpty()) {
-				domain.put(entry.getKey(), converted);
-			}
-		}
-		return domain;
+		return toDomainMap(abilitySettings != null ? abilitySettings.getPerInstance() : null);
+	}
+
+	public Map<String, AbilitySettingsOverrides> toDomainPerAbility(PresetAbilitySettings abilitySettings) {
+		return toDomainMap(abilitySettings != null ? abilitySettings.getPerAbility() : null);
 	}
 
 	public PresetAbilitySettings toConfig(Map<String, AbilitySettingsOverrides> overridesByLabel) {
@@ -43,6 +37,20 @@ public class AbilitySettingsOverridesMapper {
 		PresetAbilitySettings settings = new PresetAbilitySettings();
 		settings.setPerInstance(perInstance);
 		return settings;
+	}
+
+	public Map<String, PresetAbilityOverrides> toConfigMap(Map<String, AbilitySettingsOverrides> overridesByKey) {
+		if (overridesByKey == null || overridesByKey.isEmpty()) {
+			return null;
+		}
+		Map<String, PresetAbilityOverrides> out = new LinkedHashMap<>();
+		for (Map.Entry<String, AbilitySettingsOverrides> entry : overridesByKey.entrySet()) {
+			PresetAbilityOverrides converted = toConfig(entry.getValue());
+			if (converted != null) {
+				out.put(entry.getKey(), converted);
+			}
+		}
+		return out.isEmpty() ? null : out;
 	}
 
 	public AbilitySettingsOverrides toDomain(PresetAbilityOverrides overrides) {
@@ -88,5 +96,19 @@ public class AbilitySettingsOverridesMapper {
 		overrides.getDetectionThresholdOverride().ifPresent(config::setDetectionThreshold);
 		overrides.getMaskOverride().ifPresent(config::setMask);
 		return config;
+	}
+
+	private Map<String, AbilitySettingsOverrides> toDomainMap(Map<String, PresetAbilityOverrides> source) {
+		if (source == null || source.isEmpty()) {
+			return Map.of();
+		}
+		Map<String, AbilitySettingsOverrides> domain = new LinkedHashMap<>();
+		for (Map.Entry<String, PresetAbilityOverrides> entry : source.entrySet()) {
+			AbilitySettingsOverrides converted = toDomain(entry.getValue());
+			if (converted != null && !converted.isEmpty()) {
+				domain.put(entry.getKey(), converted);
+			}
+		}
+		return domain;
 	}
 }

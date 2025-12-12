@@ -22,6 +22,10 @@ class AbilityCardFactory {
 	}
 
 	JPanel createAbilityCard(AbilityItem item) {
+		return createAbilityCard(item, false);
+	}
+
+	JPanel createAbilityCard(AbilityItem item, boolean hasOverrides) {
 		JPanel card = new JPanel();
 		card.setName("abilityCard");
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -32,10 +36,22 @@ class AbilityCardFactory {
 		card.setMaximumSize(new Dimension(50, 68));
 
 		JLabel iconLabel = new JLabel(item.getIcon());
+		iconLabel.setLayout(new BorderLayout());
 		iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 		iconLabel.setMinimumSize(new Dimension(50, 50));
 		iconLabel.setPreferredSize(new Dimension(50, 50));
 		iconLabel.setMaximumSize(new Dimension(50, 50));
+
+		if (hasOverrides && !(item instanceof TooltipItem)) {
+			JLabel indicator = new JLabel("●");
+			indicator.setFont(indicator.getFont().deriveFont(8f));
+			indicator.setForeground(UiColorPalette.TEXT_SUCCESS);
+			indicator.setToolTipText("Custom settings applied");
+			JPanel indicatorWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+			indicatorWrap.setOpaque(false);
+			indicatorWrap.add(indicator);
+			iconLabel.add(indicatorWrap, BorderLayout.NORTH);
+		}
 
 		String displayText = truncateText(item.getDisplayName(), 12);
 		JLabel nameLabel = new JLabel(displayText);
