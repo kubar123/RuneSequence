@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DragPreviewModel;
@@ -141,7 +142,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		previewElements = new ArrayList<>(currentElements);
 
 		String expression = expressionBuilder.buildExpression(currentElements);
-		RotationConfig.AbilitySettings abilitySettings = detailService.buildAbilitySettings(currentElements);
+		PresetAbilitySettings abilitySettings = detailService.buildAbilitySettings(currentElements);
 		Map<String, AbilitySettingsOverrides> currentOverrides = detailService.extractOverridesByLabel(currentElements);
 
 		SequenceDetailService.SaveOutcome outcome = detailService.saveSequence(

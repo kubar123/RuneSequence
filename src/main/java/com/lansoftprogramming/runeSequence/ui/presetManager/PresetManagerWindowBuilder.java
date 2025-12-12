@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
+import com.lansoftprogramming.runeSequence.infrastructure.config.AbilitySettingsOverridesMapper;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SelectedSequenceIndicator;
@@ -38,7 +39,8 @@ public class PresetManagerWindowBuilder {
 			SequenceDetailService detailService = new SequenceDetailService(
 					configManager,
 					iconLoader,
-					visualService
+					visualService,
+					new AbilitySettingsOverridesMapper()
 			);
 			SelectedSequenceIndicator selectionIndicator = SelectedSequenceIndicator.forSettings(
 					configManager.getSettings()
