@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.model;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityToken;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 
 /**
  * Represents a visual element in a sequence display.
@@ -43,15 +44,15 @@ public class SequenceElement {
 	}
 
 	public static SequenceElement arrow() {
-		return new SequenceElement(Type.ARROW, "→", null, null);
+		return new SequenceElement(Type.ARROW, String.valueOf(TooltipGrammar.ARROW), null, null);
 	}
 
 	public static SequenceElement plus() {
-		return new SequenceElement(Type.PLUS, "+", null, null);
+		return new SequenceElement(Type.PLUS, String.valueOf(TooltipGrammar.AND), null, null);
 	}
 
 	public static SequenceElement slash() {
-		return new SequenceElement(Type.SLASH, "/", null, null);
+		return new SequenceElement(Type.SLASH, String.valueOf(TooltipGrammar.OR), null, null);
 	}
 
 	public static SequenceElement tooltip(String message) {

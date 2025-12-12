@@ -25,14 +25,14 @@ public class ExpressionBuilder {
         }
 
         StringBuilder sb = new StringBuilder();
-        for (SequenceElement element : elements) {
-            if (element.isTooltip()) {
-                sb.append('(')
-                    .append(TooltipGrammar.escapeTooltipText(element.getValue()))
-                    .append(')');
-            } else if (element.isAbility()) {
-                sb.append(element.formatAbilityToken());
-            } else {
+	        for (SequenceElement element : elements) {
+	            if (element.isTooltip()) {
+	                sb.append(TooltipGrammar.LEFT_PAREN)
+	                    .append(TooltipGrammar.escapeTooltipText(element.getValue()))
+	                    .append(TooltipGrammar.RIGHT_PAREN);
+	            } else if (element.isAbility()) {
+	                sb.append(element.formatAbilityToken());
+	            } else {
                 sb.append(element.getValue());
             }
         }

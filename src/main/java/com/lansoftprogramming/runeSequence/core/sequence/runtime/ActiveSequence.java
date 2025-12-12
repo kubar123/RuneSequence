@@ -183,6 +183,35 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		return stepInstances.size();
 	}
 
+	/**
+	 * Directly sets the current step index for testing and preview scenarios.
+	 * Resets timers and clears cached detections to mirror a fresh step start.
+	 */
+	public void forceStepIndex(int stepIndex) {
+		if (stepInstances.isEmpty()) {
+			currentStepIndex = 0;
+			complete = true;
+			stepTimer.reset();
+			lastDetections.clear();
+			return;
+		}
+
+		int normalizedIndex = Math.max(0, stepIndex);
+		if (normalizedIndex >= stepInstances.size()) {
+			currentStepIndex = stepInstances.size();
+			complete = true;
+			stepTimer.reset();
+			lastDetections.clear();
+			return;
+		}
+
+		currentStepIndex = normalizedIndex;
+		complete = false;
+		stepTimer.reset();
+		stepTimer.startStep(definition.getStep(currentStepIndex), abilityConfig);
+		lastDetections.clear();
+	}
+
 	public List<String> getAbilityKeysForStep(int stepIndex) {
 		if (stepIndex < 0 || stepIndex >= stepInstances.size()) {
 			return List.of();

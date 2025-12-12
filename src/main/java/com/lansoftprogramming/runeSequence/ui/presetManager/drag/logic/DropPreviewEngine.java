@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.drag.logic;
 
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.*;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import org.slf4j.Logger;
@@ -233,8 +234,8 @@ public class DropPreviewEngine {
 			return null;
 		}
 		return switch (zoneType) {
-			case AND -> "+";
-			case OR -> "/";
+			case AND -> String.valueOf(TooltipGrammar.AND);
+			case OR -> String.valueOf(TooltipGrammar.OR);
 			default -> null;
 		};
 	}

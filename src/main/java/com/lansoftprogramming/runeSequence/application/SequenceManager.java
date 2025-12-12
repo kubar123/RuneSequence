@@ -61,9 +61,15 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	// -------------------------
 
 	public synchronized boolean activateSequence(String name) {
+		if (name == null || name.isBlank()) {
+			logger.warn("Sequence not found: <blank>");
+			clearActiveSequence();
+			return false;
+		}
 		SequenceDefinition def = namedSequences.get(name);
 		if (def == null) {
 			logger.warn("Sequence not found: {}", name);
+			clearActiveSequence();
 			return false;
 		}
 
@@ -74,6 +80,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		this.activeSequence = new ActiveSequence(def, abilityConfig);
 		this.sequenceComplete = false;
 		this.activeSequenceId = name;
+		gcdLatchTracker.reset();
 
 		if (sequenceController != null) {
 			sequenceController.addStateChangeListener(activeSequence);
@@ -198,6 +205,21 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			return List.of();
 		}
 		return activeSequence.getAllAbilityKeys();
+	}
+
+	public synchronized boolean moveActiveSequenceToStep(int stepIndex) {
+		if (activeSequence == null) {
+			return false;
+		}
+		activeSequence.forceStepIndex(stepIndex);
+		sequenceComplete = activeSequence.isComplete();
+		gcdLatchTracker.reset();
+		emitProgressUpdate();
+		return true;
+	}
+
+	public synchronized List<ActiveSequence.DetectionRequirement> previewGcdLatchRequirements() {
+		return gcdLatchTracker.previewGcdRequirements();
 	}
 
 	public synchronized void addNamedSequence(String name, SequenceDefinition def) {
@@ -506,6 +528,10 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				selected.add(requirement);
 			}
 			return List.copyOf(selected);
+		}
+
+		List<ActiveSequence.DetectionRequirement> previewGcdRequirements() {
+			return selectGcdRequirements();
 		}
 
 		private String describeTargets() {

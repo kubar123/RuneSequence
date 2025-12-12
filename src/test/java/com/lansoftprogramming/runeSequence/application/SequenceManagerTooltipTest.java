@@ -1,7 +1,10 @@
 package com.lansoftprogramming.runeSequence.application;
 
 import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
+import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
+import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.SequenceTooltip;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.TooltipSchedule;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
@@ -14,13 +17,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class SequenceManagerTooltipTest {
 
+
 	@Test
-	void shouldReturnTooltipsForCurrentStep() throws Exception {
+	void shouldReturnTooltipsForCurrentStep() {
 		String expression = "(First) A→(Second) B→(Third) C";
 
 		AbilityConfig abilityConfig = new AbilityConfig();
@@ -50,31 +53,50 @@ class SequenceManagerTooltipTest {
 				.toList();
 		assertEquals(List.of("First"), step0);
 
-		setCurrentStepIndex(manager, 1);
+		manager.moveActiveSequenceToStep(1);
 		List<String> step1 = manager.getCurrentTooltips().stream()
 				.map(SequenceTooltip::message)
 				.toList();
 		assertEquals(List.of("Second"), step1);
 
-		setCurrentStepIndex(manager, 2);
+		manager.moveActiveSequenceToStep(2);
 		List<String> step2 = manager.getCurrentTooltips().stream()
 				.map(SequenceTooltip::message)
 				.toList();
 		assertEquals(List.of("Third"), step2);
 
-		setCurrentStepIndex(manager, 3);
+		manager.moveActiveSequenceToStep(3);
 		List<SequenceTooltip> step3 = manager.getCurrentTooltips();
 		assertTrue(step3.isEmpty());
 	}
 
-	private void setCurrentStepIndex(SequenceManager manager, int index) throws Exception {
-		var activeField = SequenceManager.class.getDeclaredField("activeSequence");
-		activeField.setAccessible(true);
-		Object active = activeField.get(manager);
+	@Test
+	void shouldClearActiveSequenceWhenActivationFails() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+		abilityConfig.putAbility("A", new AbilityConfig.AbilityData());
 
-		var stepField = active.getClass().getDeclaredField("currentStepIndex");
-		stepField.setAccessible(true);
-		stepField.setInt(active, index);
+		SequenceDefinition definition = new SequenceDefinition(List.of(
+				new Step(List.of(new Term(List.of(new Alternative("A")))))
+		));
+
+		Map<String, SequenceDefinition> namedSequences = new HashMap<>();
+		namedSequences.put("test", definition);
+
+		NotificationService notifications = new NoopNotificationService();
+		TemplateDetector detector = new TemplateDetector(new TestTemplateCache(), abilityConfig);
+		SequenceManager manager = new SequenceManager(
+				namedSequences,
+				Map.of("test", TooltipSchedule.empty()),
+				abilityConfig,
+				notifications,
+				detector
+		);
+
+		assertTrue(manager.activateSequence("test"));
+		assertTrue(manager.hasActiveSequence());
+
+		assertFalse(manager.activateSequence("missing"));
+		assertFalse(manager.hasActiveSequence());
 	}
 
 	private static final class NoopNotificationService implements NotificationService {

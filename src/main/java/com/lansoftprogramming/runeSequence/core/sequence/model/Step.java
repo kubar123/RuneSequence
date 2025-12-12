@@ -44,10 +44,10 @@ public class Step {
 	private void collectEffectiveConfigs(Alternative alt,
 	                                     AbilityConfig abilityCfg,
 	                                     List<EffectiveAbilityConfig> out) {
-		if (alt.isToken()) {
-			String tokenName = alt.getToken();
-			String abilityKey = baseAbilityKey(tokenName);
-			AbilityConfig.AbilityData data = abilityCfg.getAbility(abilityKey);
+			if (alt.isToken()) {
+				String tokenName = alt.getToken();
+				String abilityKey = AbilityToken.baseAbilityKey(tokenName);
+				AbilityConfig.AbilityData data = abilityCfg.getAbility(abilityKey);
 			if (data != null) {
 				AbilitySettingsOverrides overrides = alt.getAbilitySettingsOverrides();
 				out.add(EffectiveAbilityConfig.from(abilityKey, data, overrides));
@@ -95,10 +95,10 @@ public class Step {
 
 		logger.trace("Processing alternative isToken={} parentTermIsAlternative={}", alt.isToken(), parentTermIsAlternative);
 
-		if (alt.isToken()) {
-			String tokenName = alt.getToken();
-			String abilityKey = baseAbilityKey(tokenName);
-			DetectionResult existing = lastDetections.get(abilityKey);
+			if (alt.isToken()) {
+				String tokenName = alt.getToken();
+				String abilityKey = AbilityToken.baseAbilityKey(tokenName);
+				DetectionResult existing = lastDetections.get(abilityKey);
 			DetectionResult r;
 			if (existing == null) {
 				// Not found - create a notFound with the correct isAlternative flag
@@ -145,9 +145,5 @@ public class Step {
 	@Override
 	public String toString() {
 		return String.join(" + ", terms.stream().map(Object::toString).toList());
-	}
-
-	private String baseAbilityKey(String tokenName) {
-		return AbilityToken.baseAbilityKey(tokenName);
 	}
 }

@@ -130,19 +130,23 @@ public class PresetManagerWindow extends JFrame {
 		masterPanel.addAddListener(this::handleAddSequence);
 		masterPanel.addDeleteListener(this::handleDeleteSequence);
 
-		TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder(
-				configManager.getAbilities().getAbilities().keySet()
-		);
-		masterPanel.setExpressionValidator(expression -> {
-			if (expression == null || expression.isBlank()) {
-				return false;
-			}
-			try {
-				return scheduleBuilder.build(expression).definition() != null;
-			} catch (Exception e) {
-				return false;
-			}
-		});
+		if (sequenceRunService != null) {
+			masterPanel.setExpressionValidator(sequenceRunService::canBuildSequence);
+		} else {
+			TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder(
+					configManager.getAbilities().getAbilities().keySet()
+			);
+			masterPanel.setExpressionValidator(expression -> {
+				if (expression == null || expression.isBlank()) {
+					return false;
+				}
+				try {
+					return scheduleBuilder.build(expression).definition() != null;
+				} catch (Exception e) {
+					return false;
+				}
+			});
+		}
 		masterPanel.addImportListener(this::handleImportSequence);
 
         masterPanel.addSelectionListener(entry -> {

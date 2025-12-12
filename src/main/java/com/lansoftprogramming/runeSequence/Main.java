@@ -103,7 +103,6 @@ public class Main {
 			SequenceController sequenceController = new SequenceController(sequenceManager);
 			sequenceManager.setSequenceController(sequenceController);
 
-
 			// Activate selected rotation or fall back to debug sequence
 			// --- Determine rotation to activate ---
 			String fallbackSequenceName = "debug-limitless";
@@ -139,14 +138,6 @@ public class Main {
 				}
 			}
 
-			// --- Activate selected or fallback sequence ---
-			if (sequenceManager.activateSequence(sequenceToActivate)) {
-				logger.info("Successfully activated the '{}' sequence.", sequenceToActivate);
-			} else {
-				logger.error("Failed to activate the '{}' sequence. Is it defined in rotations.json?", sequenceToActivate);
-				return;
-			}
-
 			// 5. Initialize and start the detection engine
 			DetectionEngine detectionEngine = new DetectionEngine(
 					screenCapture,
@@ -163,6 +154,14 @@ public class Main {
 					detectionEngine,
 					scheduleBuilder
 			);
+
+			// --- Activate selected or fallback sequence ---
+			if (sequenceRunService.switchActiveSequence(sequenceToActivate)) {
+				logger.info("Successfully activated the '{}' sequence.", sequenceToActivate);
+			} else {
+				logger.error("Failed to activate the '{}' sequence. Is it defined in rotations.json?", sequenceToActivate);
+				return;
+			}
 
 			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
 			HotkeyManager hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));

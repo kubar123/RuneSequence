@@ -202,7 +202,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (currentPreset != null) {
 			currentPreset.setName(loadedSequenceName);
 			currentPreset.setExpression(loadedExpression);
-			currentPreset.setAbilitySettings(detailService.buildAbilitySettings(loadedElements));
+			currentPreset.setAbilitySettings(overridesService.buildAbilitySettings(loadedElements));
 		}
 
 		currentElements = new ArrayList<>(loadedElements);
@@ -399,7 +399,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		if (currentPreset != null) {
 			String newExpression = expressionBuilder.buildExpression(currentElements);
 			currentPreset.setExpression(newExpression);
-			currentPreset.setAbilitySettings(detailService.buildAbilitySettings(currentElements));
+			currentPreset.setAbilitySettings(overridesService.buildAbilitySettings(currentElements));
 			logger.debug("Updated expression: {}", newExpression);
 		}
 	}

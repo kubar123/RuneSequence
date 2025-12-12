@@ -33,6 +33,21 @@ public class SequenceRunService implements HotkeyListener {
 				: new TooltipScheduleBuilder();
 	}
 
+	public TooltipScheduleBuilder.BuildResult buildSchedule(String expression) {
+		return tooltipScheduleBuilder.build(expression != null ? expression : "");
+	}
+
+	public boolean canBuildSequence(String expression) {
+		if (expression == null || expression.isBlank()) {
+			return false;
+		}
+		try {
+			return buildSchedule(expression).definition() != null;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
 	public synchronized void start() {
 		if (sequenceController.getState() == SequenceController.State.PAUSED) {
 			sequenceController.resetToReady();
@@ -96,7 +111,7 @@ public class SequenceRunService implements HotkeyListener {
 			return false;
 		}
 
-		BuildResult result = tooltipScheduleBuilder.build(expression != null ? expression : "");
+		BuildResult result = buildSchedule(expression);
 		SequenceDefinition definition = result.definition();
 		if (definition == null) {
 			logger.warn("Parsed sequence for preset '{}' is unavailable; definition is null.", presetId);
@@ -128,6 +143,7 @@ public class SequenceRunService implements HotkeyListener {
 		boolean activated = sequenceManager.activateSequence(sequenceId);
 		if (!activated) {
 			logger.warn("Sequence '{}' not found; unable to switch active sequence.", sequenceId);
+			sequenceController.resetToReady();
 			return false;
 		}
 
