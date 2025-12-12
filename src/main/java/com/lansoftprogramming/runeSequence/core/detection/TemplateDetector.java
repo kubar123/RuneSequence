@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.*;
@@ -29,6 +30,7 @@ import static org.bytedeco.opencv.global.opencv_imgproc.*;
  */
 public class TemplateDetector {
 	private static final Logger logger = LoggerFactory.getLogger(TemplateDetector.class);
+	private static final Pattern ABILITY_STACK_SUFFIX = Pattern.compile("\\[\\*\\d+\\]");
 
 	private final TemplateCache templateCache;
 	private final AbilityConfig abilityConfig;
@@ -39,13 +41,22 @@ public class TemplateDetector {
 		this.abilityConfig = abilityConfig;
 	}
 
+	static String normalizeAbilityKeyForLookup(String abilityKey) {
+		if (abilityKey == null) {
+			return null;
+		}
+		String normalized = ABILITY_STACK_SUFFIX.matcher(abilityKey).replaceAll("").trim();
+		return normalized.isEmpty() ? abilityKey : normalized;
+	}
+
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
 		// Backwards-compatible entrypoint: default isAlternative to false
 		return detectTemplate(screen, templateName, false);
 	}
 
 	public DetectionResult detectTemplate(Mat screen, String templateName, boolean isAlternative, Double detectionThreshold) {
-		Mat template = templateCache.getTemplate(templateName);
+		String lookupName = normalizeAbilityKeyForLookup(templateName);
+		Mat template = templateCache.getTemplate(lookupName);
 		if (template == null) {
 			logger.error("Template not found in cache: {}", templateName);
 
@@ -54,23 +65,23 @@ public class TemplateDetector {
 		}
 
 		// First, try searching in the last known location
-		if (lastKnownLocations.containsKey(templateName)) {
-			Rectangle lastRoi = lastKnownLocations.get(templateName);
+		if (lastKnownLocations.containsKey(lookupName)) {
+			Rectangle lastRoi = lastKnownLocations.get(lookupName);
 			// Add some padding to the ROI to allow for small movements
 			Rectangle searchRoi = new Rectangle(lastRoi.x - 10, lastRoi.y - 10, lastRoi.width + 20, lastRoi.height + 20);
 
 			DetectionResult result = detectTemplateInRegion(screen, templateName, searchRoi, isAlternative, detectionThreshold);
 			if (result.found) {
-				lastKnownLocations.put(templateName, result.boundingBox);
+				lastKnownLocations.put(lookupName, result.boundingBox);
 				return result;
 			}
 		}
 
 		// If not found in the last known location, or if there is no last known location, search the whole screen
-		double threshold = getThresholdForTemplate(templateName, detectionThreshold);
+		double threshold = getThresholdForTemplate(lookupName, detectionThreshold);
 		DetectionResult result = findBestMatch(screen, template, templateName, threshold, isAlternative);
 		if (result.found) {
-			lastKnownLocations.put(templateName, result.boundingBox);
+			lastKnownLocations.put(lookupName, result.boundingBox);
 		}
 		return result;
 	}
@@ -87,11 +98,12 @@ public class TemplateDetector {
 			if (abilityKey == null || abilityKey.isEmpty()) {
 				return;
 			}
-			if (!templateCache.hasTemplate(abilityKey)) {
+			String lookupName = normalizeAbilityKeyForLookup(abilityKey);
+			if (!templateCache.hasTemplate(lookupName)) {
 				logger.debug("Skipping pre-cache for {} because no template is loaded", abilityKey);
 				return;
 			}
-			if (lastKnownLocations.containsKey(abilityKey)) {
+			if (lastKnownLocations.containsKey(lookupName)) {
 				return;
 			}
 
@@ -114,7 +126,7 @@ public class TemplateDetector {
 	 * Returned rectangles are defensive copies so callers cannot mutate the cache.
 	 */
 	public Rectangle getCachedLocation(String templateName) {
-		Rectangle cached = lastKnownLocations.get(templateName);
+		Rectangle cached = lastKnownLocations.get(normalizeAbilityKeyForLookup(templateName));
 		return cached != null ? new Rectangle(cached) : null;
 	}
 
@@ -126,7 +138,7 @@ public class TemplateDetector {
 		if (templateName == null || boundingBox == null) {
 			return;
 		}
-		lastKnownLocations.put(templateName, new Rectangle(boundingBox));
+		lastKnownLocations.put(normalizeAbilityKeyForLookup(templateName), new Rectangle(boundingBox));
 	}
 
 	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi) {
@@ -136,7 +148,8 @@ public class TemplateDetector {
 
 	public DetectionResult detectTemplateInRegion(Mat screen, String templateName, Rectangle roi, boolean isAlternative,
 	                                              Double detectionThreshold) {
-		Mat template = templateCache.getTemplate(templateName);
+		String lookupName = normalizeAbilityKeyForLookup(templateName);
+		Mat template = templateCache.getTemplate(lookupName);
 		if (template == null) {
 			logger.warn("Template not found in cache: {}", templateName);
 			return DetectionResult.notFound(templateName);
@@ -154,7 +167,7 @@ public class TemplateDetector {
 		Mat roiMat = new Mat(screen, roiRect);
 
 		try {
-			double threshold = getThresholdForTemplate(templateName, detectionThreshold);
+			double threshold = getThresholdForTemplate(lookupName, detectionThreshold);
 			DetectionResult result = findBestMatch(roiMat, template, templateName, threshold, isAlternative);
 
 			// Adjust coordinates back to screen space
