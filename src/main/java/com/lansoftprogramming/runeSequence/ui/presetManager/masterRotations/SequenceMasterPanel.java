@@ -1,7 +1,10 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.RotationDslCodec;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -29,11 +32,14 @@ import java.util.function.Predicate;
  */
 public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.SequenceRunView {
 	private final SequenceListModel sequenceListModel;
+	private final AbilityOverridesService overridesService;
 	private final JList<SequenceListModel.SequenceEntry> sequenceList;
 	private final JButton addButton;
 	private final JButton deleteButton;
 	private final JButton importButton;
 	private final JButton exportButton;
+	private final Dimension exportButtonMinimumSize;
+	private final JCheckBox deepExportCheckbox;
 	private final SelectedSequenceIndicator selectedSequenceIndicator;
 	private final SequenceRunService sequenceRunService;
 	private final RunControlPanel runControlPanel;
@@ -52,9 +58,11 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	 * @param sequenceListModel The data model for the list of sequences.
 	 */
 	public SequenceMasterPanel(SequenceListModel sequenceListModel,
+	                           AbilityOverridesService overridesService,
 	                           SelectedSequenceIndicator selectedSequenceIndicator,
 	                           SequenceRunService sequenceRunService) {
 		this.sequenceListModel = Objects.requireNonNull(sequenceListModel, "sequenceListModel cannot be null");
+		this.overridesService = Objects.requireNonNull(overridesService, "overridesService cannot be null");
 		this.selectedSequenceIndicator = Objects.requireNonNull(selectedSequenceIndicator, "selectedSequenceIndicator cannot be null");
 		this.sequenceRunService = sequenceRunService;
 		this.selectionListeners = new ArrayList<>();
@@ -64,6 +72,7 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
+		setMinimumSize(new Dimension(0, 0));
 
 		sequenceList = new JList<>(sequenceListModel);
 		sequenceList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -114,7 +123,16 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 		importButton.addActionListener(e -> importFromClipboard());
 		exportButton = new JButton("Export");
 		exportButton.setEnabled(false);
-		exportButton.addActionListener(e -> copySelectedPresetExpression());
+		exportButtonMinimumSize = exportButton.getMinimumSize();
+		deepExportCheckbox = new JCheckBox();
+		deepExportCheckbox.setToolTipText("Deep export: includes per-instance labels and settings lines");
+		deepExportCheckbox.getAccessibleContext().setAccessibleName("Deep export");
+		deepExportCheckbox.getAccessibleContext().setAccessibleDescription("Includes per-instance labels and settings lines");
+		deepExportCheckbox.setSelected(false);
+		deepExportCheckbox.addActionListener(e -> updateExportButtonLabel());
+		deepExportCheckbox.addItemListener(e -> updateExportButtonLabel());
+		exportButton.addActionListener(e -> copySelectedPresetExpression(deepExportCheckbox.isSelected()));
+		updateExportButtonLabel();
 
 		layoutComponents();
 	}
@@ -144,11 +162,25 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 
 	private JPanel createCrudPanel() {
 		JPanel controlsPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+		controlsPanel.setMinimumSize(new Dimension(0, 0));
 		controlsPanel.add(addButton);
 		controlsPanel.add(deleteButton);
 		controlsPanel.add(importButton);
-		controlsPanel.add(exportButton);
+		JPanel exportPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+		exportPanel.setMinimumSize(new Dimension(0, exportPanel.getPreferredSize().height));
+		exportPanel.add(exportButton);
+		exportPanel.add(deepExportCheckbox);
+		controlsPanel.add(exportPanel);
 		return controlsPanel;
+	}
+
+	private void updateExportButtonLabel() {
+		if (deepExportCheckbox.isSelected()) {
+			exportButton.setText("Deep Export");
+		} else {
+			exportButton.setText("Export");
+		}
+		exportButton.setMinimumSize(exportButtonMinimumSize);
 	}
 
 	public void addSelectionListener(Consumer<SequenceListModel.SequenceEntry> listener) {
@@ -283,7 +315,7 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 		}
 	}
 
-	private void copySelectedPresetExpression() {
+	private void copySelectedPresetExpression(boolean deepExport) {
 		SequenceListModel.SequenceEntry entry = getSelectedSequenceEntry();
 		if (entry == null || entry.getPresetData() == null) {
 			Toolkit.getDefaultToolkit().beep();
@@ -298,8 +330,17 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 			expression = "";
 		}
 
+		String exportText;
+		if (deepExport) {
+			java.util.Map<String, AbilitySettingsOverrides> overridesByLabel =
+					overridesService.toDomainOverrides(entry.getPresetData().getAbilitySettings());
+			exportText = RotationDslCodec.exportDeep(expression, overridesByLabel);
+		} else {
+			exportText = RotationDslCodec.exportSimple(expression);
+		}
+
 		try {
-			StringSelection selection = new StringSelection(expression);
+			StringSelection selection = new StringSelection(exportText);
 			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
 			if (notificationService != null) {
 				notificationService.showSuccess("Copied to clipboard.");

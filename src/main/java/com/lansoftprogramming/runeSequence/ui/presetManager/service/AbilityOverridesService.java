@@ -54,6 +54,32 @@ public class AbilityOverridesService {
 		return overridesMapper.toConfig(perInstance);
 	}
 
+	/**
+	 * Builds a persisted per-instance ability settings container from a label -> overrides map.
+	 * Blank labels and empty override objects are ignored.
+	 */
+	public PresetAbilitySettings buildAbilitySettingsFromOverrides(Map<String, AbilitySettingsOverrides> overridesByLabel) {
+		if (overridesByLabel == null || overridesByLabel.isEmpty()) {
+			return null;
+		}
+
+		Map<String, AbilitySettingsOverrides> normalized = new LinkedHashMap<>();
+		for (Map.Entry<String, AbilitySettingsOverrides> entry : overridesByLabel.entrySet()) {
+			String label = entry.getKey();
+			AbilitySettingsOverrides overrides = entry.getValue();
+			if (label == null || label.isBlank() || overrides == null || overrides.isEmpty()) {
+				continue;
+			}
+			normalized.put(label, overrides);
+		}
+
+		if (normalized.isEmpty()) {
+			return null;
+		}
+
+		return overridesMapper.toConfig(normalized);
+	}
+
 	public PresetAbilitySettings applyPerAbilityOverrides(PresetAbilitySettings abilitySettings,
 	                                                      Map<String, AbilitySettingsOverrides> perAbilityOverrides) {
 		if (perAbilityOverrides == null || perAbilityOverrides.isEmpty()) {

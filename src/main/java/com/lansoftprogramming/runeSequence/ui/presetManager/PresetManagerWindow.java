@@ -2,9 +2,12 @@ package com.lansoftprogramming.runeSequence.ui.presetManager;
 
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.RotationDslCodec;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
+import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
 import com.lansoftprogramming.runeSequence.ui.notification.DefaultNotificationService;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
@@ -21,6 +24,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class PresetManagerWindow extends JFrame {
@@ -86,7 +92,7 @@ public class PresetManagerWindow extends JFrame {
 
     private boolean initializeComponents() {
         try {
-            masterPanel = new SequenceMasterPanel(sequenceListModel, selectionIndicator, sequenceRunService);
+            masterPanel = new SequenceMasterPanel(sequenceListModel, overridesService, selectionIndicator, sequenceRunService);
             detailPanel = new SequenceDetailPanel(detailService, overridesService, notifications);
             palettePanel = new AbilityPalettePanel(
                 configManager.getAbilities(),
@@ -222,7 +228,31 @@ public class PresetManagerWindow extends JFrame {
 	}
 
 	private void handleImportSequence(String expression) {
-		createNewPreset("Imported Sequence", expression);
+        try {
+            RotationDslCodec.ParsedRotation parsed = RotationDslCodec.parse(expression);
+            String importedExpression = parsed.expression();
+            Map<String, AbilitySettingsOverrides> overridesByLabel = parsed.perInstanceOverrides();
+            Set<String> labelsInExpression = RotationDslCodec.collectLabelsInExpression(importedExpression);
+
+            Map<String, AbilitySettingsOverrides> filtered = new LinkedHashMap<>();
+            for (Map.Entry<String, AbilitySettingsOverrides> entry : overridesByLabel.entrySet()) {
+                String label = entry.getKey();
+                if (label == null || label.isBlank()) {
+                    continue;
+                }
+                if (!labelsInExpression.contains(label)) {
+                    logger.warn("Ignoring imported per-instance override for label '{}' with no matching label in expression.", label);
+                    continue;
+                }
+                filtered.put(label, entry.getValue());
+            }
+
+            PresetAbilitySettings abilitySettings = overridesService.buildAbilitySettingsFromOverrides(filtered);
+            createNewPreset("Imported Sequence", importedExpression, abilitySettings);
+        } catch (Exception e) {
+            logger.warn("Failed to parse imported rotation DSL; falling back to legacy import.", e);
+            createNewPreset("Imported Sequence", expression);
+        }
 	}
 
     private void handleDeleteSequence(SequenceListModel.SequenceEntry entry) {
@@ -354,11 +384,16 @@ public class PresetManagerWindow extends JFrame {
     }
 
 	private void createNewPreset(String name, String expression) {
+        createNewPreset(name, expression, null);
+    }
+
+    private void createNewPreset(String name, String expression, PresetAbilitySettings abilitySettings) {
 		clearSelectionSilently();
 
 		RotationConfig.PresetData newPreset = new RotationConfig.PresetData();
 		newPreset.setName(name);
 		newPreset.setExpression(expression);
+        newPreset.setAbilitySettings(abilitySettings);
 
 		String newPresetId = UUID.randomUUID().toString();
 
