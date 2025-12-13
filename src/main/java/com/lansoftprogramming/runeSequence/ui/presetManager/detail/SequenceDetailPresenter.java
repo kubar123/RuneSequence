@@ -107,6 +107,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		List<SequenceElement> parsedElements = detailService.parseSequenceExpression(loadedExpression, overridesByLabel);
 		loadedElements = parsedElements != null ? new ArrayList<>(parsedElements) : new ArrayList<>();
 		loadedOverrides = overridesService.extractOverridesByLabel(loadedElements);
+		logUnusedOverrides(overridesByLabel, loadedOverrides);
 		loadedRotationDefaults = overridesService.extractRotationDefaults(presetData.getAbilitySettings());
 		loadedPerAbilityOverrides = new java.util.LinkedHashMap<>(perAbilityOverrides);
 		currentPerAbilityOverrides = new java.util.LinkedHashMap<>(loadedPerAbilityOverrides);
@@ -116,6 +117,32 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		long abilityCount = currentElements.stream().filter(SequenceElement::isAbility).count();
 		logger.debug("Loaded sequence: {} with {} abilities", presetData.getName(), abilityCount);
+	}
+
+	private void logUnusedOverrides(Map<String, AbilitySettingsOverrides> overridesByLabel,
+	                               Map<String, AbilitySettingsOverrides> appliedOverrides) {
+		if (overridesByLabel == null || overridesByLabel.isEmpty()) {
+			return;
+		}
+		Map<String, AbilitySettingsOverrides> applied = appliedOverrides != null ? appliedOverrides : Map.of();
+
+		List<String> unused = new ArrayList<>();
+		for (String label : overridesByLabel.keySet()) {
+			if (label == null || label.isBlank()) {
+				continue;
+			}
+			if (!applied.containsKey(label)) {
+				unused.add(label);
+			}
+		}
+
+		if (unused.isEmpty()) {
+			return;
+		}
+
+		int showLimit = 8;
+		List<String> sample = unused.size() > showLimit ? unused.subList(0, showLimit) : unused;
+		logger.warn("Ignoring {} per-instance overrides with no matching label in expression (sample={})", unused.size(), sample);
 	}
 
 	void clear() {
@@ -540,7 +567,14 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		AbilitySettingsOverrides currentOverridesForInstance = element.getAbilitySettingsOverrides();
 
 		Window owner = SwingUtilities.getWindowAncestor(view.asComponent());
-		AbilityPropertiesDialog dialog = new AbilityPropertiesDialog(owner, item, baseAbility, rotationWideOverrides, currentOverridesForInstance);
+		AbilityPropertiesDialog dialog = new AbilityPropertiesDialog(
+				owner,
+				item,
+				baseAbility,
+				rotationWideOverrides,
+				currentOverridesForInstance,
+				detailService.createMaskValidator()
+		);
 		dialog.setVisible(true);
 
 		AbilityPropertiesDialog.Result result = dialog.getResult();

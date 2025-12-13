@@ -71,6 +71,28 @@ class EffectiveAbilityConfigTest {
 		assertEquals("customMask", effective.getMask().orElseThrow());
 	}
 
+	@Test
+	void shouldSanitizeInvalidOverrideValues() {
+		AbilityConfig.AbilityData base = abilityData("Base", 10, true,
+				(short) 1, (short) 1, 0.90, "baseMask");
+
+		AbilitySettingsOverrides overrides = AbilitySettingsOverrides.builder()
+				.level(-5)
+				.castDuration((short) -10)
+				.cooldown((short) -2)
+				.detectionThreshold(Double.NaN)
+				.mask("  customMask  ")
+				.build();
+
+		EffectiveAbilityConfig effective = EffectiveAbilityConfig.from("AbilityD", base, overrides);
+
+		assertEquals(0, effective.getLevel().orElseThrow());
+		assertEquals(0, effective.getCastDuration());
+		assertEquals(0, effective.getCooldown());
+		assertTrue(effective.getDetectionThreshold().isEmpty());
+		assertEquals("customMask", effective.getMask().orElseThrow());
+	}
+
 	private AbilityConfig.AbilityData abilityData(String type,
 	                                              int level,
 	                                              boolean triggersGcd,

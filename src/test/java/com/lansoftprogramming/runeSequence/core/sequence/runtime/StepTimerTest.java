@@ -83,6 +83,27 @@ class StepTimerTest {
 		assertTrue(timer.isStepSatisfied(Map.of()), "Step should satisfy after the overridden duration elapses");
 	}
 
+	@Test
+	void shouldTreatNegativeOverridesAsZero() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+		AbilityConfig.AbilityData baseData = abilityData(true, (short) 0, (short) 0);
+		abilityConfig.putAbility("Neg", baseData);
+
+		AbilitySettingsOverrides overrides = AbilitySettingsOverrides.builder()
+				.castDuration((short) -4)
+				.cooldown((short) -3)
+				.build();
+
+		Step step = new Step(List.of(new Term(List.of(new Alternative("Neg", overrides)))));
+
+		StepTimer timer = new StepTimer();
+		timer.startStep(step, abilityConfig);
+
+		assertFalse(timer.isStepSatisfied(Map.of()), "Step should not be satisfied immediately with negative overrides");
+		setField(timer, "stepStartTimeMs", System.currentTimeMillis() - 100);
+		assertFalse(timer.isStepSatisfied(Map.of()), "Step duration should remain non-negative even with corrupted overrides");
+	}
+
 	private AbilityConfig.AbilityData abilityData(boolean triggersGcd, short castDuration, short cooldown) {
 		AbilityConfig.AbilityData data = new AbilityConfig.AbilityData();
 		data.setTriggersGcd(triggersGcd);

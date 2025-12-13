@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.core.image;
 
+import com.lansoftprogramming.runeSequence.core.validation.FilenameValidators;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import org.bytedeco.opencv.global.opencv_core;
 import org.bytedeco.opencv.global.opencv_imgcodecs;
@@ -7,6 +8,8 @@ import org.bytedeco.opencv.global.opencv_imgproc;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.opencv.opencv_core.MatVector;
 import org.bytedeco.opencv.opencv_core.Size;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,6 +20,7 @@ import java.util.stream.Stream;
 import static org.bytedeco.opencv.global.opencv_imgcodecs.IMREAD_UNCHANGED;
 
 public class OpenCvImageProcessor implements ImageProcessor {
+	private static final Logger logger = LoggerFactory.getLogger(OpenCvImageProcessor.class);
 
 	@Override
 	public void processImages(Path abilitiesRoot, int[] sizes, AbilityConfig abilityConfig) throws IOException {
@@ -48,26 +52,42 @@ public class OpenCvImageProcessor implements ImageProcessor {
 		AbilityConfig.AbilityData data = abilityConfig.getAbility(abilityKey);
 		if (data != null) {
 			String maskKey = safeTrim(data.getMask());
-			if (maskKey == null) {
+			if (maskKey == null || maskKey.isBlank()) {
 				return MaskSelection.noMask(); // explicitly no mask
 			}
-			Path maskPath = resolveMaskPath(maskKey, abilitiesRoot);
-			boolean preserveAspect = !"mask".equalsIgnoreCase(maskKey);
-			return MaskSelection.withMask(maskPath, preserveAspect);
+			Path resolvedMask = resolveMaskPath(maskKey, abilitiesRoot);
+			if (resolvedMask != null) {
+				boolean preserveAspect = !"mask".equalsIgnoreCase(maskKey);
+				return MaskSelection.withMask(resolvedMask, preserveAspect);
+			}
+			return MaskSelection.withMask(abilitiesRoot.resolve("mask.png"), false);
 		}
 		return MaskSelection.withMask(abilitiesRoot.resolve("mask.png"), false);
 	}
 
 	private Path resolveMaskPath(String maskKey, Path abilitiesRoot) {
+		if (maskKey == null) {
+			return null;
+		}
+		if (FilenameValidators.containsPathSeparator(maskKey)) {
+			logger.warn("Ignoring invalid mask key containing path separators: '{}'", maskKey);
+			return null;
+		}
+
 		// Allow simple names like "mask" or "mask_potion" and also custom filenames
 		String fileName = maskKey.endsWith(".png") || maskKey.endsWith(".jpg") || maskKey.endsWith(".jpeg")
 				? maskKey
 				: maskKey + ".png";
 		Path resolved = abilitiesRoot.resolve(fileName);
 		if (!Files.exists(resolved)) {
-			throw new IllegalArgumentException("Requested mask file not found: " + resolved);
+			logger.warn("Requested mask file not found: {}", resolved);
+			return null;
 		}
 		return resolved;
+	}
+
+	private boolean containsPathSeparator(String value) {
+		return FilenameValidators.containsPathSeparator(value);
 	}
 
 	private String stripExtension(String filename) {

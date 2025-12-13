@@ -46,15 +46,37 @@ public class EffectiveAbilityConfig {
 		AbilitySettingsOverrides effectiveOverrides = overrides != null ? overrides : AbilitySettingsOverrides.empty();
 
 		String type = effectiveOverrides.getTypeOverride().orElse(baseAbility.getType());
-		Integer level = effectiveOverrides.getLevelOverride().orElse(baseAbility.getLevel());
+		Integer level = sanitizeLevel(effectiveOverrides.getLevelOverride().orElse(baseAbility.getLevel()));
 		boolean triggersGcd = effectiveOverrides.getTriggersGcdOverride().orElse(baseAbility.isTriggersGcd());
-		short castDuration = effectiveOverrides.getCastDurationOverride().orElse(baseAbility.getCastDuration());
-		short cooldown = effectiveOverrides.getCooldownOverride().orElse(baseAbility.getCooldown());
-		Double detectionThreshold = effectiveOverrides.getDetectionThresholdOverride().orElse(baseAbility.getDetectionThreshold());
-		String mask = effectiveOverrides.getMaskOverride().orElse(baseAbility.getMask());
+		short castDuration = sanitizeTiming(effectiveOverrides.getCastDurationOverride().orElse(baseAbility.getCastDuration()));
+		short cooldown = sanitizeTiming(effectiveOverrides.getCooldownOverride().orElse(baseAbility.getCooldown()));
+		Double detectionThreshold = sanitizeThreshold(effectiveOverrides.getDetectionThresholdOverride().orElse(baseAbility.getDetectionThreshold()));
+		String mask = sanitizeMask(effectiveOverrides.getMaskOverride().orElse(baseAbility.getMask()));
 
 		return new EffectiveAbilityConfig(abilityKey, type, level, triggersGcd, castDuration, cooldown,
 				detectionThreshold, mask);
+	}
+
+	private static Integer sanitizeLevel(Integer level) {
+		if (level == null) {
+			return null;
+		}
+		return Math.max(0, level);
+	}
+
+	private static short sanitizeTiming(short value) {
+		return (short) Math.max(0, value);
+	}
+
+	private static Double sanitizeThreshold(Double value) {
+		return AbilityValueSanitizers.sanitizeDetectionThreshold(value);
+	}
+
+	private static String sanitizeMask(String mask) {
+		if (mask == null) {
+			return null;
+		}
+		return mask.trim();
 	}
 
 	public String getAbilityKey() {

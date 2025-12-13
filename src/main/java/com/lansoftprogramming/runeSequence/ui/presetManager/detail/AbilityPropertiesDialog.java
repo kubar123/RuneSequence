@@ -1,7 +1,9 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityValueSanitizers;
 import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
+import com.lansoftprogramming.runeSequence.core.validation.FilenameValidators;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
@@ -19,6 +21,20 @@ class AbilityPropertiesDialog extends JDialog {
 	              boolean applyMaskToAll) {
 		boolean hasAnyApplyToAll() {
 			return applyTriggersGcdToAll || applyCastDurationToAll || applyCooldownToAll || applyDetectionThresholdToAll || applyMaskToAll;
+		}
+	}
+
+	interface MaskValidator {
+		ValidationResult validate(String maskKey);
+	}
+
+	record ValidationResult(boolean isValid, String message) {
+		static ValidationResult valid() {
+			return new ValidationResult(true, null);
+		}
+
+		static ValidationResult invalid(String message) {
+			return new ValidationResult(false, message);
 		}
 	}
 
@@ -49,17 +65,22 @@ class AbilityPropertiesDialog extends JDialog {
 	private final JCheckBox maskApplyAll;
 	private final JLabel maskEffective;
 
+	private final JLabel validationLabel;
+
 	private final EffectiveAbilityConfig baseAbility;
 	private final AbilitySettingsOverrides rotationWideOverrides;
+	private final MaskValidator maskValidator;
 
 	AbilityPropertiesDialog(Window owner,
 	                        AbilityItem item,
 	                        EffectiveAbilityConfig baseAbility,
 	                        AbilitySettingsOverrides rotationWideOverrides,
-	                        AbilitySettingsOverrides currentOverrides) {
+	                        AbilitySettingsOverrides currentOverrides,
+	                        MaskValidator maskValidator) {
 		super(owner, buildTitle(item), ModalityType.APPLICATION_MODAL);
 		this.baseAbility = baseAbility;
 		this.rotationWideOverrides = rotationWideOverrides != null ? rotationWideOverrides : AbilitySettingsOverrides.empty();
+		this.maskValidator = maskValidator;
 
 		triggersGcdOverride = new JCheckBox();
 		triggersGcdValue = new JCheckBox("Triggers GCD");
@@ -85,6 +106,9 @@ class AbilityPropertiesDialog extends JDialog {
 		maskValue = new JTextField();
 		maskApplyAll = new JCheckBox();
 		maskEffective = new JLabel();
+
+		validationLabel = new JLabel();
+		validationLabel.setForeground(UiColorPalette.TEXT_DANGER);
 
 		initLayout(item);
 		loadFromOverrides(currentOverrides);
@@ -177,7 +201,14 @@ class AbilityPropertiesDialog extends JDialog {
 		buttonPanel.add(cancelButton);
 		buttonPanel.add(okButton);
 
-		content.add(buttonPanel, BorderLayout.SOUTH);
+		JPanel south = new JPanel();
+		south.setOpaque(false);
+		south.setLayout(new BoxLayout(south, BoxLayout.Y_AXIS));
+		validationLabel.setAlignmentX(Component.RIGHT_ALIGNMENT);
+		validationLabel.setBorder(new EmptyBorder(0, 4, 6, 4));
+		south.add(validationLabel);
+		south.add(buttonPanel);
+		content.add(south, BorderLayout.SOUTH);
 		setContentPane(content);
 
 		attachOverrideHandler(triggersGcdOverride, triggersGcdValue);
@@ -195,7 +226,15 @@ class AbilityPropertiesDialog extends JDialog {
 		thresholdOverride.addActionListener(e -> updateEffectiveLabels());
 		thresholdValue.addChangeListener(e -> updateEffectiveLabels());
 		maskOverride.addActionListener(e -> updateEffectiveLabels());
-		maskValue.getDocument().addDocumentListener(new SimpleDocumentListener(this::updateEffectiveLabels));
+		maskValue.getDocument().addDocumentListener(new SimpleDocumentListener(() -> {
+			clearValidationMessage();
+			updateEffectiveLabels();
+		}));
+
+		installNumericValidation(castDurationValue, "Cast Duration");
+		installNumericValidation(cooldownValue, "Cooldown");
+		installNumericValidation(thresholdValue, "Detection Threshold");
+		maskValue.getDocument().addDocumentListener(new SimpleDocumentListener(this::clearValidationMessage));
 	}
 
 	private void addRow(JPanel formPanel,
@@ -235,6 +274,90 @@ class AbilityPropertiesDialog extends JDialog {
 		overrideCheckbox.addActionListener(e -> valueComponent.setEnabled(overrideCheckbox.isSelected()));
 	}
 
+	private void installNumericValidation(JSpinner spinner, String label) {
+		if (spinner == null) {
+			return;
+		}
+		JComponent editor = spinner.getEditor();
+		if (editor instanceof JSpinner.DefaultEditor defaultEditor) {
+			JFormattedTextField textField = defaultEditor.getTextField();
+			textField.setColumns(8);
+			textField.setInputVerifier(new InputVerifier() {
+				@Override
+				public boolean verify(JComponent input) {
+					return tryCommitSpinner(spinner, label, false);
+				}
+			});
+		}
+	}
+
+	private boolean tryCommitSpinner(JSpinner spinner, String label, boolean showWarningOnClamp) {
+		clearValidationFor(spinner);
+		try {
+			spinner.commitEdit();
+		} catch (Exception e) {
+			setValidationError(label + " must be a number.", spinner);
+			return false;
+		}
+
+		try {
+			Object value = spinner.getValue();
+			if (spinner == thresholdValue) {
+				double threshold = value instanceof Double d ? d : ((Number) value).doubleValue();
+				double clamped = clamp(threshold, 0.0d, 1.0d);
+				if (Double.compare(threshold, clamped) != 0) {
+					spinner.setValue(clamped);
+					if (showWarningOnClamp) {
+						setValidationWarning("Detection Threshold clamped to " + clamped + ".", spinner);
+					}
+				}
+				return true;
+			}
+
+			if (value instanceof Number num && num.longValue() < 0) {
+				setValidationError(label + " must be non-negative.", spinner);
+				return false;
+			}
+
+			return true;
+		} catch (Exception e) {
+			setValidationError(label + " value is invalid.", spinner);
+			return false;
+		}
+	}
+
+	private void clearValidationFor(JComponent component) {
+		if (component == null) {
+			return;
+		}
+		component.setToolTipText(null);
+		component.setBackground(UIManager.getColor("TextField.background"));
+	}
+
+	private void setValidationError(String message, JComponent component) {
+		validationLabel.setText(message != null ? message : "");
+		validationLabel.setForeground(UiColorPalette.TEXT_DANGER);
+		if (component != null) {
+			component.setToolTipText(message);
+			component.setBackground(UiColorPalette.INPUT_INVALID_BACKGROUND);
+			component.requestFocusInWindow();
+		}
+		Toolkit.getDefaultToolkit().beep();
+	}
+
+	private void setValidationWarning(String message, JComponent component) {
+		validationLabel.setText(message != null ? message : "");
+		validationLabel.setForeground(UiColorPalette.TEXT_MUTED);
+		if (component != null) {
+			component.setToolTipText(message);
+		}
+	}
+
+	private void clearValidationMessage() {
+		validationLabel.setText("");
+		validationLabel.setToolTipText(null);
+	}
+
 	private void loadFromOverrides(AbilitySettingsOverrides overrides) {
 		AbilitySettingsOverrides current = overrides != null ? overrides : AbilitySettingsOverrides.empty();
 
@@ -272,6 +395,7 @@ class AbilityPropertiesDialog extends JDialog {
 	}
 
 	private void updateEffectiveLabels() {
+		clearValidationMessage();
 		boolean baseTriggersGcd = baseTriggersGcd();
 		boolean effectiveTriggersGcd = triggersGcdOverride.isSelected()
 				? triggersGcdValue.isSelected()
@@ -295,7 +419,7 @@ class AbilityPropertiesDialog extends JDialog {
 
 		double baseThreshold = baseDetectionThreshold();
 		double effectiveThreshold = thresholdOverride.isSelected()
-				? (Double) thresholdValue.getValue()
+				? clamp(((Number) thresholdValue.getValue()).doubleValue(), 0.0d, 1.0d)
 				: baseThreshold;
 		updateEffectiveLabel(thresholdEffective, effectiveThreshold, thresholdOverride.isSelected(),
 				rotationWideOverrides.getDetectionThresholdOverride().isPresent());
@@ -351,11 +475,21 @@ class AbilityPropertiesDialog extends JDialog {
 	}
 
 	private void onOk() {
-		double threshold = (Double) thresholdValue.getValue();
-		if (threshold < 0.0d || threshold > 1.0d) {
-			Toolkit.getDefaultToolkit().beep();
+		if (!tryCommitSpinner(castDurationValue, "Cast Duration", false)) {
 			return;
 		}
+		if (!tryCommitSpinner(cooldownValue, "Cooldown", false)) {
+			return;
+		}
+		if (!tryCommitSpinner(thresholdValue, "Detection Threshold", true)) {
+			return;
+		}
+
+		String resolvedMask = resolveMaskOverride();
+		if (resolvedMask == null) {
+			return;
+		}
+		double threshold = ((Number) thresholdValue.getValue()).doubleValue();
 
 		AbilitySettingsOverrides.Builder builder = AbilitySettingsOverrides.builder();
 
@@ -369,15 +503,10 @@ class AbilityPropertiesDialog extends JDialog {
 			builder.cooldown((short) ((Integer) cooldownValue.getValue()).intValue());
 		}
 		if (thresholdOverride.isSelected()) {
-			builder.detectionThreshold(threshold);
+			builder.detectionThreshold(AbilityValueSanitizers.clampFiniteOrDefault(threshold, 0.0d, 1.0d, 0.0d));
 		}
 		if (maskOverride.isSelected()) {
-			String mask = maskValue.getText().trim();
-			if (!mask.isEmpty()) {
-				builder.mask(mask);
-			} else {
-				builder.mask("");
-			}
+			builder.mask(resolvedMask);
 		}
 
 		result = new Result(
@@ -389,6 +518,41 @@ class AbilityPropertiesDialog extends JDialog {
 				maskApplyAll.isSelected()
 		);
 		dispose();
+	}
+
+	private String resolveMaskOverride() {
+		clearValidationFor(maskValue);
+		if (!maskOverride.isSelected()) {
+			return "";
+		}
+
+		String mask = maskValue.getText() != null ? maskValue.getText().trim() : "";
+		if (mask.isEmpty()) {
+			return "";
+		}
+		if (FilenameValidators.containsPathSeparator(mask)) {
+			setValidationError("Mask must be a simple file name (no folders).", maskValue);
+			return null;
+		}
+
+		if (maskValidator != null) {
+			ValidationResult result = maskValidator.validate(mask);
+			if (result != null && !result.isValid()) {
+				String message = result.message() != null ? result.message() : "Mask is invalid.";
+				setValidationError(message, maskValue);
+				return null;
+			}
+		}
+
+		return mask;
+	}
+
+	private boolean containsPathSeparator(String value) {
+		return FilenameValidators.containsPathSeparator(value);
+	}
+
+	private double clamp(double value, double min, double max) {
+		return AbilityValueSanitizers.clampFiniteOrDefault(value, min, max, min);
 	}
 
 	private boolean baseTriggersGcd() {

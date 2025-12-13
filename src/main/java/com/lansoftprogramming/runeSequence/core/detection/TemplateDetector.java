@@ -1,6 +1,8 @@
 package com.lansoftprogramming.runeSequence.core.detection;
 
 import com.lansoftprogramming.runeSequence.application.TemplateCache;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityKeyCanonicalizer;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityValueSanitizers;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import org.bytedeco.javacpp.DoublePointer;
 import org.bytedeco.opencv.opencv_core.Mat;
@@ -15,7 +17,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import static org.bytedeco.opencv.global.opencv_core.*;
 import static org.bytedeco.opencv.global.opencv_imgproc.*;
@@ -30,7 +31,6 @@ import static org.bytedeco.opencv.global.opencv_imgproc.*;
  */
 public class TemplateDetector {
 	private static final Logger logger = LoggerFactory.getLogger(TemplateDetector.class);
-	private static final Pattern ABILITY_STACK_SUFFIX = Pattern.compile("\\[\\*\\d+\\]");
 
 	private final TemplateCache templateCache;
 	private final AbilityConfig abilityConfig;
@@ -42,11 +42,7 @@ public class TemplateDetector {
 	}
 
 	static String normalizeAbilityKeyForLookup(String abilityKey) {
-		if (abilityKey == null) {
-			return null;
-		}
-		String normalized = ABILITY_STACK_SUFFIX.matcher(abilityKey).replaceAll("").trim();
-		return normalized.isEmpty() ? abilityKey : normalized;
+		return AbilityKeyCanonicalizer.canonicalizeForLookup(abilityKey);
 	}
 
 	public DetectionResult detectTemplate(Mat screen, String templateName) {
@@ -59,8 +55,6 @@ public class TemplateDetector {
 		Mat template = templateCache.getTemplate(lookupName);
 		if (template == null) {
 			logger.error("Template not found in cache: {}", templateName);
-
-			System.out.println("TemplateDetector: Template not found in cache: " + templateName);
 			return DetectionResult.notFound(templateName);
 		}
 
@@ -287,12 +281,16 @@ public class TemplateDetector {
 	}
 
 	private double getThresholdForTemplate(String templateName, Double overrideThreshold) {
-		if (overrideThreshold != null) {
-			return overrideThreshold;
+		Double override = AbilityValueSanitizers.sanitizeDetectionThreshold(overrideThreshold);
+		if (override != null) {
+			return override;
 		}
 		AbilityConfig.AbilityData abilityData = abilityConfig.getAbility(templateName);
 		if (abilityData != null && abilityData.getDetectionThreshold() != null) {
-			return abilityData.getDetectionThreshold();
+			Double fromConfig = AbilityValueSanitizers.sanitizeDetectionThreshold(abilityData.getDetectionThreshold());
+			if (fromConfig != null) {
+				return fromConfig;
+			}
 		}
 		return 0.99; // Default high threshold
 	}

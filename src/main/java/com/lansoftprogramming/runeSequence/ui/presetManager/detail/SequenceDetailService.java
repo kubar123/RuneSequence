@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +87,36 @@ public class SequenceDetailService {
 			return null;
 		}
 		return EffectiveAbilityConfig.from(abilityKey, baseAbility, overrides);
+	}
+
+	AbilityPropertiesDialog.MaskValidator createMaskValidator() {
+		return maskKey -> {
+			if (maskKey == null || maskKey.isBlank()) {
+				return AbilityPropertiesDialog.ValidationResult.valid();
+			}
+
+			Path abilitiesRoot = configManager != null ? configManager.getAbilityImagePath() : null;
+			if (abilitiesRoot == null || !Files.isDirectory(abilitiesRoot)) {
+				return AbilityPropertiesDialog.ValidationResult.valid();
+			}
+
+			String fileName = toMaskFileName(maskKey);
+			Path candidate = abilitiesRoot.resolve(fileName);
+			if (Files.exists(candidate)) {
+				return AbilityPropertiesDialog.ValidationResult.valid();
+			}
+
+			return AbilityPropertiesDialog.ValidationResult.invalid("Mask file not found: " + fileName);
+		};
+	}
+
+	private String toMaskFileName(String maskKey) {
+		String trimmed = maskKey != null ? maskKey.trim() : "";
+		String lower = trimmed.toLowerCase();
+		if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+			return trimmed;
+		}
+		return trimmed + ".png";
 	}
 
 	private String getDisplayName(AbilityConfig.AbilityData abilityData, String fallbackKey) {
