@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
  */
 public final class AbilityToken {
 
-	private static final Pattern TOKEN_WITH_LABEL = Pattern.compile("(.+?)\\[\\*(.+)]$");
+	private static final Pattern TOKEN_WITH_LABEL = Pattern.compile("(.+?)\\[\\*(\\d+)]$");
 
 	private final String abilityKey;
 	private final String instanceLabel;

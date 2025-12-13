@@ -255,6 +255,11 @@ public class ScreenCapture {
 	 * Initialize screen bounds detection
 	 */
 	private void initializeScreenBounds() {
+		if (GraphicsEnvironment.isHeadless()) {
+			screenBounds = new Rectangle(0, 0, 1, 1);
+			logger.info("Headless environment detected; using fallback screen bounds {}x{}", screenBounds.width, screenBounds.height);
+			return;
+		}
 		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
 		GraphicsDevice device = ge.getDefaultScreenDevice();
 		DisplayMode mode = device.getDisplayMode();

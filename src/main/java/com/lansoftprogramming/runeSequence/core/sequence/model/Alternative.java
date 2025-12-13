@@ -7,22 +7,29 @@ package com.lansoftprogramming.runeSequence.core.sequence.model;
  */
 public class Alternative {
 
-	private final String token;                 // Ability name (or macro string)
+	private final String token;                 // Base ability name (or macro string)
+	private final String instanceLabel;         // Optional per-instance label (e.g. "1" in "cane[*1]")
 	private final SequenceDefinition subgroup;  // Nested expression (from parentheses)
 	private final AbilitySettingsOverrides abilitySettingsOverrides;
 
 	public Alternative(String token) {
-		this(token, null);
+		this(token, null, null);
 	}
 
 	public Alternative(String token, AbilitySettingsOverrides abilitySettingsOverrides) {
+		this(token, null, abilitySettingsOverrides);
+	}
+
+	public Alternative(String token, String instanceLabel, AbilitySettingsOverrides abilitySettingsOverrides) {
 		this.token = token;
+		this.instanceLabel = instanceLabel;
 		this.subgroup = null;
 		this.abilitySettingsOverrides = abilitySettingsOverrides;
 	}
 
 	public Alternative(SequenceDefinition subgroup) {
 		this.token = null;
+		this.instanceLabel = null;
 		this.subgroup = subgroup;
 		this.abilitySettingsOverrides = null;
 	}
@@ -39,6 +46,10 @@ public class Alternative {
 		return token;
 	}
 
+	public String getInstanceLabel() {
+		return instanceLabel;
+	}
+
 	public SequenceDefinition getSubgroup() {
 		return subgroup;
 	}
@@ -50,7 +61,7 @@ public class Alternative {
 	@Override
 	public String toString() {
 		if (isToken()) {
-			return token;
+			return AbilityToken.format(token, instanceLabel);
 		}
 		if (isGroup()) {
 			String subgroupStr = subgroup.toString();

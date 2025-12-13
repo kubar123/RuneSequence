@@ -39,6 +39,7 @@ public class OverlayRenderer {
 	}
 
 	private final BooleanSupplier blinkCurrentEnabled;
+	private final boolean headless;
 	private final Timer blinkTimer;
 	private final JWindow overlayWindow;
 	private final OverlayPanel overlayPanel;
@@ -56,6 +57,16 @@ public class OverlayRenderer {
 	public OverlayRenderer(BooleanSupplier blinkCurrentEnabled) {
 		this.blinkCurrentEnabled = blinkCurrentEnabled != null ? blinkCurrentEnabled : () -> false;
 		this.activeBorders = new ConcurrentHashMap<>();
+		this.headless = GraphicsEnvironment.isHeadless();
+		if (headless) {
+			this.overlayWindow = null;
+			this.overlayPanel = null;
+			this.blinkTimer = null;
+			this.renderExecutor = null;
+			logger.info("OverlayRenderer initialized in headless mode");
+			return;
+		}
+
 		this.overlayWindow = createOverlayWindow();
 		this.overlayPanel = new OverlayPanel();
 		this.blinkTimer = createBlinkTimer();
@@ -132,6 +143,9 @@ public class OverlayRenderer {
 	 * Borders persist until next update or clearOverlays() call
 	 */
 	public void updateOverlays(List<DetectionResult> currentAbilities, List<DetectionResult> nextAbilities) {
+		if (headless) {
+			return;
+		}
 		List<DetectionResult> currentSnapshot = safeCopy(currentAbilities);
 		List<DetectionResult> nextSnapshot = safeCopy(nextAbilities);
 		enqueueRenderTask(() -> processOverlayUpdate(currentSnapshot, nextSnapshot));
@@ -145,6 +159,9 @@ public class OverlayRenderer {
 	}
 
 	private void enqueueRenderTask(Runnable task) {
+		if (renderExecutor == null) {
+			return;
+		}
 		try {
 			renderExecutor.execute(task);
 		} catch (RejectedExecutionException ex) {
@@ -280,6 +297,10 @@ public class OverlayRenderer {
 	 * Called from DetectionEngine.stop() or when manually clearing
 	 */
 	public void clearOverlays() {
+		if (headless) {
+			activeBorders.clear();
+			return;
+		}
 		enqueueRenderTask(this::clearOverlaysInternal);
 	}
 
@@ -311,6 +332,9 @@ public class OverlayRenderer {
 	}
 
 	private void setOverlayVisible(boolean visible) {
+		if (overlayWindow == null) {
+			return;
+		}
 		if (overlayVisible != visible) {
 			overlayVisible = visible;
 			SwingUtilities.invokeLater(() -> overlayWindow.setVisible(visible));
@@ -323,6 +347,10 @@ public class OverlayRenderer {
 	 * Shutdown the overlay renderer and clean up resources
 	 */
 	public void shutdown() {
+		if (headless) {
+			activeBorders.clear();
+			return;
+		}
 		clearOverlays();
 		renderExecutor.shutdown();
 		try {

@@ -1,9 +1,6 @@
 package com.lansoftprogramming.runeSequence.core.sequence.parser;
 
-import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
-import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
+import com.lansoftprogramming.runeSequence.core.sequence.model.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -105,5 +102,72 @@ class SequenceParserTest {
 		SequenceDefinition definition = SequenceParser.parse("Alpha-Beta -> Gamma1");
 		assertEquals("Alpha-Beta", definition.getStep(0).getTerms().get(0).getAlternatives().get(0).getToken());
 		assertEquals(2, definition.size(), "Hyphenated or numeric ability names should parse");
+	}
+
+	@Test
+	void shouldParseInstanceLabelsAndStripSuffixFromToken() {
+		SequenceDefinition definition = SequenceParser.parse("cane[*1] → tc");
+
+		Alternative first = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals("cane", first.getToken(), "Ability token should exclude the label suffix");
+		assertEquals("1", first.getInstanceLabel(), "Label suffix should populate instanceLabel");
+
+		Alternative second = definition.getStep(1).getTerms().get(0).getAlternatives().get(0);
+		assertEquals("tc", second.getToken());
+		assertNull(second.getInstanceLabel());
+	}
+
+	@Test
+	void shouldApplyPerInstanceOverridesFromSettingsLines() {
+		String input = String.join("\n",
+				"cane[*1] → tc",
+				"#*1 cooldown=30000 triggers_gcd=false detection_threshold=0.9 mask=spec_mask cast_duration=332 level=20 type=Basic"
+		);
+
+		SequenceDefinition definition = SequenceParser.parse(input);
+
+		Alternative labeled = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals("1", labeled.getInstanceLabel());
+
+		AbilitySettingsOverrides overrides = labeled.getAbilitySettingsOverrides();
+		assertNotNull(overrides, "Matching #*N line should attach overrides to the labeled node");
+		assertEquals(false, overrides.getTriggersGcdOverride().orElse(null));
+		assertEquals((short) 332, overrides.getCastDurationOverride().orElseThrow());
+		assertEquals((short) 30000, overrides.getCooldownOverride().orElseThrow());
+		assertEquals(0.9d, overrides.getDetectionThresholdOverride().orElseThrow(), 1e-9);
+		assertEquals("spec_mask", overrides.getMaskOverride().orElseThrow());
+		assertEquals(20, overrides.getLevelOverride().orElseThrow());
+		assertEquals("Basic", overrides.getTypeOverride().orElseThrow());
+
+		Alternative unlabeled = definition.getStep(1).getTerms().get(0).getAlternatives().get(0);
+		assertNull(unlabeled.getAbilitySettingsOverrides(), "Unlabeled nodes should not receive per-instance overrides");
+	}
+
+	@Test
+	void shouldOverwriteDuplicateSettingsLinesWithLaterValues() {
+		String input = String.join("\n",
+				"cane[*1] → tc",
+				"#*1 cooldown=100",
+				"#*1 cooldown=200"
+		);
+
+		SequenceDefinition definition = SequenceParser.parse(input);
+		Alternative labeled = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals((short) 200, labeled.getAbilitySettingsOverrides().getCooldownOverride().orElseThrow());
+	}
+
+	@Test
+	void shouldIgnoreMalformedSettingsLines() {
+		String input = String.join("\n",
+				"cane[*1] → tc",
+				"#*x cooldown=100",
+				"#*1cooldown=200",
+				"#*1 bogus",
+				"#*1 cooldown=not_a_number"
+		);
+
+		SequenceDefinition definition = SequenceParser.parse(input);
+		Alternative labeled = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertNull(labeled.getAbilitySettingsOverrides(), "Malformed #* lines should not crash or attach overrides");
 	}
 }

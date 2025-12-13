@@ -28,6 +28,7 @@ public class MouseTooltipOverlay {
 	private static final int MARGIN = 4;
 	private static final int HIDE_GRACE_MS = 300;
 
+	private final boolean headless;
 	private final JWindow window;
 	private final TooltipPanel panel;
 	private final javax.swing.Timer followTimer;
@@ -38,6 +39,16 @@ public class MouseTooltipOverlay {
 	private Point lastMouseScreenLocation;
 
 	public MouseTooltipOverlay() {
+		this.headless = GraphicsEnvironment.isHeadless();
+		if (headless) {
+			this.window = null;
+			this.panel = null;
+			this.followTimer = null;
+			this.desktopBounds = new Rectangle(0, 0, 1, 1);
+			logger.info("MouseTooltipOverlay initialized in headless mode");
+			return;
+		}
+
 		this.window = createWindow();
 		this.panel = new TooltipPanel();
 		window.add(panel);
@@ -129,6 +140,10 @@ public class MouseTooltipOverlay {
 	}
 
 	public void showTooltips(List<SequenceTooltip> tooltips) {
+		if (headless) {
+			this.messages = normalizeMessages(tooltips);
+			return;
+		}
 		List<String> nextMessages = normalizeMessages(tooltips);
 		SwingUtilities.invokeLater(() -> {
 			if (!nextMessages.isEmpty()) {
@@ -147,11 +162,21 @@ public class MouseTooltipOverlay {
 	}
 
 	public void clear() {
+		if (headless) {
+			messages = List.of();
+			hideAtMillis = 0L;
+			return;
+		}
 		hideAtMillis = 0L;
 		SwingUtilities.invokeLater(() -> updateMessages(List.of()));
 	}
 
 	public void shutdown() {
+		if (headless) {
+			messages = List.of();
+			hideAtMillis = 0L;
+			return;
+		}
 		clear();
 		SwingUtilities.invokeLater(() -> {
 			window.setVisible(false);

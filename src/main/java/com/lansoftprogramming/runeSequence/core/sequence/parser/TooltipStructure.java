@@ -1,9 +1,6 @@
 package com.lansoftprogramming.runeSequence.core.sequence.parser;
 
-import com.lansoftprogramming.runeSequence.core.sequence.model.Alternative;
-import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
-import com.lansoftprogramming.runeSequence.core.sequence.model.Term;
+import com.lansoftprogramming.runeSequence.core.sequence.model.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +59,7 @@ public final class TooltipStructure {
 
 	private static void linearizeAlternative(Alternative alt, int stepIndex, List<StructuralElement> out) {
 		if (alt.isToken()) {
-			String token = alt.getToken();
+			String token = AbilityToken.format(alt.getToken(), alt.getInstanceLabel());
 			if (token != null) {
 				out.add(StructuralElement.ability(token, stepIndex));
 			}
