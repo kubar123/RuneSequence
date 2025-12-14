@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.shared.model;
 
 import javax.swing.*;
+import java.awt.image.BufferedImage;
 import java.util.Objects;
 
 /**
@@ -8,6 +9,10 @@ import java.util.Objects;
  * This is a value object that encapsulates all information needed to display an ability in the UI.
  */
 public class AbilityItem {
+	private static final ImageIcon PLACEHOLDER_ICON = new ImageIcon(
+			new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
+	);
+
 	private final String key;
 	private final String displayName;
 	private final int level;
@@ -19,7 +24,7 @@ public class AbilityItem {
 		this.displayName = Objects.requireNonNull(displayName, "Display name cannot be null");
 		this.level = level;
 		this.type = type;
-		this.icon = Objects.requireNonNull(icon, "Icon cannot be null");
+		this.icon = icon != null ? icon : PLACEHOLDER_ICON;
 	}
 
 	public String getKey() {

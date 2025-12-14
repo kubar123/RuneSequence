@@ -16,6 +16,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.IntConsumer;
 
 class AbilityFlowView extends JPanel {
@@ -29,6 +30,8 @@ class AbilityFlowView extends JPanel {
 	private final JPanel emptyDropIndicator;
 	private Component[] cachedAbilityCards;
 	private DragPreviewModel activePreview;
+	private boolean sequenceWideModified;
+	private Set<String> modifiedAbilityKeys;
 
 	AbilityFlowView(SequenceDetailService detailService) {
 		super(new WrapLayout(FlowLayout.LEFT, 10, 10));
@@ -36,11 +39,18 @@ class AbilityFlowView extends JPanel {
 		this.defaultBackground = getBackground();
 		this.defaultBorder = getBorder();
 		this.emptyDropIndicator = createEmptyDropIndicator();
+		this.sequenceWideModified = false;
+		this.modifiedAbilityKeys = Set.of();
 	}
 
 	void attachDragController(AbilityDragController.DragCallback callback) {
 		this.dragController = new AbilityDragController(this, callback);
 		this.cardFactory = new AbilityCardFactory(dragController);
+	}
+
+	void setModificationIndicators(boolean sequenceWideModified, Set<String> modifiedAbilityKeys) {
+		this.sequenceWideModified = sequenceWideModified;
+		this.modifiedAbilityKeys = modifiedAbilityKeys != null ? modifiedAbilityKeys : Set.of();
 	}
 
 	void setTooltipEditHandler(TooltipEditHandler tooltipEditHandler) {
@@ -207,7 +217,7 @@ class AbilityFlowView extends JPanel {
 		String firstKey = firstElement.getResolvedAbilityKey();
 		AbilityItem firstItem = detailService.createAbilityItem(firstKey);
 		if (firstItem != null) {
-			JPanel card = cardFactory.createAbilityCard(firstItem, firstElement.hasOverrides());
+			JPanel card = cardFactory.createAbilityCard(firstItem, isElementModified(firstElement));
 			card.putClientProperty("elementIndex", startIndex);
 			card.putClientProperty("zoneType", zoneForGroupType(groupType));
 			attachAbilityPopup(card);
@@ -230,7 +240,7 @@ class AbilityFlowView extends JPanel {
 					String abilityKey = abilityElement.getResolvedAbilityKey();
 					AbilityItem abilityItem = detailService.createAbilityItem(abilityKey);
 				if (abilityItem != null) {
-					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem, abilityElement.hasOverrides());
+					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem, isElementModified(abilityElement));
 					abilityCard.putClientProperty("elementIndex", abilityElementIndex);
 					abilityCard.putClientProperty("zoneType", zoneForGroupType(groupType));
 					attachAbilityPopup(abilityCard);
@@ -250,7 +260,7 @@ class AbilityFlowView extends JPanel {
 		String abilityKey = element.getResolvedAbilityKey();
 		AbilityItem item = detailService.createAbilityItem(abilityKey);
 		if (item != null) {
-			JPanel card = cardFactory.createAbilityCard(item, element.hasOverrides());
+			JPanel card = cardFactory.createAbilityCard(item, isElementModified(element));
 			card.putClientProperty("elementIndex", elementIndex);
 			card.putClientProperty("zoneType", null);
 			attachAbilityPopup(card);
@@ -376,6 +386,20 @@ class AbilityFlowView extends JPanel {
 				collectAbilityCardsRecursive(child, out);
 			}
 		}
+	}
+
+	private boolean isElementModified(SequenceElement element) {
+		if (element == null || !element.isAbility()) {
+			return false;
+		}
+		if (sequenceWideModified) {
+			return true;
+		}
+		if (element.hasOverrides()) {
+			return true;
+		}
+		String abilityKey = element.getResolvedAbilityKey();
+		return abilityKey != null && modifiedAbilityKeys != null && modifiedAbilityKeys.contains(abilityKey);
 	}
 
 	// Bridges domain separator type to drag/drop zone semantics so UI and controller stay aligned.

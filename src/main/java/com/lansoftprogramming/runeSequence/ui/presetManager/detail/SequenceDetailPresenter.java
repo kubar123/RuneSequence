@@ -23,6 +23,7 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailPresenter.class);
@@ -113,7 +114,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		currentPerAbilityOverrides = new java.util.LinkedHashMap<>(loadedPerAbilityOverrides);
 		currentElements = new ArrayList<>(loadedElements);
 		previewElements = new ArrayList<>(loadedElements);
-		flowView.renderSequenceElements(currentElements);
+		refreshFlowView();
 
 		long abilityCount = currentElements.stream().filter(SequenceElement::isAbility).count();
 		logger.debug("Loaded sequence: {} with {} abilities", presetData.getName(), abilityCount);
@@ -157,6 +158,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		loadedOverrides = Map.of();
 		loadedRotationDefaults = null;
 		draggedAbilityElement = null;
+		flowView.setModificationIndicators(false, Set.of());
 		flowView.renderSequenceElements(currentElements);
 	}
 
@@ -282,7 +284,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 				? new java.util.LinkedHashMap<>(loadedPerAbilityOverrides)
 				: new java.util.LinkedHashMap<>();
 		view.setSequenceName(loadedSequenceName);
-		flowView.renderSequenceElements(currentElements);
+		refreshFlowView();
 	}
 
 	void startPaletteDrag(AbilityItem item, JPanel card, Point startPoint) {
@@ -297,6 +299,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			return;
 		}
 		view.showRotationSettings(currentPresetId, currentPreset);
+		refreshFlowView();
 	}
 
 	@Override
@@ -456,7 +459,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		originalElementsBeforeDrag = null;
 		draggedAbilityElement = null;
 		flowView.setDragOutsidePanel(false);
-		flowView.renderSequenceElements(currentElements);
+		refreshFlowView();
 	}
 
 	@Override
@@ -532,11 +535,11 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		}
 
 		List<SequenceElement> updated = new ArrayList<>(editResult.elements());
-		currentElements = updated;
-		previewElements = new ArrayList<>(updated);
-		updateExpression();
-		flowView.renderSequenceElements(currentElements);
-	}
+			currentElements = updated;
+			previewElements = new ArrayList<>(updated);
+			updateExpression();
+			refreshFlowView();
+		}
 
 	private void openAbilityPropertiesAt(int elementIndex) {
 		if (elementIndex < 0 || elementIndex >= currentElements.size()) {
@@ -609,6 +612,17 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		currentElements = overridesService.normalizeAbilityElements(updated);
 		previewElements = new ArrayList<>(currentElements);
 		updateExpression();
+		refreshFlowView();
+	}
+
+	private void refreshFlowView() {
+		boolean sequenceWideModified = overridesService.extractRotationDefaults(
+				currentPreset != null ? currentPreset.getAbilitySettings() : null
+		) != null;
+		Set<String> modifiedAbilityKeys = currentPerAbilityOverrides != null
+				? Set.copyOf(currentPerAbilityOverrides.keySet())
+				: Set.of();
+		flowView.setModificationIndicators(sequenceWideModified, modifiedAbilityKeys);
 		flowView.renderSequenceElements(currentElements);
 	}
 

@@ -26,6 +26,22 @@ class EffectiveAbilityConfigTest {
 	}
 
 	@Test
+	void shouldUseBaseValuesWhenOverridesNull() {
+		AbilityConfig.AbilityData base = abilityData("Base", 10, true,
+				(short) 5, (short) 7, 0.90, "baseMask");
+
+		EffectiveAbilityConfig effective = EffectiveAbilityConfig.from("AbilityA", base, null);
+
+		assertEquals("Base", effective.getType().orElseThrow());
+		assertEquals(10, effective.getLevel().orElseThrow());
+		assertTrue(effective.isTriggersGcd());
+		assertEquals(5, effective.getCastDuration());
+		assertEquals(7, effective.getCooldown());
+		assertEquals(0.90, effective.getDetectionThreshold().orElseThrow());
+		assertEquals("baseMask", effective.getMask().orElseThrow());
+	}
+
+	@Test
 	void shouldApplySingleOverride() {
 		AbilityConfig.AbilityData base = abilityData("Base", 15, true,
 				(short) 2, (short) 4, 0.95, "baseMask");
@@ -91,6 +107,25 @@ class EffectiveAbilityConfigTest {
 		assertEquals(0, effective.getCooldown());
 		assertTrue(effective.getDetectionThreshold().isEmpty());
 		assertEquals("customMask", effective.getMask().orElseThrow());
+	}
+
+	@Test
+	void shouldClampThresholdOverrideToValidRange() {
+		AbilityConfig.AbilityData base = abilityData("Base", 10, true,
+				(short) 1, (short) 1, 0.90, "baseMask");
+
+		AbilitySettingsOverrides overrides = AbilitySettingsOverrides.builder()
+				.detectionThreshold(1.5)
+				.build();
+
+		EffectiveAbilityConfig effective = EffectiveAbilityConfig.from("AbilityE", base, overrides);
+		assertEquals(1.0, effective.getDetectionThreshold().orElseThrow());
+
+		AbilitySettingsOverrides overridesLow = AbilitySettingsOverrides.builder()
+				.detectionThreshold(-0.2)
+				.build();
+		EffectiveAbilityConfig effectiveLow = EffectiveAbilityConfig.from("AbilityF", base, overridesLow);
+		assertEquals(0.0, effectiveLow.getDetectionThreshold().orElseThrow());
 	}
 
 	private AbilityConfig.AbilityData abilityData(String type,

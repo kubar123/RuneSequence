@@ -42,6 +42,42 @@ class StepTimerTest {
 	}
 
 	@Test
+	void shouldUseDefaultGcdTicksWhenAbilityTriggersGcdAndNoCastDuration() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+		abilityConfig.putAbility("Gcd", abilityData(true, (short) 0, (short) 0)); // Default GCD should apply (3 ticks)
+
+		Step step = new Step(List.of(new Term(List.of(new Alternative("Gcd")))));
+
+		StepTimer timer = new StepTimer();
+		timer.startStep(step, abilityConfig);
+
+		long expectedDurationMs = 3L * 600;
+		setField(timer, "stepStartTimeMs", System.currentTimeMillis() - expectedDurationMs + 50);
+		assertFalse(timer.isStepSatisfied(Map.of()), "Step should not satisfy before default GCD duration elapses");
+
+		setField(timer, "stepStartTimeMs", System.currentTimeMillis() - expectedDurationMs - 50);
+		assertTrue(timer.isStepSatisfied(Map.of()), "Default GCD duration should satisfy once elapsed");
+	}
+
+	@Test
+	void cooldownShouldOverrideDefaultGcdWhenLonger() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+		abilityConfig.putAbility("GcdLongCd", abilityData(true, (short) 0, (short) 5)); // cooldown ticks > default GCD
+
+		Step step = new Step(List.of(new Term(List.of(new Alternative("GcdLongCd")))));
+
+		StepTimer timer = new StepTimer();
+		timer.startStep(step, abilityConfig);
+
+		long expectedDurationMs = 5L * 600;
+		setField(timer, "stepStartTimeMs", System.currentTimeMillis() - expectedDurationMs + 50);
+		assertFalse(timer.isStepSatisfied(Map.of()));
+
+		setField(timer, "stepStartTimeMs", System.currentTimeMillis() - expectedDurationMs - 50);
+		assertTrue(timer.isStepSatisfied(Map.of()));
+	}
+
+	@Test
 	void shouldNotAdvanceWhilePausedAndHonorElapsedAfterResume() {
 		AbilityConfig abilityConfig = new AbilityConfig();
 		abilityConfig.putAbility("Gamma", abilityData(false, (short) 1, (short) 0)); // 600ms

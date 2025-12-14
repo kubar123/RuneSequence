@@ -100,6 +100,25 @@ class ActiveSequenceTest {
 		assertEquals(4, effective.getCastDuration());
 	}
 
+	@Test
+	void detectionRequirementsShouldUseBaseConfigWhenNoOverridesPresent() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+		AbilityConfig.AbilityData base = new AbilityConfig.AbilityData();
+		base.setTriggersGcd(true);
+		base.setDetectionThreshold(0.7);
+		abilityConfig.putAbility("Alpha", base);
+
+		SequenceDefinition definition = new SequenceDefinition(List.of(
+				new Step(List.of(new Term(List.of(new Alternative("Alpha")))))
+		));
+
+		ActiveSequence activeSequence = new ActiveSequence(definition, abilityConfig);
+		ActiveSequence.DetectionRequirement requirement = activeSequence.getDetectionRequirements().get(0);
+
+		assertTrue(requirement.effectiveAbilityConfig().isTriggersGcd());
+		assertEquals(0.7, requirement.effectiveAbilityConfig().getDetectionThreshold().orElseThrow());
+	}
+
 	private AbilityConfig abilityConfig(String... names) {
 		AbilityConfig config = new AbilityConfig();
 		for (String name : names) {

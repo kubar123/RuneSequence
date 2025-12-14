@@ -25,7 +25,7 @@ class AbilityCardFactory {
 		return createAbilityCard(item, false);
 	}
 
-	JPanel createAbilityCard(AbilityItem item, boolean hasOverrides) {
+	JPanel createAbilityCard(AbilityItem item, boolean showModifiedIndicator) {
 		JPanel card = new JPanel();
 		card.setName("abilityCard");
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -42,14 +42,34 @@ class AbilityCardFactory {
 		iconLabel.setPreferredSize(new Dimension(50, 50));
 		iconLabel.setMaximumSize(new Dimension(50, 50));
 
-		if (hasOverrides && !(item instanceof TooltipItem)) {
-			JLabel indicator = new JLabel("●");
-			indicator.setFont(indicator.getFont().deriveFont(8f));
-			indicator.setForeground(UiColorPalette.TEXT_SUCCESS);
-			indicator.setToolTipText("Custom settings applied");
+		if (showModifiedIndicator && !(item instanceof TooltipItem)) {
+			JLabel indicator = new JLabel("*");
+			indicator.setFont(indicator.getFont().deriveFont(Font.BOLD, 13f));
+			indicator.setForeground(UiColorPalette.TEXT_INVERSE);
+			indicator.setToolTipText("Modified");
+
+			JPanel badge = new JPanel(new GridBagLayout()) {
+				@Override
+				protected void paintComponent(Graphics g) {
+					Graphics2D g2d = (Graphics2D) g.create();
+					g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+					g2d.setColor(UiColorPalette.TEXT_DANGER);
+					g2d.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
+					g2d.dispose();
+					super.paintComponent(g);
+				}
+			};
+			badge.setOpaque(false);
+			badge.setToolTipText("Modified");
+			badge.setPreferredSize(new Dimension(14, 14));
+			badge.setMinimumSize(new Dimension(14, 14));
+			badge.setMaximumSize(new Dimension(14, 14));
+			badge.add(indicator);
+
 			JPanel indicatorWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
 			indicatorWrap.setOpaque(false);
-			indicatorWrap.add(indicator);
+			indicatorWrap.setBorder(new EmptyBorder(2, 0, 0, 2));
+			indicatorWrap.add(badge);
 			iconLabel.add(indicatorWrap, BorderLayout.NORTH);
 		}
 
