@@ -36,12 +36,22 @@ public class ScreenCapture {
 		detectPlatform();
 		supportsNativeRegionCapture = isNativeRegionCaptureSupported();
 		initializeScreenBounds();
-		converter = new OpenCVFrameConverter.ToMat();
+		// Lazily initialize the OpenCV converter on first capture to avoid
+		// eagerly loading native libraries during construction (important for tests
+		// that never call captureScreen()).
+		converter = null;
 
 		captureRegion = determineInitialRegion(settings != null ? settings.getRegion() : null);
 
 		logger.info("ScreenCapture initialized for {}: capture={} within screen {}x{}",
 				platform, captureRegion, screenBounds.width, screenBounds.height);
+	}
+
+	private synchronized void ensureConverter() {
+		if (converter != null) {
+			return;
+		}
+		converter = new OpenCVFrameConverter.ToMat();
 	}
 
 	/**
@@ -79,6 +89,7 @@ public class ScreenCapture {
 	 */
 	public Mat captureScreen() {
 		try {
+			ensureConverter();
 			if (!isInitialized.get()) {
 				initializeGrabber();
 			}
