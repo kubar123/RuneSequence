@@ -9,6 +9,8 @@ import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
@@ -33,6 +35,8 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private final ImageIcon insertIcon;
 	private final ImageIcon tooltipIcon;
 	private final NotificationService notifications;
+	private final Timer dirtyStateTimer;
+	private Boolean lastDirtyState;
 
 	public SequenceDetailPanel(SequenceDetailService detailService,
 	                           AbilityOverridesService overridesService,
@@ -54,9 +58,24 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		abilityFlowView = new AbilityFlowView(detailService);
 		presenter = new SequenceDetailPresenter(detailService, overridesService, abilityFlowView, this, notifications);
 
-		alignInsertButtonSize();
+		applyButtonStyles();
 		layoutComponents();
 		registerEventHandlers();
+		dirtyStateTimer = new Timer(250, e -> refreshDirtyState());
+		dirtyStateTimer.setRepeats(true);
+		refreshDirtyState();
+	}
+
+	@Override
+	public void addNotify() {
+		super.addNotify();
+		dirtyStateTimer.start();
+	}
+
+	@Override
+	public void removeNotify() {
+		dirtyStateTimer.stop();
+		super.removeNotify();
 	}
 
 	private void layoutComponents() {
@@ -70,17 +89,21 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private JPanel createHeaderPanel() {
 		JPanel headerPanel = new JPanel(new BorderLayout(10, 0));
 
+		JPanel palettePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+		palettePanel.setOpaque(false);
+		palettePanel.add(tooltipButton);
+		palettePanel.add(insertButton);
+
 		JPanel namePanel = new JPanel(new BorderLayout(5, 0));
 		namePanel.add(new JLabel("Sequence Name:"), BorderLayout.WEST);
 		namePanel.add(sequenceNameField, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-		buttonPanel.add(tooltipButton);
-		buttonPanel.add(insertButton);
 		buttonPanel.add(settingsButton);
 		buttonPanel.add(discardButton);
 		buttonPanel.add(saveButton);
 
+		headerPanel.add(palettePanel, BorderLayout.WEST);
 		headerPanel.add(namePanel, BorderLayout.CENTER);
 		headerPanel.add(buttonPanel, BorderLayout.EAST);
 
@@ -88,85 +111,94 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private JPanel createInsertButton() {
-		JPanel panel = new JPanel();
-		panel.setName("insertClipboardButton");
-		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-		Color baseColor = UIManager.getColor("Button.background");
-		if (baseColor == null) {
-			baseColor = UiColorPalette.UI_CARD_BACKGROUND;
-		}
-		Color hoverColor = baseColor.brighter();
-		panel.setOpaque(true);
-		panel.setBackground(baseColor);
-		panel.setBorder(UiColorPalette.paddedLineBorder(UiColorPalette.UI_CARD_BORDER_STRONG, 2));
-		panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
-//		JLabel iconLabel = new JLabel(insertIcon);
-		JLabel iconLabel = new JLabel("⋮⋮ ▧▧");
-		iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-		panel.add(Box.createVerticalGlue());
-		panel.add(iconLabel);
-		panel.add(Box.createVerticalGlue());
-
-		panel.setToolTipText("Drag to insert clipboard rotation");
-		Color finalBaseColor = baseColor;
-		Color finalHoverColor = hoverColor;
-		panel.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseEntered(MouseEvent e) {
-				panel.setBackground(finalHoverColor);
-			}
-
-			@Override
-			public void mouseExited(MouseEvent e) {
-				panel.setBackground(finalBaseColor);
-			}
-		});
-		return panel;
+		return createHeaderPaletteButton(
+				"insertClipboardButton",
+				"\uD83D\uDCCB",
+				"Clipboard",
+				"Drag to insert clipboard rotation"
+		);
 	}
 
 	private JPanel createTooltipButton() {
+		return createHeaderPaletteButton(
+				"tooltipPaletteButton",
+				"+",
+				"Text",
+				"Drag to add a tooltip message"
+		);
+	}
+
+	private JPanel createHeaderPaletteButton(String name, String symbol, String text, String tooltip) {
 		JPanel panel = new JPanel();
-		panel.setName("tooltipPaletteButton");
-		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		panel.setName(name);
+		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+
 		Color baseColor = UIManager.getColor("Button.background");
 		if (baseColor == null) {
-			baseColor = UiColorPalette.UI_CARD_BACKGROUND;
+			baseColor = UiColorPalette.UI_CARD_DIMMED_BACKGROUND;
 		}
-		Color hoverColor = baseColor.brighter();
+		Color mutedColor = blend(baseColor, UiColorPalette.TEXT_MUTED, 0.12f);
+		Color hoverColor = baseColor;
+
+		Color baseForeground = UIManager.getColor("Label.foreground");
+		if (baseForeground == null) {
+			baseForeground = UiColorPalette.TEXT_PRIMARY;
+		}
+		Color finalBaseForeground = baseForeground;
+		Color mutedForeground = blend(baseForeground, UiColorPalette.TEXT_MUTED, 0.35f);
+
 		panel.setOpaque(true);
-		panel.setBackground(baseColor);
-		panel.setBorder(UiColorPalette.paddedLineBorder(UiColorPalette.UI_CARD_BORDER_STRONG, 2));
+		panel.setBackground(mutedColor);
+		panel.setBorder(UiColorPalette.paddedLineBorder(UiColorPalette.UI_CARD_BORDER_STRONG, 4));
 		panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-		JLabel iconLabel = new JLabel(tooltipIcon);
-		iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-		panel.add(Box.createVerticalGlue());
-		panel.add(iconLabel);
-		panel.add(Box.createVerticalGlue());
+		JLabel symbolLabel = new JLabel(symbol);
+		symbolLabel.setBorder(new EmptyBorder(0, 2, 0, 4));
+		symbolLabel.setForeground(mutedForeground);
 
-		panel.setToolTipText("Drag to add a tooltip message");
-		Color finalBaseColor = baseColor;
-		Color finalHoverColor = hoverColor;
+		JLabel textLabel = new JLabel(text);
+		textLabel.setForeground(mutedForeground);
+
+		panel.add(symbolLabel);
+		panel.add(textLabel);
+
+		panel.setToolTipText(tooltip);
 		panel.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseEntered(MouseEvent e) {
-				panel.setBackground(finalHoverColor);
+				panel.setBackground(hoverColor);
+				symbolLabel.setForeground(finalBaseForeground);
+				textLabel.setForeground(finalBaseForeground);
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e) {
-				panel.setBackground(finalBaseColor);
+				panel.setBackground(mutedColor);
+				symbolLabel.setForeground(mutedForeground);
+				textLabel.setForeground(mutedForeground);
 			}
 		});
+
 		return panel;
 	}
 
-	private void alignInsertButtonSize() {
-		int referenceHeight = Math.max(
-				saveButton.getPreferredSize().height,
-				Math.max(discardButton.getPreferredSize().height, settingsButton.getPreferredSize().height)
-		);
+	private static Color blend(Color a, Color b, float bWeight) {
+		if (a == null) {
+			return b;
+		}
+		if (b == null) {
+			return a;
+		}
+		float clamped = Math.max(0f, Math.min(1f, bWeight));
+		int r = Math.round((a.getRed() * (1f - clamped)) + (b.getRed() * clamped));
+		int g = Math.round((a.getGreen() * (1f - clamped)) + (b.getGreen() * clamped));
+		int bl = Math.round((a.getBlue() * (1f - clamped)) + (b.getBlue() * clamped));
+		return new Color(r, g, bl);
+	}
+
+	private void applyButtonStyles() {
+		applySettingsButtonStyle();
+		applySaveDiscardButtonStyles();
 	}
 
 	private JScrollPane createContentScrollPane() {
@@ -179,11 +211,18 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private void registerEventHandlers() {
-		saveButton.addActionListener(e -> presenter.saveSequence());
-		discardButton.addActionListener(e -> presenter.discardChanges());
+		saveButton.addActionListener(e -> {
+			presenter.saveSequence();
+			refreshDirtyState();
+		});
+		discardButton.addActionListener(e -> {
+			presenter.discardChanges();
+			refreshDirtyState();
+		});
 		settingsButton.addActionListener(e -> presenter.openRotationSettings());
 		registerInsertDragHandler();
 		registerTooltipDragHandler();
+		registerSequenceNameDirtyHandler();
 	}
 
 	public void discardChanges() {
@@ -196,10 +235,12 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	public void loadSequence(RotationConfig.PresetData presetData) {
 		presenter.loadSequence(presetData);
+		refreshDirtyState();
 	}
 
 	public void loadSequence(String presetId, RotationConfig.PresetData presetData) {
 		presenter.loadSequence(presetId, presetData);
+		refreshDirtyState();
 	}
 
 	public void startNewSequence(String presetId, RotationConfig.PresetData presetData) {
@@ -216,6 +257,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	public void clear() {
 		presenter.clear();
+		refreshDirtyState();
 	}
 
 	public void addSaveListener(SaveListener listener) {
@@ -224,6 +266,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	public void saveSequence() {
 		presenter.saveSequence();
+		refreshDirtyState();
 	}
 
 	public boolean hasUnsavedChanges() {
@@ -279,6 +322,60 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 				startTooltipDrag(e);
 			}
 		});
+	}
+
+	private void registerSequenceNameDirtyHandler() {
+		sequenceNameField.getDocument().addDocumentListener(new DocumentListener() {
+			@Override
+			public void insertUpdate(DocumentEvent e) {
+				refreshDirtyState();
+			}
+
+			@Override
+			public void removeUpdate(DocumentEvent e) {
+				refreshDirtyState();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e) {
+				refreshDirtyState();
+			}
+		});
+	}
+
+	private void refreshDirtyState() {
+		boolean dirty = presenter.hasUnsavedChanges();
+		if (lastDirtyState != null && lastDirtyState == dirty) {
+			return;
+		}
+		lastDirtyState = dirty;
+		saveButton.setEnabled(dirty);
+		discardButton.setEnabled(dirty);
+		saveButton.setToolTipText(dirty ? "Save changes" : "No changes to save");
+		discardButton.setToolTipText(dirty ? "Discard changes" : "No changes to discard");
+	}
+
+	private void applySettingsButtonStyle() {
+		settingsButton.setText("\u2699");
+		settingsButton.setToolTipText("Settings");
+		settingsButton.setFocusable(false);
+		settingsButton.setMargin(new Insets(2, 8, 2, 8));
+		Font base = settingsButton.getFont();
+		if (base != null) {
+			settingsButton.setFont(base.deriveFont(Math.max(10f, base.getSize2D() - 2f)));
+		}
+	}
+
+	private void applySaveDiscardButtonStyles() {
+		saveButton.setBackground(UiColorPalette.TOAST_SUCCESS_ACCENT);
+		saveButton.setForeground(UiColorPalette.TEXT_INVERSE);
+		saveButton.setOpaque(true);
+		saveButton.setFocusPainted(false);
+
+		discardButton.setBackground(UiColorPalette.UI_CARD_DIMMED_BACKGROUND);
+		discardButton.setForeground(UiColorPalette.TEXT_PRIMARY);
+		discardButton.setOpaque(true);
+		discardButton.setFocusPainted(false);
 	}
 
 	private void startClipboardInsertDrag(MouseEvent triggerEvent) {
