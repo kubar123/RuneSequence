@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 public class AbilityPalettePanel extends JPanel {
 	private static final Logger logger = LoggerFactory.getLogger(AbilityPalettePanel.class);
 	private static final float DIM_OPACITY = 0.3f;
+	private static final Color DIMMED_CARD_BACKGROUND = UiColorPalette.UI_CARD_BACKGROUND.darker().darker();
 
 	private final AbilityConfig abilityConfig;
 	private final AbilityCategoryConfig categoryConfig;
@@ -36,6 +38,7 @@ public class AbilityPalettePanel extends JPanel {
 	private final FuzzySearchService searchService;
 
 	private JTextField searchField;
+	private JButton clearSearchButton;
 	private JTabbedPane categoryTabs;
 	private SequenceDetailPanel detailPanel;
 	private JButton settingsButton;
@@ -86,6 +89,24 @@ public class AbilityPalettePanel extends JPanel {
 		searchField = new JTextField();
 		searchField.setToolTipText("Search abilities (fuzzy matching supported)...");
 
+		clearSearchButton = new JButton("\u00D7");
+		clearSearchButton.setToolTipText("Clear search");
+		clearSearchButton.setFocusable(false);
+		clearSearchButton.setBorderPainted(false);
+		clearSearchButton.setContentAreaFilled(false);
+		clearSearchButton.setOpaque(false);
+		clearSearchButton.setFont(UiColorPalette.boldSans(16));
+		clearSearchButton.setMargin(new Insets(0, 10, 0, 10));
+		clearSearchButton.setForeground(UiColorPalette.UI_TEXT_COLOR);
+		int searchFieldHeight = searchField.getPreferredSize().height;
+		clearSearchButton.setPreferredSize(new Dimension(34, searchFieldHeight));
+		clearSearchButton.setMinimumSize(new Dimension(34, searchFieldHeight));
+		clearSearchButton.setVisible(false);
+		clearSearchButton.addActionListener(e -> {
+			searchField.setText("");
+			searchField.requestFocusInWindow();
+		});
+
 		categoryTabs = new JTabbedPane();
 
 		settingsButton = createMainAppButton("Settings", "Open main app settings", () -> {
@@ -106,7 +127,16 @@ public class AbilityPalettePanel extends JPanel {
 	private void layoutComponents() {
 		JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
 		searchPanel.add(new JLabel("Search:"), BorderLayout.WEST);
-		searchPanel.add(searchField, BorderLayout.CENTER);
+		JPanel searchInputPanel = new JPanel(new BorderLayout(0, 0));
+		Border searchFieldBorder = searchField.getBorder();
+		if (searchFieldBorder != null) {
+			searchInputPanel.setBorder(searchFieldBorder);
+			searchField.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
+		}
+		searchInputPanel.setBackground(searchField.getBackground());
+		searchInputPanel.add(searchField, BorderLayout.CENTER);
+		searchInputPanel.add(clearSearchButton, BorderLayout.EAST);
+		searchPanel.add(searchInputPanel, BorderLayout.CENTER);
 		searchPanel.add(createMainAppSettingsPanel(), BorderLayout.EAST);
 		searchPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
 
@@ -171,7 +201,16 @@ public class AbilityPalettePanel extends JPanel {
 	 * Performs fuzzy search and updates visual feedback.
 	 */
 	private void performSearch() {
-		String query = searchField.getText().trim();
+		String query = searchField.getText();
+		String trimmedQuery = query != null ? query.trim() : "";
+		boolean hasQuery = !trimmedQuery.isEmpty();
+
+		clearSearchButton.setVisible(hasQuery);
+
+		if (!hasQuery) {
+			resetSearchUi();
+			return;
+		}
 
 		// Build search results for each category
 		Map<String, CategorySearchState> searchStates = new LinkedHashMap<>();
@@ -182,7 +221,7 @@ public class AbilityPalettePanel extends JPanel {
 
 			List<SearchResult> results = abilities.stream()
 					.map(ability -> {
-						int score = searchService.calculateMatchScore(query, ability.getDisplayName());
+						int score = searchService.calculateMatchScore(trimmedQuery, ability.getDisplayName());
 						return new SearchResult(ability, score);
 					})
 					.collect(Collectors.toList());
@@ -192,7 +231,58 @@ public class AbilityPalettePanel extends JPanel {
 
 		// Update visual feedback
 		updateTabTitles(searchStates);
+		selectClosestTabWithMatches(searchStates);
 		updateAbilityCards(searchStates);
+	}
+
+	private void selectClosestTabWithMatches(Map<String, CategorySearchState> searchStates) {
+		int selectedIndex = categoryTabs.getSelectedIndex();
+		if (selectedIndex < 0) {
+			return;
+		}
+
+		List<CategorySearchState> states = new ArrayList<>(searchStates.values());
+		if (selectedIndex >= states.size()) {
+			return;
+		}
+		if (states.get(selectedIndex).hasMatches()) {
+			return;
+		}
+
+		int bestIndex = -1;
+		int bestDistance = Integer.MAX_VALUE;
+		for (int i = 0; i < states.size(); i++) {
+			if (!states.get(i).hasMatches()) {
+				continue;
+			}
+			int distance = Math.abs(i - selectedIndex);
+			if (distance < bestDistance || (distance == bestDistance && i < bestIndex)) {
+				bestIndex = i;
+				bestDistance = distance;
+			}
+		}
+
+		if (bestIndex >= 0 && bestIndex < categoryTabs.getTabCount()) {
+			categoryTabs.setSelectedIndex(bestIndex);
+		}
+	}
+
+	private void resetSearchUi() {
+		int tabIndex = 0;
+		for (String categoryName : categoryAbilities.keySet()) {
+			if (tabIndex < categoryTabs.getTabCount()) {
+				categoryTabs.setTitleAt(tabIndex, categoryName);
+				categoryTabs.setEnabledAt(tabIndex, true);
+			}
+			tabIndex++;
+		}
+
+		for (Map.Entry<String, CategoryPanel> entry : categoryPanels.entrySet()) {
+			CategoryPanel panel = entry.getValue();
+			if (panel != null) {
+				panel.clearSearch();
+			}
+		}
 	}
 
 	/**
@@ -400,6 +490,12 @@ public class AbilityPalettePanel extends JPanel {
 				}
 			}
 		}
+
+		public void clearSearch() {
+			for (AbilityCard card : cardMap.values()) {
+				card.setDimmed(false);
+			}
+		}
 	}
 
 	/**
@@ -475,7 +571,7 @@ public class AbilityPalettePanel extends JPanel {
 		 */
 		private void updateAppearance() {
 			if (dimmed) {
-				setBackground(UiColorPalette.UI_CARD_DIMMED_BACKGROUND);
+				setBackground(DIMMED_CARD_BACKGROUND);
 				iconLabel.setEnabled(false);
 				nameLabel.setEnabled(false);
 				// Apply transparency to icon
@@ -485,7 +581,7 @@ public class AbilityPalettePanel extends JPanel {
 					iconLabel.setIcon(new ImageIcon(dimmedImage));
 				}
 			} else {
-				setBackground(UiColorPalette.BASE_WHITE);
+				setBackground(UiColorPalette.UI_CARD_BACKGROUND);
 				iconLabel.setEnabled(true);
 				nameLabel.setEnabled(true);
 				iconLabel.setIcon(item.getIcon());
