@@ -381,7 +381,30 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 
 	@Override
 	public void setStatusText(String text) {
-		runControlPanel.setStatusText(text);
+		runControlPanel.setStatusText(rewriteStatusRotationId(text));
+	}
+
+	private String rewriteStatusRotationId(String text) {
+		if (text == null || text.isBlank()) {
+			return text != null ? text : "";
+		}
+
+		int openBracket = text.lastIndexOf('[');
+		if (openBracket < 0) {
+			return text;
+		}
+		int closeBracket = text.indexOf(']', openBracket);
+		if (closeBracket < 0) {
+			return text;
+		}
+
+		String id = text.substring(openBracket + 1, closeBracket).trim();
+		String commonName = sequenceListModel.commonNameForId(id);
+		if (commonName == null) {
+			return text;
+		}
+
+		return text.substring(0, openBracket + 1) + commonName + text.substring(closeBracket);
 	}
 
 	/**

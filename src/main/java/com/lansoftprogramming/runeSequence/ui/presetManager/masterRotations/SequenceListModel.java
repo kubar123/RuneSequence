@@ -87,4 +87,22 @@ public class SequenceListModel extends AbstractListModel<SequenceListModel.Seque
         }
         return -1;
     }
+
+    public String commonNameForId(String id) {
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        for (SequenceEntry sequence : sequences) {
+            if (!id.equals(sequence.getId())) {
+                continue;
+            }
+            RotationConfig.PresetData presetData = sequence.getPresetData();
+            if (presetData == null) {
+                return null;
+            }
+            String name = presetData.getName();
+            return name != null && !name.isBlank() ? name : null;
+        }
+        return null;
+    }
 }
