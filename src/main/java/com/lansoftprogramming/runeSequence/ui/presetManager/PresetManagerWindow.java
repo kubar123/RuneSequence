@@ -18,7 +18,9 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.Sequ
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceMasterPanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.palette.AbilityPalettePanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
+import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
+import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,6 +101,10 @@ public class PresetManagerWindow extends JFrame {
                 configManager.getAbilityCategories(),
                 iconLoader
             );
+			palettePanel.setMainAppActions(
+					new SettingsAction(configManager),
+					new RegionSelectorAction(configManager)
+			);
 
             masterPanel.setNotificationService(notifications);
 

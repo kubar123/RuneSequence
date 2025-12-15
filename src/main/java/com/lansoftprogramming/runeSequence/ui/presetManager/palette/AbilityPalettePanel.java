@@ -6,6 +6,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetai
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
+import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,10 @@ public class AbilityPalettePanel extends JPanel {
 	private JTextField searchField;
 	private JTabbedPane categoryTabs;
 	private SequenceDetailPanel detailPanel;
+	private JButton settingsButton;
+	private JButton selectRegionButton;
+	private MenuAction settingsAction;
+	private MenuAction regionSelectorAction;
 
 	// Cache of category panels and their ability cards
 	private final Map<String, CategoryPanel> categoryPanels;
@@ -62,6 +67,18 @@ public class AbilityPalettePanel extends JPanel {
 		this.detailPanel = detailPanel;
 	}
 
+	public void setMainAppActions(MenuAction settingsAction, MenuAction regionSelectorAction) {
+		this.settingsAction = settingsAction;
+		this.regionSelectorAction = regionSelectorAction;
+
+		if (settingsButton != null) {
+			settingsButton.setEnabled(settingsAction != null);
+		}
+		if (selectRegionButton != null) {
+			selectRegionButton.setEnabled(regionSelectorAction != null);
+		}
+	}
+
 	private void initializeComponents() {
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -70,16 +87,62 @@ public class AbilityPalettePanel extends JPanel {
 		searchField.setToolTipText("Search abilities (fuzzy matching supported)...");
 
 		categoryTabs = new JTabbedPane();
+
+		settingsButton = createMainAppButton("Settings", "Open main app settings", () -> {
+			if (settingsAction != null) {
+				settingsAction.execute();
+			}
+		});
+		selectRegionButton = createMainAppButton("Region", "Select capture region", () -> {
+			if (regionSelectorAction != null) {
+				regionSelectorAction.execute();
+			}
+		});
+
+		settingsButton.setEnabled(false);
+		selectRegionButton.setEnabled(false);
 	}
 
 	private void layoutComponents() {
-		JPanel searchPanel = new JPanel(new BorderLayout(5, 0));
+		JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
 		searchPanel.add(new JLabel("Search:"), BorderLayout.WEST);
 		searchPanel.add(searchField, BorderLayout.CENTER);
+		searchPanel.add(createMainAppSettingsPanel(), BorderLayout.EAST);
 		searchPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
 
 		add(searchPanel, BorderLayout.NORTH);
 		add(categoryTabs, BorderLayout.CENTER);
+	}
+
+	private JComponent createMainAppSettingsPanel() {
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+
+		panel.add(Box.createHorizontalStrut(10));
+		panel.add(createVerticalSeparator(searchField));
+		panel.add(Box.createHorizontalStrut(10));
+		panel.add(selectRegionButton);
+		panel.add(Box.createHorizontalStrut(6));
+		panel.add(settingsButton);
+
+		return panel;
+	}
+
+	private static JComponent createVerticalSeparator(JComponent heightReference) {
+		JSeparator separator = new JSeparator(SwingConstants.VERTICAL);
+		int height = Math.max(18, heightReference.getPreferredSize().height);
+		separator.setPreferredSize(new Dimension(1, height));
+		separator.setForeground(UiColorPalette.UI_DIVIDER_FAINT);
+		return separator;
+	}
+
+	private static JButton createMainAppButton(String label, String tooltip, Runnable action) {
+		JButton button = new JButton(label);
+		button.setToolTipText(tooltip);
+		button.setFocusable(false);
+		button.setMargin(new Insets(2, 10, 2, 10));
+		button.addActionListener(e -> action.run());
+		return button;
 	}
 
 	/**
