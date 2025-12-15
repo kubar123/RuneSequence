@@ -92,6 +92,14 @@ public final class UiColorPalette {
 	public static final Color SELECTION_ACTIVE_FILL = new Color(76, 175, 80);
 	public static final Color SELECTION_ACTIVE_BORDER = new Color(46, 125, 50);
 
+	// --- Run control state accents (master rotation controls) ---
+	public static final Color RUN_STATE_STARTED_ACCENT = new Color(165, 214, 167);
+	public static final Color RUN_STATE_ARMED_ACCENT = new Color(56, 142, 60);
+	public static final Color RUN_HEADER_NEUTRAL_BACKGROUND = UI_CARD_DIMMED_BACKGROUND;
+	public static final Color RUN_HEADER_STARTED_BACKGROUND = TOAST_SUCCESS_BACKGROUND;
+	public static final Color RUN_HEADER_ARMED_BACKGROUND = new Color(220, 240, 224);
+	public static final Color RUN_HEADER_PAUSED_BACKGROUND = TOAST_WARNING_BACKGROUND;
+
 	private UiColorPalette() {
 		// Utility class
 	}

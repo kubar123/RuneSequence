@@ -38,8 +38,9 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	private final JButton deleteButton;
 	private final JButton importButton;
 	private final JButton exportButton;
-	private final Dimension exportButtonMinimumSize;
-	private final JCheckBox deepExportCheckbox;
+	private final JPopupMenu exportMenu;
+	private final JMenuItem exportShallowItem;
+	private final JMenuItem exportDeepItem;
 	private final SelectedSequenceIndicator selectedSequenceIndicator;
 	private final SequenceRunService sequenceRunService;
 	private final RunControlPanel runControlPanel;
@@ -121,18 +122,22 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 
 		importButton = new JButton("Import");
 		importButton.addActionListener(e -> importFromClipboard());
-		exportButton = new JButton("Export");
+		exportButton = new JButton("Export \u25BE");
 		exportButton.setEnabled(false);
-		exportButtonMinimumSize = exportButton.getMinimumSize();
-		deepExportCheckbox = new JCheckBox();
-		deepExportCheckbox.setToolTipText("Deep export: includes per-instance labels and settings lines");
-		deepExportCheckbox.getAccessibleContext().setAccessibleName("Deep export");
-		deepExportCheckbox.getAccessibleContext().setAccessibleDescription("Includes per-instance labels and settings lines");
-		deepExportCheckbox.setSelected(false);
-		deepExportCheckbox.addActionListener(e -> updateExportButtonLabel());
-		deepExportCheckbox.addItemListener(e -> updateExportButtonLabel());
-		exportButton.addActionListener(e -> copySelectedPresetExpression(deepExportCheckbox.isSelected()));
-		updateExportButtonLabel();
+		exportButton.setToolTipText("Export to clipboard");
+		exportButton.getAccessibleContext().setAccessibleName("Export menu");
+
+		exportMenu = new JPopupMenu();
+		exportShallowItem = new JMenuItem("Export (Shallow)");
+		exportDeepItem = new JMenuItem("Export (Deep)");
+		exportMenu.add(exportShallowItem);
+		exportMenu.add(exportDeepItem);
+
+		exportShallowItem.addActionListener(e -> copySelectedPresetExpression(false));
+		exportDeepItem.addActionListener(e -> copySelectedPresetExpression(true));
+
+		exportButton.addActionListener(e -> exportMenu.show(exportButton, 0, exportButton.getHeight()));
+		updateExportButtonState(false);
 
 		layoutComponents();
 	}
@@ -161,26 +166,23 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	}
 
 	private JPanel createCrudPanel() {
-		JPanel controlsPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+		JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
 		controlsPanel.setMinimumSize(new Dimension(0, 0));
 		controlsPanel.add(addButton);
+		controlsPanel.add(createRowSeparator(addButton));
 		controlsPanel.add(deleteButton);
+		controlsPanel.add(createRowSeparator(deleteButton));
 		controlsPanel.add(importButton);
-		JPanel exportPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-		exportPanel.setMinimumSize(new Dimension(0, exportPanel.getPreferredSize().height));
-		exportPanel.add(exportButton);
-		exportPanel.add(deepExportCheckbox);
-		controlsPanel.add(exportPanel);
+		controlsPanel.add(createRowSeparator(importButton));
+		controlsPanel.add(exportButton);
 		return controlsPanel;
 	}
 
-	private void updateExportButtonLabel() {
-		if (deepExportCheckbox.isSelected()) {
-			exportButton.setText("Deep Export");
-		} else {
-			exportButton.setText("Export");
-		}
-		exportButton.setMinimumSize(exportButtonMinimumSize);
+	private static JComponent createRowSeparator(JComponent heightReference) {
+		JSeparator separator = new JSeparator(SwingConstants.VERTICAL);
+		int height = heightReference.getPreferredSize().height;
+		separator.setPreferredSize(new Dimension(1, height));
+		return separator;
 	}
 
 	public void addSelectionListener(Consumer<SequenceListModel.SequenceEntry> listener) {
@@ -354,6 +356,8 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 
 	private void updateExportButtonState(boolean hasSelection) {
 		exportButton.setEnabled(hasSelection);
+		exportShallowItem.setEnabled(hasSelection);
+		exportDeepItem.setEnabled(hasSelection);
 	}
 
 	/**
@@ -365,8 +369,8 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	}
 
 	@Override
-	public void setStartButtonState(String label, boolean enabled, boolean highlighted) {
-		runControlPanel.setStartButtonState(label, enabled, highlighted);
+	public void setStartButtonState(String label, boolean enabled, SequenceRunPresenter.StartAccent accent) {
+		runControlPanel.setStartButtonState(label, enabled, accent);
 	}
 
 	@Override

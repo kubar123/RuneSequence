@@ -8,6 +8,12 @@ import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import javax.swing.*;
 
 class SequenceRunPresenter {
+	enum StartAccent {
+		NEUTRAL,
+		STARTED,
+		ARMED
+	}
+
 	private final SequenceRunService sequenceRunService;
 	private NotificationService notificationService;
 	private SequenceRunView view;
@@ -99,7 +105,7 @@ class SequenceRunPresenter {
 		SequenceController.State state = currentState != null ? currentState : SequenceController.State.READY;
 		SequenceManager.SequenceProgress progress = currentProgress;
 		boolean serviceAvailable = sequenceRunService != null;
-		boolean startHighlighted = state == SequenceController.State.READY;
+		StartAccent startAccent = resolveStartAccent(state);
 		boolean pauseHighlighted = state == SequenceController.State.PAUSED;
 		String startLabel = resolveStartLabel(state);
 		boolean startEnabled = serviceAvailable && (state == SequenceController.State.READY || state == SequenceController.State.PAUSED);
@@ -110,11 +116,22 @@ class SequenceRunPresenter {
 				: "Status: Controls unavailable";
 
 		SwingUtilities.invokeLater(() -> {
-			view.setStartButtonState(startLabel, startEnabled, startHighlighted);
+			view.setStartButtonState(startLabel, startEnabled, startAccent);
 			view.setPauseButtonState(pauseEnabled, pauseHighlighted);
 			view.setRestartButtonEnabled(restartEnabled);
 			view.setStatusText(statusText);
 		});
+	}
+
+	private StartAccent resolveStartAccent(SequenceController.State state) {
+		if (state == null) {
+			return StartAccent.NEUTRAL;
+		}
+		return switch (state) {
+			case RUNNING -> StartAccent.STARTED;
+			case ARMED -> StartAccent.ARMED;
+			default -> StartAccent.NEUTRAL;
+		};
 	}
 
 	private String resolveStartLabel(SequenceController.State state) {
@@ -190,7 +207,7 @@ class SequenceRunPresenter {
 	}
 
 	interface SequenceRunView {
-		void setStartButtonState(String label, boolean enabled, boolean highlighted);
+		void setStartButtonState(String label, boolean enabled, StartAccent accent);
 
 		void setPauseButtonState(boolean enabled, boolean highlighted);
 
