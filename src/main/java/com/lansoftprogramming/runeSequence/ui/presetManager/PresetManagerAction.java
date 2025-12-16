@@ -22,7 +22,7 @@ public class PresetManagerAction implements MenuAction {
 
     @Override
     public void execute() {
-        SwingUtilities.invokeLater(() -> {
+        Runnable openWindow = () -> {
             if (presetManagerWindow == null || !presetManagerWindow.isVisible()) {
                 logger.info("Opening Preset Manager window...");
                 presetManagerWindow = new PresetManagerWindowBuilder(configManager, sequenceRunService).buildAndShow();
@@ -34,6 +34,12 @@ public class PresetManagerAction implements MenuAction {
                 presetManagerWindow.toFront();
                 presetManagerWindow.requestFocus();
             }
-        });
+        };
+
+        if (SwingUtilities.isEventDispatchThread()) {
+            openWindow.run();
+        } else {
+            SwingUtilities.invokeLater(openWindow);
+        }
     }
 }

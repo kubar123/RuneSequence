@@ -19,12 +19,16 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.Sequ
 import com.lansoftprogramming.runeSequence.ui.presetManager.palette.AbilityPalettePanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
+import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -86,10 +90,30 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void initializeFrame() {
-        setTitle("Preset Manager");
-        setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        setTitle("Preset Sequence Manager");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 750);
         setLocationRelativeTo(null);
+
+        java.util.List<Image> icons = AppIcon.loadWindowIcons();
+        if (!icons.isEmpty()) {
+            setIconImages(icons);
+            Image primary = getIconImage();
+            if (primary != null) {
+                logger.info("Window/taskbar icon applied (Swing primary {}x{}).", primary.getWidth(null), primary.getHeight(null));
+            } else {
+                logger.warn("Window/taskbar icon applied but Swing primary icon is null.");
+            }
+        } else {
+            logger.error("Window icon list was empty; check /icon/ resources in the jar.");
+        }
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                System.exit(0);
+            }
+        });
     }
 
     private boolean initializeComponents() {

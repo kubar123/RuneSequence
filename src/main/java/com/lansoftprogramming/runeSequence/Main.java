@@ -38,6 +38,7 @@ public class Main {
 	private static ConfigManager configManager;
 	private static TemplateCache templateCache;
 	private static Window toastHostWindow;
+	private static Taskbar taskbar;
 
 	public static void main(String[] args) {
 		logger.info("Starting {} application...", APP_NAME);
@@ -174,20 +175,28 @@ public class Main {
 			// Initialize GUI on the Event Dispatch Thread
 			SwingUtilities.invokeLater(() -> {
 				FlatDarkLaf.setup(); // Set the look and feel
-				Taskbar taskbar = new Taskbar();
+				taskbar = new Taskbar();
 				taskbar.initialize();
 
+				PresetManagerAction presetManagerAction = new PresetManagerAction(configManager, sequenceRunService);
+
 				// Add a settings option to the context menu
-				taskbar.addMenuItem("Preset Manager", new PresetManagerAction(configManager, sequenceRunService));
+				taskbar.addMenuItem("Preset Manager", presetManagerAction);
 				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
 				taskbar.addMenuItem("Prime Ability Cache", new PrimeAbilityCacheAction(detectionEngine));
 				taskbar.addMenuItem("Settings", new SettingsAction(configManager));
 				taskbar.addSeparator();
+
+				// Main UI
+				presetManagerAction.execute();
 			});
 
 			// Add a shutdown hook to clean up resources gracefully
 			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
 				logger.info("Shutdown sequence initiated.");
+				if (taskbar != null) {
+					taskbar.dispose();
+				}
 				detectionEngine.stop();
 				overlayRenderer.shutdown();
 				mouseTooltipOverlay.shutdown();

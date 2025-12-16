@@ -1,16 +1,16 @@
 package com.lansoftprogramming.runeSequence.ui.taskbar;
 
+import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.*;
 import java.awt.*;
-import java.net.URL;
 
 public class Taskbar {
 
     private static final Logger logger = LoggerFactory.getLogger(Taskbar.class);
     private TrayIcon trayIcon;
+    private SystemTray tray;
 
     public void initialize() {
         if (!SystemTray.isSupported()) {
@@ -20,20 +20,20 @@ public class Taskbar {
 
         final PopupMenu popup = new PopupMenu();
 
-        URL iconUrl = getClass().getResource("/icon.png");
-        if (iconUrl == null) {
-            logger.error("Could not find icon resource: icon.png");
+        tray = SystemTray.getSystemTray();
+        Dimension trayIconSize = tray.getTrayIconSize();
+
+        Image image = AppIcon.loadForTray(trayIconSize);
+        if (image == null) {
+            logger.error("Could not find tray icon resources under /icon/.");
             return;
         }
-        Image image = new ImageIcon(iconUrl).getImage();
         trayIcon = new TrayIcon(image, "RuneSequence", popup);
-        trayIcon.setImageAutoSize(true);
-
-        SystemTray tray = SystemTray.getSystemTray();
+        trayIcon.setImageAutoSize(false);
 
         MenuItem exitItem = new MenuItem("Exit");
         exitItem.addActionListener(e -> {
-            tray.remove(trayIcon);
+            dispose();
             System.exit(0);
         });
         popup.add(exitItem);
@@ -43,6 +43,20 @@ public class Taskbar {
             logger.info("Taskbar icon added.");
         } catch (AWTException e) {
             logger.error("TrayIcon could not be added.", e);
+        }
+    }
+
+    public void dispose() {
+        if (tray == null || trayIcon == null) {
+            return;
+        }
+        try {
+            tray.remove(trayIcon);
+        } catch (Exception e) {
+            logger.debug("Failed to remove tray icon.", e);
+        } finally {
+            trayIcon = null;
+            tray = null;
         }
     }
 
