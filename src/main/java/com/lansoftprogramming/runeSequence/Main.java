@@ -52,16 +52,26 @@ public class Main {
 			// 3. Initialize core components
 			ScreenCapture screenCapture = new ScreenCapture(configManager.getSettings());
 			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
-				OverlayRenderer overlayRenderer = new OverlayRenderer(() -> {
-					AppSettings settings = configManager.getSettings();
-					return settings != null
-							&& settings.getUi() != null
-							&& settings.getUi().isBlinkCurrentAbilities();
-				});
-				AppSettings settingsSnapshot = configManager.getSettings();
-				if (settingsSnapshot != null && settingsSnapshot.getUi() != null) {
-					overlayRenderer.setAbilityIndicatorLoopDurationMs(settingsSnapshot.getUi().getAbilityIndicatorLoopMs());
-				}
+				OverlayRenderer overlayRenderer = new OverlayRenderer(
+						() -> {
+							AppSettings settings = configManager.getSettings();
+							return settings != null
+									&& settings.getUi() != null
+									&& settings.getUi().isBlinkCurrentAbilities();
+						},
+						() -> {
+							AppSettings settings = configManager.getSettings();
+							return settings == null
+									|| settings.getUi() == null
+									|| settings.getUi().isAbilityIndicatorEnabled();
+						},
+						() -> {
+							AppSettings settings = configManager.getSettings();
+							return settings != null && settings.getUi() != null
+									? settings.getUi().getAbilityIndicatorLoopMs()
+									: 600L;
+						}
+				);
 				MouseTooltipOverlay mouseTooltipOverlay = new MouseTooltipOverlay();
 				NotificationService notifications = createNotificationService();
 

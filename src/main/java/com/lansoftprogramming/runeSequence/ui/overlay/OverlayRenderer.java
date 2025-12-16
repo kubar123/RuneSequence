@@ -18,6 +18,7 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 
 /**
  * OverlayRenderer - Creates click-through overlay windows to draw borders around detected abilities
@@ -49,6 +50,8 @@ public class OverlayRenderer {
 	}
 
 	private final BooleanSupplier blinkCurrentEnabled;
+	private final BooleanSupplier abilityIndicatorEnabledSupplier;
+	private final LongSupplier abilityIndicatorLoopDurationSupplier;
 	private final boolean headless;
 	private final Timer blinkTimer;
 	private final Timer abilityIndicatorTimer;
@@ -62,6 +65,7 @@ public class OverlayRenderer {
 	private long overlayRepaintSeq = 0L;
 	private volatile boolean overlayVisible = false;
 	private volatile boolean blinkVisible = true;
+	private volatile boolean abilityIndicatorEnabled = true;
 	private volatile long abilityIndicatorLoopDurationMs = DEFAULT_ABILITY_INDICATOR_LOOP_MS;
 	private Set<String> lastCurrentFoundKeys = new HashSet<>();
 	private Set<String> lastNextFoundKeys = new HashSet<>();
@@ -71,7 +75,17 @@ public class OverlayRenderer {
 	}
 
 	public OverlayRenderer(BooleanSupplier blinkCurrentEnabled) {
+		this(blinkCurrentEnabled, () -> true, () -> DEFAULT_ABILITY_INDICATOR_LOOP_MS);
+	}
+
+	public OverlayRenderer(BooleanSupplier blinkCurrentEnabled,
+	                       BooleanSupplier abilityIndicatorEnabledSupplier,
+	                       LongSupplier abilityIndicatorLoopDurationSupplier) {
 		this.blinkCurrentEnabled = blinkCurrentEnabled != null ? blinkCurrentEnabled : () -> false;
+		this.abilityIndicatorEnabledSupplier = abilityIndicatorEnabledSupplier != null ? abilityIndicatorEnabledSupplier : () -> true;
+		this.abilityIndicatorLoopDurationSupplier = abilityIndicatorLoopDurationSupplier != null
+				? abilityIndicatorLoopDurationSupplier
+				: () -> DEFAULT_ABILITY_INDICATOR_LOOP_MS;
 		this.activeBorders = new ConcurrentHashMap<>();
 		this.activeAbilityIndicators = new ConcurrentHashMap<>();
 		this.headless = GraphicsEnvironment.isHeadless();
@@ -97,8 +111,8 @@ public class OverlayRenderer {
 		setupWindowProperties();
 		blinkTimer.start();
 
-		logger.info("OverlayRenderer initialized");
-	}
+			logger.info("OverlayRenderer initialized");
+		}
 
 	private JWindow createOverlayWindow() {
 		JWindow window = new JWindow();
@@ -203,6 +217,7 @@ public class OverlayRenderer {
 		long startNanos = System.nanoTime();
 
 		try {
+			refreshAbilityIndicatorSettings();
 			Set<String> desiredKeys = new HashSet<>();
 			Set<String> currentFoundKeys = new HashSet<>();
 			Set<String> nextFoundKeys = new HashSet<>();
@@ -307,7 +322,7 @@ public class OverlayRenderer {
 	}
 
 	private boolean startAbilityIndicatorsForPromotions(Set<String> currentFoundKeys, Map<String, DetectionResult> currentFoundByKey) {
-		if (abilityIndicatorFrames.isEmpty() || currentFoundKeys.isEmpty() || lastNextFoundKeys.isEmpty()) {
+		if (!abilityIndicatorEnabled || abilityIndicatorFrames.isEmpty() || currentFoundKeys.isEmpty() || lastNextFoundKeys.isEmpty()) {
 			return false;
 		}
 
@@ -476,7 +491,8 @@ public class OverlayRenderer {
 	}
 
 	private void handleAbilityIndicatorTick() {
-		if (!overlayVisible || abilityIndicatorFrames.isEmpty()) {
+		refreshAbilityIndicatorSettings();
+		if (!abilityIndicatorEnabled || !overlayVisible || abilityIndicatorFrames.isEmpty()) {
 			if (abilityIndicatorTimer != null && abilityIndicatorTimer.isRunning()) {
 				abilityIndicatorTimer.stop();
 			}
@@ -537,6 +553,27 @@ public class OverlayRenderer {
 			sanitized = ABILITY_INDICATOR_MAX_LOOP_MS;
 		}
 		abilityIndicatorLoopDurationMs = sanitized;
+	}
+
+	public void setAbilityIndicatorEnabled(boolean enabled) {
+		abilityIndicatorEnabled = enabled;
+		if (!enabled) {
+			activeAbilityIndicators.clear();
+			if (abilityIndicatorTimer != null && abilityIndicatorTimer.isRunning()) {
+				abilityIndicatorTimer.stop();
+			}
+			if (overlayPanel != null) {
+				SwingUtilities.invokeLater(overlayPanel::repaint);
+			}
+		}
+	}
+
+	private void refreshAbilityIndicatorSettings() {
+		boolean enabled = abilityIndicatorEnabledSupplier.getAsBoolean();
+		if (enabled != abilityIndicatorEnabled) {
+			setAbilityIndicatorEnabled(enabled);
+		}
+		setAbilityIndicatorLoopDurationMs(abilityIndicatorLoopDurationSupplier.getAsLong());
 	}
 
 	/**
@@ -627,7 +664,7 @@ public class OverlayRenderer {
 	}
 
 	private void drawAbilityIndicators(Graphics2D g2d) {
-		if (abilityIndicatorFrames.isEmpty() || activeAbilityIndicators.isEmpty()) {
+		if (!abilityIndicatorEnabled || abilityIndicatorFrames.isEmpty() || activeAbilityIndicators.isEmpty()) {
 			return;
 		}
 

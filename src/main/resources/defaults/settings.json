@@ -62,6 +62,7 @@
   "ui": {
     "iconSize": 30,
     "blinkCurrentAbilities": false,
+    "abilityIndicatorEnabled": true,
     "abilityIndicatorLoopMs": 600
   }
 }

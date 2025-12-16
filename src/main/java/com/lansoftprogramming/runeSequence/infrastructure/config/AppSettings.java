@@ -345,6 +345,9 @@ public class AppSettings {
 			@JsonProperty("blinkCurrentAbilities")
 			private boolean blinkCurrentAbilities = false;
 
+			@JsonProperty("abilityIndicatorEnabled")
+			private boolean abilityIndicatorEnabled = true;
+
 			@JsonProperty("abilityIndicatorLoopMs")
 			private long abilityIndicatorLoopMs = 600;
 
@@ -362,6 +365,14 @@ public class AppSettings {
 
 			public void setBlinkCurrentAbilities(boolean blinkCurrentAbilities) {
 				this.blinkCurrentAbilities = blinkCurrentAbilities;
+			}
+
+			public boolean isAbilityIndicatorEnabled() {
+				return abilityIndicatorEnabled;
+			}
+
+			public void setAbilityIndicatorEnabled(boolean abilityIndicatorEnabled) {
+				this.abilityIndicatorEnabled = abilityIndicatorEnabled;
 			}
 
 			public long getAbilityIndicatorLoopMs() {

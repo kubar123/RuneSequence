@@ -16,6 +16,8 @@ public class IconSizeSettingsPanel extends JPanel {
 	private final int[] supportedSizes;
 	private final JSpinner sizeSpinner;
 	private final JCheckBox blinkCurrentCheck;
+	private final JCheckBox abilityIndicatorEnabledCheck;
+	private final JSpinner abilityIndicatorLoopMsSpinner;
 	private final JCheckBox autoSaveCheck;
 	private final JLabel statusLabel;
 
@@ -39,6 +41,19 @@ public class IconSizeSettingsPanel extends JPanel {
 
 		blinkCurrentCheck = new JCheckBox("Blink current ability highlights on overlay");
 		blinkCurrentCheck.setSelected(resolveBlinkPreference());
+
+		abilityIndicatorEnabledCheck = new JCheckBox("Play ability indicator animation when NEXT becomes CURRENT");
+		abilityIndicatorEnabledCheck.setSelected(resolveAbilityIndicatorEnabledPreference());
+
+		long loopMs = resolveAbilityIndicatorLoopMsPreference();
+		abilityIndicatorLoopMsSpinner = new JSpinner(new SpinnerNumberModel(
+				(int) Math.max(50, Math.min(10_000, loopMs)),
+				50,
+				10_000,
+				25
+		));
+		abilityIndicatorLoopMsSpinner.setEnabled(abilityIndicatorEnabledCheck.isSelected());
+		abilityIndicatorEnabledCheck.addActionListener(e -> abilityIndicatorLoopMsSpinner.setEnabled(abilityIndicatorEnabledCheck.isSelected()));
 
 		autoSaveCheck = new JCheckBox("Auto-save rotations when switching presets");
 		autoSaveCheck.setSelected(resolveAutoSavePreference());
@@ -75,6 +90,20 @@ public class IconSizeSettingsPanel extends JPanel {
 		gbc.gridx = 0;
 		gbc.gridwidth = 2;
 		formPanel.add(blinkCurrentCheck, gbc);
+
+		gbc.gridy++;
+		gbc.gridx = 0;
+		gbc.gridwidth = 2;
+		formPanel.add(abilityIndicatorEnabledCheck, gbc);
+
+		gbc.gridy++;
+		gbc.gridwidth = 1;
+		gbc.gridx = 0;
+		gbc.anchor = GridBagConstraints.WEST;
+		formPanel.add(new JLabel("Ability indicator loop duration (ms):"), gbc);
+
+		gbc.gridx = 1;
+		formPanel.add(abilityIndicatorLoopMsSpinner, gbc);
 
 		gbc.gridy++;
 		gbc.gridx = 0;
@@ -117,6 +146,8 @@ public class IconSizeSettingsPanel extends JPanel {
 		}
 		settings.getUi().setIconSize(resolvedSize);
 		settings.getUi().setBlinkCurrentAbilities(blinkCurrentCheck.isSelected());
+		settings.getUi().setAbilityIndicatorEnabled(abilityIndicatorEnabledCheck.isSelected());
+		settings.getUi().setAbilityIndicatorLoopMs(((Number) abilityIndicatorLoopMsSpinner.getValue()).longValue());
 
 		if (settings.getRotation() == null) {
 			settings.setRotation(new AppSettings.RotationSettings());
@@ -131,7 +162,9 @@ public class IconSizeSettingsPanel extends JPanel {
 					: "Saved icon size: " + resolvedSize + " px";
 			String message = sizeMessage
 					+ "; auto-save rotations " + rotationStateLabel()
-					+ "; blinking current highlights " + blinkStateLabel();
+					+ "; blinking current highlights " + blinkStateLabel()
+					+ "; ability indicator animation " + abilityIndicatorStateLabel()
+					+ " (" + abilityIndicatorLoopMsLabel() + "ms)";
 			statusLabel.setText(message);
 		} catch (IOException ex) {
 			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
@@ -170,11 +203,35 @@ public class IconSizeSettingsPanel extends JPanel {
 		return false;
 	}
 
+	private boolean resolveAbilityIndicatorEnabledPreference() {
+		AppSettings settings = configManager.getSettings();
+		if (settings != null && settings.getUi() != null) {
+			return settings.getUi().isAbilityIndicatorEnabled();
+		}
+		return true;
+	}
+
+	private long resolveAbilityIndicatorLoopMsPreference() {
+		AppSettings settings = configManager.getSettings();
+		if (settings != null && settings.getUi() != null) {
+			return settings.getUi().getAbilityIndicatorLoopMs();
+		}
+		return 600;
+	}
+
 	private String rotationStateLabel() {
 		return autoSaveCheck.isSelected() ? "enabled" : "disabled";
 	}
 
 	private String blinkStateLabel() {
 		return blinkCurrentCheck.isSelected() ? "enabled" : "disabled";
+	}
+
+	private String abilityIndicatorStateLabel() {
+		return abilityIndicatorEnabledCheck.isSelected() ? "enabled" : "disabled";
+	}
+
+	private String abilityIndicatorLoopMsLabel() {
+		return String.valueOf(((Number) abilityIndicatorLoopMsSpinner.getValue()).longValue());
 	}
 }
