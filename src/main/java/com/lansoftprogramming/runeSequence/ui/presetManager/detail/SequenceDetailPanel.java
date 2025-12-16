@@ -22,6 +22,10 @@ import java.io.IOException;
 import java.util.List;
 
 public class SequenceDetailPanel extends JPanel implements SequenceDetailPresenter.View {
+	private static final String ICON_COGWHEEL_DARK = "/ui/dark/PresetManagerWindow.cogWheel.png";
+	private static final String ICON_INSERT_CLIPBOARD_DARK = "/ui/dark/PresetManagerWindow.insertFromClipboard.png";
+	private static final String ICON_TEXT_ADD_DARK = "/ui/dark/PresetWindowManager.textAdd.png";
+
 	private final JTextField sequenceNameField;
 	private final JPanel tooltipButton;
 	private final JPanel insertButton;
@@ -48,8 +52,9 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		setBorder(new EmptyBorder(10, 10, 10, 10));
 
 		sequenceNameField = new JTextField();
-		insertIcon = createInsertIcon();
-		tooltipIcon = createTooltipIcon();
+		sequenceNameField.setMargin(new Insets(2, 6, 2, 6));
+		insertIcon = loadScaledIconOrFallback(ICON_INSERT_CLIPBOARD_DARK, 18, 18, this::createInsertIcon);
+		tooltipIcon = loadScaledIconOrFallback(ICON_TEXT_ADD_DARK, 18, 18, this::createTooltipIcon);
 		insertButton = createInsertButton();
 		tooltipButton = createTooltipButton();
 		settingsButton = new JButton("Settings");
@@ -88,17 +93,19 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 	private JPanel createHeaderPanel() {
 		JPanel headerPanel = new JPanel(new BorderLayout(10, 0));
+		headerPanel.setBorder(new EmptyBorder(2, 0, 2, 0));
 
-		JPanel palettePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+		JPanel palettePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
 		palettePanel.setOpaque(false);
 		palettePanel.add(tooltipButton);
 		palettePanel.add(insertButton);
 
 		JPanel namePanel = new JPanel(new BorderLayout(5, 0));
+		namePanel.setBorder(new EmptyBorder(2, 0, 2, 0));
 		namePanel.add(new JLabel("Sequence Name:"), BorderLayout.WEST);
 		namePanel.add(sequenceNameField, BorderLayout.CENTER);
 
-		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 2));
 		buttonPanel.add(settingsButton);
 		buttonPanel.add(discardButton);
 		buttonPanel.add(saveButton);
@@ -111,8 +118,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private JPanel createInsertButton() {
+		ImageIcon icon = loadScaledIconOrNull(ICON_INSERT_CLIPBOARD_DARK, 18, 18);
 		return createHeaderPaletteButton(
 				"insertClipboardButton",
+				icon,
 				"\uD83D\uDCCB",
 				"Clipboard",
 				"Drag to insert clipboard rotation"
@@ -120,15 +129,21 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private JPanel createTooltipButton() {
+		ImageIcon icon = loadScaledIconOrNull(ICON_TEXT_ADD_DARK, 18, 18);
 		return createHeaderPaletteButton(
 				"tooltipPaletteButton",
+				icon,
 				"+",
 				"Text",
 				"Drag to add a tooltip message"
 		);
 	}
 
-	private JPanel createHeaderPaletteButton(String name, String symbol, String text, String tooltip) {
+	private JPanel createHeaderPaletteButton(String name,
+	                                        ImageIcon icon,
+	                                        String fallbackSymbol,
+	                                        String text,
+	                                        String tooltip) {
 		JPanel panel = new JPanel();
 		panel.setName(name);
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
@@ -152,7 +167,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		panel.setBorder(UiColorPalette.paddedLineBorder(UiColorPalette.UI_CARD_BORDER_STRONG, 4));
 		panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
-		JLabel symbolLabel = new JLabel(symbol);
+		JLabel symbolLabel = icon != null ? new JLabel(icon) : new JLabel(fallbackSymbol);
 		symbolLabel.setBorder(new EmptyBorder(0, 2, 0, 4));
 		symbolLabel.setForeground(mutedForeground);
 
@@ -356,10 +371,17 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private void applySettingsButtonStyle() {
-		settingsButton.setText("\u2699");
+		ImageIcon settingsIcon = loadScaledIconOrNull(ICON_COGWHEEL_DARK, 16, 16);
+		if (settingsIcon != null) {
+			settingsButton.setText(null);
+			settingsButton.setIcon(settingsIcon);
+			settingsButton.setMargin(new Insets(2, 6, 2, 6));
+		} else {
+			settingsButton.setText("\u2699");
+			settingsButton.setMargin(new Insets(2, 8, 2, 8));
+		}
 		settingsButton.setToolTipText("Settings");
 		settingsButton.setFocusable(false);
-		settingsButton.setMargin(new Insets(2, 8, 2, 8));
 		Font base = settingsButton.getFont();
 		if (base != null) {
 			settingsButton.setFont(base.deriveFont(Math.max(10f, base.getSize2D() - 2f)));
@@ -452,6 +474,28 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		g2d.drawLine(mid - arm, mid, mid + arm, mid);
 		g2d.dispose();
 		return new ImageIcon(image);
+	}
+
+	private ImageIcon loadScaledIconOrNull(String resourcePath, int width, int height) {
+		try {
+			java.net.URL iconUrl = getClass().getResource(resourcePath);
+			if (iconUrl == null) {
+				return null;
+			}
+			ImageIcon originalIcon = new ImageIcon(iconUrl);
+			Image scaledImage = originalIcon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+			return new ImageIcon(scaledImage);
+		} catch (Exception ignored) {
+			return null;
+		}
+	}
+
+	private ImageIcon loadScaledIconOrFallback(String resourcePath,
+	                                          int width,
+	                                          int height,
+	                                          java.util.function.Supplier<ImageIcon> fallback) {
+		ImageIcon icon = loadScaledIconOrNull(resourcePath, width, height);
+		return icon != null ? icon : fallback.get();
 	}
 
 	private String readClipboardContent() {

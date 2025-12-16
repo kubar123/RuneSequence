@@ -1,0 +1,8 @@
+Outline:
+	WIDTH 4
+	SOFTNESS 255
+	COLOR: 0 0 0 (Black, Black)
+	Angle: 120.47
+	Angled YES
+	Blend: Multiply
+

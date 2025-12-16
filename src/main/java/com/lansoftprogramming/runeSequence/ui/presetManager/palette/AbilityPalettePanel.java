@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
  * Includes fuzzy search with real-time filtering and visual feedback.
  */
 public class AbilityPalettePanel extends JPanel {
+	private static final String ICON_COGWHEEL_DARK = "/ui/dark/PresetManagerWindow.cogWheel.png";
+
 	private static final Logger logger = LoggerFactory.getLogger(AbilityPalettePanel.class);
 	private static final float DIM_OPACITY = 0.3f;
 	private static final Color DIMMED_CARD_BACKGROUND = UiColorPalette.UI_CARD_BACKGROUND.darker().darker();
@@ -109,7 +111,8 @@ public class AbilityPalettePanel extends JPanel {
 
 		categoryTabs = new JTabbedPane();
 
-		settingsButton = createMainAppButton("Settings", "Open main app settings", () -> {
+		ImageIcon settingsIcon = loadScaledIconOrNull(ICON_COGWHEEL_DARK, 16, 16);
+		settingsButton = createMainAppButton(settingsIcon, "Settings", "Open main app settings", () -> {
 			if (settingsAction != null) {
 				settingsAction.execute();
 			}
@@ -173,6 +176,33 @@ public class AbilityPalettePanel extends JPanel {
 		button.setMargin(new Insets(2, 10, 2, 10));
 		button.addActionListener(e -> action.run());
 		return button;
+	}
+
+	private static JButton createMainAppButton(ImageIcon icon, String fallbackLabel, String tooltip, Runnable action) {
+		JButton button = icon != null ? new JButton(icon) : new JButton(fallbackLabel);
+		button.setToolTipText(tooltip);
+		button.setFocusable(false);
+		if (icon != null) {
+			button.setMargin(new Insets(2, 6, 2, 6));
+		} else {
+			button.setMargin(new Insets(2, 10, 2, 10));
+		}
+		button.addActionListener(e -> action.run());
+		return button;
+	}
+
+	private ImageIcon loadScaledIconOrNull(String resourcePath, int width, int height) {
+		try {
+			java.net.URL iconUrl = getClass().getResource(resourcePath);
+			if (iconUrl == null) {
+				return null;
+			}
+			ImageIcon originalIcon = new ImageIcon(iconUrl);
+			Image scaledImage = originalIcon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+			return new ImageIcon(scaledImage);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	/**
