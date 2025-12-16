@@ -5,11 +5,15 @@ import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.Timer;
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
@@ -21,6 +25,12 @@ import java.util.function.BooleanSupplier;
 public class OverlayRenderer {
 	private static final Logger logger = LoggerFactory.getLogger(OverlayRenderer.class);
 	private static final int BLINK_INTERVAL_MS = 450;
+	private static final int ABILITY_INDICATOR_REPAINT_MS = 16;
+	private static final long DEFAULT_ABILITY_INDICATOR_LOOP_MS = 600L;
+	private static final int ABILITY_INDICATOR_MIN_LOOP_MS = 50;
+	private static final int ABILITY_INDICATOR_MAX_LOOP_MS = 10_000;
+	private static final String ABILITY_INDICATOR_RESOURCE_PREFIX = "animations/ability_indicator/";
+	private static final int ABILITY_INDICATOR_FRAME_COUNT = 24;
 
 	// Border types and colors - like piano key highlighting
 	public enum BorderType {
@@ -41,14 +51,20 @@ public class OverlayRenderer {
 	private final BooleanSupplier blinkCurrentEnabled;
 	private final boolean headless;
 	private final Timer blinkTimer;
+	private final Timer abilityIndicatorTimer;
 	private final JWindow overlayWindow;
 	private final OverlayPanel overlayPanel;
 	private final ConcurrentMap<String, OverlayBorder> activeBorders;
+	private final ConcurrentMap<String, AbilityIndicatorInstance> activeAbilityIndicators;
+	private final List<BufferedImage> abilityIndicatorFrames;
 	private final ThreadPoolExecutor renderExecutor;
 	private long overlayUpdateSeq = 0L;
 	private long overlayRepaintSeq = 0L;
 	private volatile boolean overlayVisible = false;
 	private volatile boolean blinkVisible = true;
+	private volatile long abilityIndicatorLoopDurationMs = DEFAULT_ABILITY_INDICATOR_LOOP_MS;
+	private Set<String> lastCurrentFoundKeys = new HashSet<>();
+	private Set<String> lastNextFoundKeys = new HashSet<>();
 
 	public OverlayRenderer() {
 		this(() -> false);
@@ -57,11 +73,14 @@ public class OverlayRenderer {
 	public OverlayRenderer(BooleanSupplier blinkCurrentEnabled) {
 		this.blinkCurrentEnabled = blinkCurrentEnabled != null ? blinkCurrentEnabled : () -> false;
 		this.activeBorders = new ConcurrentHashMap<>();
+		this.activeAbilityIndicators = new ConcurrentHashMap<>();
 		this.headless = GraphicsEnvironment.isHeadless();
 		if (headless) {
 			this.overlayWindow = null;
 			this.overlayPanel = null;
 			this.blinkTimer = null;
+			this.abilityIndicatorTimer = null;
+			this.abilityIndicatorFrames = List.of();
 			this.renderExecutor = null;
 			logger.info("OverlayRenderer initialized in headless mode");
 			return;
@@ -70,6 +89,8 @@ public class OverlayRenderer {
 		this.overlayWindow = createOverlayWindow();
 		this.overlayPanel = new OverlayPanel();
 		this.blinkTimer = createBlinkTimer();
+		this.abilityIndicatorFrames = loadAbilityIndicatorFrames();
+		this.abilityIndicatorTimer = createAbilityIndicatorTimer();
 		this.renderExecutor = createRenderExecutor();
 
 		overlayWindow.add(overlayPanel);
@@ -95,6 +116,12 @@ public class OverlayRenderer {
 
 	private Timer createBlinkTimer() {
 		Timer timer = new Timer(BLINK_INTERVAL_MS, e -> handleBlinkTick());
+		timer.setRepeats(true);
+		return timer;
+	}
+
+	private Timer createAbilityIndicatorTimer() {
+		Timer timer = new Timer(ABILITY_INDICATOR_REPAINT_MS, e -> handleAbilityIndicatorTick());
 		timer.setRepeats(true);
 		return timer;
 	}
@@ -177,6 +204,9 @@ public class OverlayRenderer {
 
 		try {
 			Set<String> desiredKeys = new HashSet<>();
+			Set<String> currentFoundKeys = new HashSet<>();
+			Set<String> nextFoundKeys = new HashSet<>();
+			Map<String, DetectionResult> currentFoundByKey = new HashMap<>();
 			boolean bordersChanged = false;
 			boolean currentBordersChanged = false;
 
@@ -189,6 +219,8 @@ public class OverlayRenderer {
 					}
 					if (result != null && result.found) {
 						desiredKeys.add(result.templateName);
+						currentFoundKeys.add(result.templateName);
+						currentFoundByKey.put(result.templateName, result);
 					}
 				}
 			}
@@ -201,13 +233,17 @@ public class OverlayRenderer {
 					}
 					if (result != null && result.found) {
 						desiredKeys.add(result.templateName);
+						nextFoundKeys.add(result.templateName);
 					}
 				}
 			}
 
+			boolean indicatorsChanged = startAbilityIndicatorsForPromotions(currentFoundKeys, currentFoundByKey);
+
 			RemovalChange removalChange = removeStaleBorders(desiredKeys);
 			bordersChanged = bordersChanged || removalChange.anyRemoved;
 			currentBordersChanged = currentBordersChanged || removalChange.currentRemoved;
+			indicatorsChanged = removeStaleAbilityIndicators(desiredKeys) || indicatorsChanged;
 
 			if (currentBordersChanged) {
 				resetBlinkState();
@@ -222,7 +258,10 @@ public class OverlayRenderer {
 						updateSeq, bordersChanged, activeBorders.size(), elapsedMicros);
 			}
 
-			if (bordersChanged) {
+			lastCurrentFoundKeys = currentFoundKeys;
+			lastNextFoundKeys = nextFoundKeys;
+
+			if (bordersChanged || indicatorsChanged) {
 				long repaintSeq = ++overlayRepaintSeq;
 				if (logger.isDebugEnabled()) {
 					logger.debug("OverlayRenderer posting repaint #{} for update #{}", repaintSeq, updateSeq);
@@ -267,6 +306,49 @@ public class OverlayRenderer {
 		return true;
 	}
 
+	private boolean startAbilityIndicatorsForPromotions(Set<String> currentFoundKeys, Map<String, DetectionResult> currentFoundByKey) {
+		if (abilityIndicatorFrames.isEmpty() || currentFoundKeys.isEmpty() || lastNextFoundKeys.isEmpty()) {
+			return false;
+		}
+
+		boolean anyStarted = false;
+		long now = System.nanoTime();
+		for (String key : currentFoundKeys) {
+			if (!lastNextFoundKeys.contains(key) || lastCurrentFoundKeys.contains(key)) {
+				continue;
+			}
+			DetectionResult result = currentFoundByKey.get(key);
+			if (result == null || result.boundingBox == null) {
+				continue;
+			}
+			activeAbilityIndicators.put(key, new AbilityIndicatorInstance(new Rectangle(result.boundingBox), now));
+			anyStarted = true;
+		}
+
+		if (anyStarted) {
+			SwingUtilities.invokeLater(() -> {
+				if (abilityIndicatorTimer != null && !abilityIndicatorTimer.isRunning()) {
+					abilityIndicatorTimer.start();
+				}
+			});
+		}
+		return anyStarted;
+	}
+
+	private boolean removeStaleAbilityIndicators(Set<String> desiredKeys) {
+		if (activeAbilityIndicators.isEmpty()) {
+			return false;
+		}
+		boolean removed = false;
+		for (String key : new HashSet<>(activeAbilityIndicators.keySet())) {
+			if (!desiredKeys.contains(key)) {
+				activeAbilityIndicators.remove(key);
+				removed = true;
+			}
+		}
+		return removed;
+	}
+
 	private Rectangle calculateBorderBounds(DetectionResult result) {
 		// Expand bounds slightly beyond the detection area for better visibility
 		int padding = 3;
@@ -299,6 +381,7 @@ public class OverlayRenderer {
 	public void clearOverlays() {
 		if (headless) {
 			activeBorders.clear();
+			activeAbilityIndicators.clear();
 			return;
 		}
 		enqueueRenderTask(this::clearOverlaysInternal);
@@ -306,6 +389,7 @@ public class OverlayRenderer {
 
 	private void clearOverlaysInternal() {
 		activeBorders.clear();
+		activeAbilityIndicators.clear();
 		blinkVisible = true;
 		setOverlayVisible(false);
 		SwingUtilities.invokeLater(overlayPanel::repaint);
@@ -349,6 +433,7 @@ public class OverlayRenderer {
 	public void shutdown() {
 		if (headless) {
 			activeBorders.clear();
+			activeAbilityIndicators.clear();
 			return;
 		}
 		clearOverlays();
@@ -359,6 +444,9 @@ public class OverlayRenderer {
 			Thread.currentThread().interrupt();
 		}
 		blinkTimer.stop();
+		if (abilityIndicatorTimer != null) {
+			abilityIndicatorTimer.stop();
+		}
 		SwingUtilities.invokeLater(() -> {
 			overlayWindow.setVisible(false);
 			overlayWindow.dispose();
@@ -387,6 +475,45 @@ public class OverlayRenderer {
 		SwingUtilities.invokeLater(overlayPanel::repaint);
 	}
 
+	private void handleAbilityIndicatorTick() {
+		if (!overlayVisible || abilityIndicatorFrames.isEmpty()) {
+			if (abilityIndicatorTimer != null && abilityIndicatorTimer.isRunning()) {
+				abilityIndicatorTimer.stop();
+			}
+			activeAbilityIndicators.clear();
+			return;
+		}
+
+		if (activeAbilityIndicators.isEmpty()) {
+			if (abilityIndicatorTimer != null && abilityIndicatorTimer.isRunning()) {
+				abilityIndicatorTimer.stop();
+			}
+			return;
+		}
+
+		long loopMs = abilityIndicatorLoopDurationMs;
+		long now = System.nanoTime();
+		boolean anyExpired = false;
+		for (Map.Entry<String, AbilityIndicatorInstance> entry : new HashSet<>(activeAbilityIndicators.entrySet())) {
+			AbilityIndicatorInstance indicator = entry.getValue();
+			long elapsedMs = (now - indicator.startedAtNanos) / 1_000_000L;
+			if (elapsedMs >= loopMs) {
+				activeAbilityIndicators.remove(entry.getKey());
+				anyExpired = true;
+			}
+		}
+
+		if (activeAbilityIndicators.isEmpty()) {
+			if (abilityIndicatorTimer != null) {
+				abilityIndicatorTimer.stop();
+			}
+		}
+
+		if (overlayPanel != null && (!activeAbilityIndicators.isEmpty() || anyExpired)) {
+			overlayPanel.repaint();
+		}
+	}
+
 	private boolean hasCurrentBorders() {
 		for (OverlayBorder border : activeBorders.values()) {
 			if (isCurrentBorder(border.borderType)) {
@@ -400,6 +527,16 @@ public class OverlayRenderer {
 		if (blinkCurrentEnabled.getAsBoolean() && hasCurrentBorders()) {
 			blinkVisible = true;
 		}
+	}
+
+	public void setAbilityIndicatorLoopDurationMs(long loopDurationMs) {
+		long sanitized = loopDurationMs;
+		if (sanitized < ABILITY_INDICATOR_MIN_LOOP_MS) {
+			sanitized = ABILITY_INDICATOR_MIN_LOOP_MS;
+		} else if (sanitized > ABILITY_INDICATOR_MAX_LOOP_MS) {
+			sanitized = ABILITY_INDICATOR_MAX_LOOP_MS;
+		}
+		abilityIndicatorLoopDurationMs = sanitized;
 	}
 
 	/**
@@ -427,6 +564,16 @@ public class OverlayRenderer {
 		}
 	}
 
+	private static class AbilityIndicatorInstance {
+		final Rectangle bounds;
+		final long startedAtNanos;
+
+		private AbilityIndicatorInstance(Rectangle bounds, long startedAtNanos) {
+			this.bounds = bounds;
+			this.startedAtNanos = startedAtNanos;
+		}
+	}
+
 	/**
 	 * Custom JPanel for rendering overlay borders
 	 */
@@ -445,6 +592,8 @@ public class OverlayRenderer {
 			try {
 				// Enable antialiasing for smoother borders
 				g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+				drawAbilityIndicators(g2d);
 
 				// Draw all active borders
 				for (OverlayBorder border : activeBorders.values()) {
@@ -475,6 +624,75 @@ public class OverlayRenderer {
 			}
 			return !blinkVisible && isCurrentBorder(border.borderType);
 		}
+	}
+
+	private void drawAbilityIndicators(Graphics2D g2d) {
+		if (abilityIndicatorFrames.isEmpty() || activeAbilityIndicators.isEmpty()) {
+			return;
+		}
+
+		Object oldInterpolation = g2d.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+		g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+		try {
+			long now = System.nanoTime();
+			long loopMs = abilityIndicatorLoopDurationMs;
+			int frameCount = abilityIndicatorFrames.size();
+
+			for (AbilityIndicatorInstance indicator : activeAbilityIndicators.values()) {
+				long elapsedMs = (now - indicator.startedAtNanos) / 1_000_000L;
+				if (elapsedMs < 0 || elapsedMs >= loopMs) {
+					continue;
+				}
+				double progress = elapsedMs / (double) loopMs;
+				int frameIndex = (int) Math.floor(progress * frameCount);
+				if (frameIndex < 0) {
+					frameIndex = 0;
+				} else if (frameIndex >= frameCount) {
+					frameIndex = frameCount - 1;
+				}
+
+				BufferedImage frame = abilityIndicatorFrames.get(frameIndex);
+				Rectangle bounds = indicator.bounds;
+				g2d.drawImage(frame, bounds.x, bounds.y, bounds.width, bounds.height, null);
+			}
+		} finally {
+			if (oldInterpolation != null) {
+				g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterpolation);
+			}
+		}
+	}
+
+	private List<BufferedImage> loadAbilityIndicatorFrames() {
+		List<BufferedImage> frames = new ArrayList<>(ABILITY_INDICATOR_FRAME_COUNT);
+		ClassLoader loader = OverlayRenderer.class.getClassLoader();
+
+		for (int i = 1; i <= ABILITY_INDICATOR_FRAME_COUNT; i++) {
+			String resourcePath = ABILITY_INDICATOR_RESOURCE_PREFIX + i + ".png";
+			try (InputStream stream = loader.getResourceAsStream(resourcePath)) {
+				if (stream == null) {
+					logger.warn("Ability indicator frame not found on classpath: {}", resourcePath);
+					continue;
+				}
+				BufferedImage image = ImageIO.read(stream);
+				if (image == null) {
+					logger.warn("Ability indicator frame unreadable: {}", resourcePath);
+					continue;
+				}
+				frames.add(image);
+			} catch (IOException e) {
+				logger.warn("Failed loading ability indicator frame: {}", resourcePath, e);
+			}
+		}
+
+		if (frames.isEmpty()) {
+			logger.warn("No ability indicator frames loaded; promotion animation disabled.");
+			return List.of();
+		}
+		if (frames.size() != ABILITY_INDICATOR_FRAME_COUNT) {
+			logger.warn("Loaded {} / {} ability indicator frames; animation may appear choppy.", frames.size(), ABILITY_INDICATOR_FRAME_COUNT);
+		}
+		return List.copyOf(frames);
 	}
 
 	private boolean isCurrentBorder(BorderType borderType) {

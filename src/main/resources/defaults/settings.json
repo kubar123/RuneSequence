@@ -61,6 +61,7 @@
   },
   "ui": {
     "iconSize": 30,
-    "blinkCurrentAbilities": false
+    "blinkCurrentAbilities": false,
+    "abilityIndicatorLoopMs": 600
   }
 }

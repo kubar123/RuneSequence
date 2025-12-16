@@ -52,14 +52,18 @@ public class Main {
 			// 3. Initialize core components
 			ScreenCapture screenCapture = new ScreenCapture(configManager.getSettings());
 			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
-			OverlayRenderer overlayRenderer = new OverlayRenderer(() -> {
-				AppSettings settings = configManager.getSettings();
-				return settings != null
-						&& settings.getUi() != null
-						&& settings.getUi().isBlinkCurrentAbilities();
-			});
-			MouseTooltipOverlay mouseTooltipOverlay = new MouseTooltipOverlay();
-			NotificationService notifications = createNotificationService();
+				OverlayRenderer overlayRenderer = new OverlayRenderer(() -> {
+					AppSettings settings = configManager.getSettings();
+					return settings != null
+							&& settings.getUi() != null
+							&& settings.getUi().isBlinkCurrentAbilities();
+				});
+				AppSettings settingsSnapshot = configManager.getSettings();
+				if (settingsSnapshot != null && settingsSnapshot.getUi() != null) {
+					overlayRenderer.setAbilityIndicatorLoopDurationMs(settingsSnapshot.getUi().getAbilityIndicatorLoopMs());
+				}
+				MouseTooltipOverlay mouseTooltipOverlay = new MouseTooltipOverlay();
+				NotificationService notifications = createNotificationService();
 
 			// 4. Set up the Sequence Manager with our debug rotation
 			RotationConfig rotationConfig = configManager.getRotations();

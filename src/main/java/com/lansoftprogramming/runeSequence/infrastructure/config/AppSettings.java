@@ -337,28 +337,39 @@ public class AppSettings {
 	}
 
 	// ------------------------------ UI ------------------------------
-	@JsonIgnoreProperties(ignoreUnknown = true)
-	public static class UiSettings {
-		@JsonProperty("iconSize")
-		private int iconSize = 30; // default icon size in pixels
+		@JsonIgnoreProperties(ignoreUnknown = true)
+		public static class UiSettings {
+			@JsonProperty("iconSize")
+			private int iconSize = 30; // default icon size in pixels
 
-		@JsonProperty("blinkCurrentAbilities")
-		private boolean blinkCurrentAbilities = false;
+			@JsonProperty("blinkCurrentAbilities")
+			private boolean blinkCurrentAbilities = false;
 
-		public int getIconSize() {
-			return iconSize;
-		}
+			@JsonProperty("abilityIndicatorLoopMs")
+			private long abilityIndicatorLoopMs = 600;
 
-		public void setIconSize(int iconSize) {
-			this.iconSize = iconSize;
-		}
+			public int getIconSize() {
+				return iconSize;
+			}
 
-		public boolean isBlinkCurrentAbilities() {
-			return blinkCurrentAbilities;
-		}
+			public void setIconSize(int iconSize) {
+				this.iconSize = iconSize;
+			}
 
-		public void setBlinkCurrentAbilities(boolean blinkCurrentAbilities) {
-			this.blinkCurrentAbilities = blinkCurrentAbilities;
+			public boolean isBlinkCurrentAbilities() {
+				return blinkCurrentAbilities;
+			}
+
+			public void setBlinkCurrentAbilities(boolean blinkCurrentAbilities) {
+				this.blinkCurrentAbilities = blinkCurrentAbilities;
+			}
+
+			public long getAbilityIndicatorLoopMs() {
+				return abilityIndicatorLoopMs;
+			}
+
+			public void setAbilityIndicatorLoopMs(long abilityIndicatorLoopMs) {
+				this.abilityIndicatorLoopMs = abilityIndicatorLoopMs;
+			}
 		}
 	}
-}
