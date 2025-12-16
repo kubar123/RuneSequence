@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.palette;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityCategoryConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetailPanel;
+import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
@@ -16,9 +17,12 @@ import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
+import java.awt.event.AWTEventListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -42,11 +46,16 @@ public class AbilityPalettePanel extends JPanel {
 	private JTextField searchField;
 	private JButton clearSearchButton;
 	private JTabbedPane categoryTabs;
+	private JPanel searchInputPanel;
 	private SequenceDetailPanel detailPanel;
 	private JButton settingsButton;
 	private JButton selectRegionButton;
 	private MenuAction settingsAction;
 	private MenuAction regionSelectorAction;
+	private transient AWTEventListener textCursorListener;
+	private transient Boolean lastCursorOverText;
+	private transient long lastCursorLogAtMs;
+	private transient Window cursorWindow;
 
 	// Cache of category panels and their ability cards
 	private final Map<String, CategoryPanel> categoryPanels;
@@ -89,6 +98,7 @@ public class AbilityPalettePanel extends JPanel {
 		setBorder(new EmptyBorder(10, 10, 10, 10));
 
 		searchField = new JTextField();
+		installTextCursor(searchField);
 		searchField.setToolTipText("Search abilities (fuzzy matching supported)...");
 
 		clearSearchButton = new JButton("\u00D7");
@@ -130,7 +140,8 @@ public class AbilityPalettePanel extends JPanel {
 	private void layoutComponents() {
 		JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
 		searchPanel.add(new JLabel("Search:"), BorderLayout.WEST);
-		JPanel searchInputPanel = new JPanel(new BorderLayout(0, 0));
+		searchInputPanel = new JPanel(new BorderLayout(0, 0));
+		installTextCursor(searchInputPanel);
 		Border searchFieldBorder = searchField.getBorder();
 		if (searchFieldBorder != null) {
 			searchInputPanel.setBorder(searchFieldBorder);
@@ -145,6 +156,127 @@ public class AbilityPalettePanel extends JPanel {
 
 		add(searchPanel, BorderLayout.NORTH);
 		add(categoryTabs, BorderLayout.CENTER);
+	}
+
+	@Override
+	public void addNotify() {
+		super.addNotify();
+		// Ensure look-and-feel/UI updates don't override the text cursor.
+		installTextCursor(searchField);
+		installTextCursor(searchInputPanel);
+		installTextCursorResolver();
+	}
+
+	@Override
+	public void removeNotify() {
+		uninstallTextCursorResolver();
+		super.removeNotify();
+	}
+
+	private static void installTextCursor(JComponent component) {
+		if (component == null) {
+			return;
+		}
+		Cursor textCursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR);
+		component.setCursor(textCursor);
+		component.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				component.setCursor(textCursor);
+			}
+		});
+		component.addMouseMotionListener(new MouseMotionAdapter() {
+			@Override
+			public void mouseMoved(MouseEvent e) {
+				component.setCursor(textCursor);
+			}
+		});
+	}
+
+	private void installTextCursorResolver() {
+		if (textCursorListener != null) {
+			return;
+		}
+		Cursor textCursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR);
+		Cursor defaultCursor = Cursor.getDefaultCursor();
+		cursorWindow = SwingUtilities.getWindowAncestor(this);
+
+		textCursorListener = event -> {
+			if (!(event instanceof MouseEvent mouseEvent)) {
+				return;
+			}
+			int id = mouseEvent.getID();
+			if (id != MouseEvent.MOUSE_MOVED && id != MouseEvent.MOUSE_DRAGGED && id != MouseEvent.MOUSE_EXITED) {
+				return;
+			}
+			Object src = mouseEvent.getSource();
+			if (!(src instanceof Component sourceComponent)) {
+				return;
+			}
+			if (!SwingUtilities.isDescendingFrom(sourceComponent, this)) {
+				return;
+			}
+
+			Point panelPoint = SwingUtilities.convertPoint(sourceComponent, mouseEvent.getPoint(), this);
+			Component deepest = SwingUtilities.getDeepestComponentAt(this, panelPoint.x, panelPoint.y);
+			boolean overText = deepest instanceof JTextComponent;
+			// Set the cursor at the Window level; this wins even if another container overlays the field.
+			Window owner = cursorWindow != null ? cursorWindow : SwingUtilities.getWindowAncestor(this);
+			if (owner != null) {
+				owner.setCursor(overText ? textCursor : defaultCursor);
+			} else {
+				setCursor(overText ? textCursor : defaultCursor);
+			}
+
+			// Debug logging: emit on state changes (or at most ~2x/sec while inside the panel).
+			long now = System.currentTimeMillis();
+			boolean shouldLog = lastCursorOverText == null
+					|| lastCursorOverText != overText
+					|| (now - lastCursorLogAtMs) > 500;
+			if (shouldLog && logger.isDebugEnabled()) {
+				lastCursorOverText = overText;
+				lastCursorLogAtMs = now;
+				String srcName = sourceComponent.getName();
+				String deepestName = deepest != null ? deepest.getName() : null;
+				String deepestClass = deepest != null ? deepest.getClass().getName() : "null";
+				Cursor deepestCursor = deepest != null ? deepest.getCursor() : null;
+				boolean deepestEnabled = deepest == null || deepest.isEnabled();
+				boolean deepestEditable = !(deepest instanceof JTextComponent tc) || tc.isEditable();
+				Cursor ownerCursor = owner != null ? owner.getCursor() : null;
+				logger.debug(
+						"Cursor debug: overText={}, eventId={}, src={}, srcName={}, panelPoint=({},{}), deepest={}, deepestName={}, deepestEnabled={}, deepestEditable={}, deepestCursor={}, owner={}, ownerCursor={}",
+						overText,
+						id,
+						sourceComponent.getClass().getName(),
+						srcName,
+						panelPoint.x,
+						panelPoint.y,
+						deepestClass,
+						deepestName,
+						deepestEnabled,
+						deepestEditable,
+						deepestCursor,
+						owner != null ? owner.getClass().getName() : "null",
+						ownerCursor
+				);
+			}
+		};
+
+		Toolkit.getDefaultToolkit().addAWTEventListener(
+				textCursorListener,
+				AWTEvent.MOUSE_MOTION_EVENT_MASK
+		);
+	}
+
+	private void uninstallTextCursorResolver() {
+		if (textCursorListener == null) {
+			return;
+		}
+		Toolkit.getDefaultToolkit().removeAWTEventListener(textCursorListener);
+		textCursorListener = null;
+		lastCursorOverText = null;
+		lastCursorLogAtMs = 0L;
+		cursorWindow = null;
 	}
 
 	private JComponent createMainAppSettingsPanel() {
@@ -483,10 +615,11 @@ public class AbilityPalettePanel extends JPanel {
 	/**
 	 * Inner class representing a category panel with searchable ability cards.
 	 */
-	private class CategoryPanel extends JPanel {
+	private class CategoryPanel extends HoverGlowContainerPanel {
 		private final Map<AbilityItem, AbilityCard> cardMap;
 
 		public CategoryPanel(List<AbilityItem> abilities) {
+			super(component -> component instanceof AbilityCard card && !card.isDimmed());
 			this.cardMap = new LinkedHashMap<>();
 
 			setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -541,6 +674,7 @@ public class AbilityPalettePanel extends JPanel {
 			this.item = item;
 			this.dimmed = false;
 
+			setName("abilityCard");
 			setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 			setBackground(UiColorPalette.UI_CARD_BACKGROUND);
 			setBorder(UiColorPalette.CARD_BORDER);
@@ -584,6 +718,10 @@ public class AbilityPalettePanel extends JPanel {
 					}
 				}
 			});
+		}
+
+		public boolean isDimmed() {
+			return dimmed;
 		}
 
 		/**

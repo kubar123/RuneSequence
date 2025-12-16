@@ -26,7 +26,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
+import java.awt.event.AWTEventListener;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
@@ -57,6 +60,7 @@ public class PresetManagerWindow extends JFrame {
     private boolean suppressSelectionUpdate;
     private String currentSelectionId;
     private boolean autoSaveInProgress;
+    private transient AWTEventListener cursorResolver;
 
     public PresetManagerWindow(
             ConfigManager configManager,
@@ -87,6 +91,75 @@ public class PresetManagerWindow extends JFrame {
         } else {
             logger.error("PresetManagerWindow failed to initialize; skipping layout and wiring.");
         }
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        installCursorResolver();
+    }
+
+    @Override
+    public void removeNotify() {
+        uninstallCursorResolver();
+        super.removeNotify();
+    }
+
+    private void installCursorResolver() {
+        if (cursorResolver != null) {
+            return;
+        }
+
+        Cursor textCursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR);
+        Cursor defaultCursor = Cursor.getDefaultCursor();
+
+        cursorResolver = event -> {
+            if (!(event instanceof MouseEvent mouseEvent)) {
+                return;
+            }
+            int id = mouseEvent.getID();
+            if (id != MouseEvent.MOUSE_MOVED && id != MouseEvent.MOUSE_DRAGGED && id != MouseEvent.MOUSE_EXITED) {
+                return;
+            }
+            Object src = mouseEvent.getSource();
+            if (!(src instanceof Component sourceComponent)) {
+                return;
+            }
+            if (!SwingUtilities.isDescendingFrom(sourceComponent, getRootPane())) {
+                return;
+            }
+
+            if (id == MouseEvent.MOUSE_EXITED) {
+                setCursor(defaultCursor);
+                return;
+            }
+
+            Container content = getContentPane();
+            if (content == null) {
+                setCursor(defaultCursor);
+                return;
+            }
+
+            Point contentPoint = SwingUtilities.convertPoint(sourceComponent, mouseEvent.getPoint(), content);
+            Component deepest = SwingUtilities.getDeepestComponentAt(content, contentPoint.x, contentPoint.y);
+
+            if (deepest instanceof JTextComponent) {
+                setCursor(textCursor);
+                return;
+            }
+
+            setCursor(defaultCursor);
+        };
+
+        Toolkit.getDefaultToolkit().addAWTEventListener(cursorResolver, AWTEvent.MOUSE_MOTION_EVENT_MASK);
+    }
+
+    private void uninstallCursorResolver() {
+        if (cursorResolver == null) {
+            return;
+        }
+        Toolkit.getDefaultToolkit().removeAWTEventListener(cursorResolver);
+        cursorResolver = null;
     }
 
     private void initializeFrame() {

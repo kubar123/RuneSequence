@@ -5,6 +5,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DragPrevi
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
+import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
@@ -19,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.IntConsumer;
 
-class AbilityFlowView extends JPanel {
+class AbilityFlowView extends HoverGlowContainerPanel {
 	private final SequenceDetailService detailService;
 	private AbilityDragController dragController;
 	private AbilityCardFactory cardFactory;
@@ -34,7 +35,7 @@ class AbilityFlowView extends JPanel {
 	private Set<String> modifiedAbilityKeys;
 
 	AbilityFlowView(SequenceDetailService detailService) {
-		super(new WrapLayout(FlowLayout.LEFT, 10, 10));
+		super(new WrapLayout(FlowLayout.LEFT, 10, 10), component -> component instanceof JComponent jc && "abilityCard".equals(jc.getName()));
 		this.detailService = detailService;
 		this.defaultBackground = getBackground();
 		this.defaultBorder = getBorder();
