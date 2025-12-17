@@ -18,9 +18,12 @@ import java.util.function.Predicate;
  * clipped to this container's bounds.
  */
 public class HoverGlowContainerPanel extends JPanel {
-	private static final int GLOW_PX = 5;
+	private static final int GLOW_PX = 10;
 	private static final int FADE_MS = 500;
 	private static final int TICK_MS = 25;
+	private static final float GLOW_MAX_RING_ALPHA = 0.75f;
+	private static final float GLOW_MIN_RING_ALPHA = 0.05f;
+	private static final float GLOW_ALPHA_EXP = 1.15f;
 
 	private final Predicate<Component> glowTarget;
 	private transient AWTEventListener hoverListener;
@@ -64,6 +67,7 @@ public class HoverGlowContainerPanel extends JPanel {
 		Graphics2D g2 = (Graphics2D) g.create();
 		try {
 			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
 			for (GlowInstance instance : glowInstances.values()) {
 				Component target = instance.target;
@@ -82,20 +86,21 @@ public class HoverGlowContainerPanel extends JPanel {
 				}
 
 				int arc = Math.min(12, Math.min(w, h) / 3);
+				float baseCornerRadius = arc / 2f;
 
-				// Bloom-like: brightest nearest the item, fading darker and more transparent outward.
+				// Bloom-like: strongest nearest the item, fading outward.
 				for (int i = 0; i < GLOW_PX; i++) {
-					float t = (GLOW_PX <= 1) ? 0f : (i / (float) (GLOW_PX - 1));
-					float strength = 1f - t; // 1 near item -> 0 at outer edge
-					float ringAlpha = a * (0.50f * (float) Math.pow(strength, 1.35));
+					// i=0 is the outer-most ring, i=GLOW_PX-1 is closest to the item.
+					float t = (GLOW_PX <= 1) ? 1f : (i / (float) (GLOW_PX - 1));
+					float ringAlphaStrength = GLOW_MIN_RING_ALPHA
+							+ ((GLOW_MAX_RING_ALPHA - GLOW_MIN_RING_ALPHA) * (float) Math.pow(t, GLOW_ALPHA_EXP));
+					float ringAlpha = a * ringAlphaStrength;
 
 					int r = lerp(255, 160, t);
 					int gr = lerp(225, 110, t);
 					int b = lerp(110, 20, t);
 
 					g2.setColor(new Color(r, gr, b, Math.round(255 * clamp01(ringAlpha))));
-					g2.setStroke(new BasicStroke(1f));
-
 					int inset = i;
 					int rx = x + inset;
 					int ry = y + inset;
@@ -104,7 +109,14 @@ public class HoverGlowContainerPanel extends JPanel {
 					if (rw <= 0 || rh <= 0) {
 						break;
 					}
-					g2.drawRoundRect(rx, ry, rw, rh, arc, arc);
+
+					// Keep corner curvature consistent as we inset; prevents corner artifacts from over-rounded inner rings.
+					int arcNow = Math.max(0, Math.round((Math.max(0f, baseCornerRadius - inset)) * 2f));
+					if (arcNow > 0) {
+						g2.drawRoundRect(rx, ry, rw, rh, arcNow, arcNow);
+					} else {
+						g2.drawRect(rx, ry, rw, rh);
+					}
 				}
 			}
 		} finally {
