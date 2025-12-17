@@ -273,6 +273,7 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		JPanel card = cardFactory.createTooltipCard(element.getValue());
 		card.putClientProperty("elementIndex", elementIndex);
 		card.putClientProperty("zoneType", null);
+		attachTooltipPopup(card);
 		if (tooltipEditHandler != null) {
 			card.addMouseListener(new MouseAdapter() {
 				@Override
@@ -287,6 +288,37 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 			});
 		}
 		add(card);
+	}
+
+	private void attachTooltipPopup(JPanel card) {
+		if (card == null) {
+			return;
+		}
+		card.addMouseListener(new MouseAdapter() {
+			private void maybeShowPopup(MouseEvent e) {
+				if (tooltipEditHandler == null || !e.isPopupTrigger()) {
+					return;
+				}
+				Object rawIndex = card.getClientProperty("elementIndex");
+				if (rawIndex instanceof Integer idx) {
+					JPopupMenu menu = new JPopupMenu();
+					JMenuItem properties = new JMenuItem("Properties\u2026");
+					properties.addActionListener(action -> tooltipEditHandler.editTooltipAt(idx));
+					menu.add(properties);
+					menu.show(e.getComponent(), e.getX(), e.getY());
+				}
+			}
+
+			@Override
+			public void mousePressed(MouseEvent e) {
+				maybeShowPopup(e);
+			}
+
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				maybeShowPopup(e);
+			}
+		});
 	}
 
 	private void attachAbilityPopup(JPanel card) {

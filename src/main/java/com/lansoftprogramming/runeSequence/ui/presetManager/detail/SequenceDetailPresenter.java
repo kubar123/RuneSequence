@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
+import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
@@ -20,6 +21,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +55,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private DragPreviewModel currentPreview;
 	private boolean isHighlightActive;
 	private boolean isDragOutsidePanel;
+	private boolean isCurrentDragFromPalette;
 
 	SequenceDetailPresenter(SequenceDetailService detailService,
 	                        AbilityOverridesService overridesService,
@@ -309,6 +313,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		flowView.setDragOutsidePanel(false);
 		isHighlightActive = false;
 		isDragOutsidePanel = false;
+		isCurrentDragFromPalette = isFromPalette;
 		draggedAbilityElement = null;
 		// Keep a pristine copy so cancellation can restore the view state.
 		originalElementsBeforeDrag = new ArrayList<>(currentElements);
@@ -407,13 +412,38 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 							dropPreview.getDropSide()
 					);
 				} else if (draggedItem instanceof TooltipItem tooltipItem && dropPreview != null) {
-					currentElements = expressionBuilder.insertTooltip(
-							new ArrayList<>(previewElements),
-							tooltipItem.getMessage(),
-							dropPreview.getInsertIndex(),
-							dropPreview.getZoneType(),
-							dropPreview.getDropSide()
-					);
+					String tooltipMessage = tooltipItem.getMessage();
+					if (isCurrentDragFromPalette) {
+						String input = promptForTooltipText("New tooltip");
+						if (input == null) {
+							logger.info("Tooltip insert cancelled by user.");
+							tooltipMessage = null;
+						}
+						if (tooltipMessage != null && !TooltipGrammar.isValidTooltipMessage(input)) {
+							if (notifications != null) {
+								notifications.showWarning("Tooltip text cannot contain →, +, or / characters.");
+							} else {
+								Toolkit.getDefaultToolkit().beep();
+							}
+							logger.info("Tooltip insert rejected due to invalid content.");
+							tooltipMessage = null;
+						}
+						if (tooltipMessage != null) {
+							tooltipMessage = input;
+						}
+					}
+					if (tooltipMessage == null) {
+						currentElements = new ArrayList<>(currentElements);
+						previewElements = new ArrayList<>(currentElements);
+					} else {
+						currentElements = expressionBuilder.insertTooltip(
+								new ArrayList<>(previewElements),
+								tooltipMessage,
+								dropPreview.getInsertIndex(),
+								dropPreview.getZoneType(),
+								dropPreview.getDropSide()
+						);
+					}
 				} else if (dropPreview != null) {
 					SequenceElement abilityElement = draggedAbilityElement != null
 							? draggedAbilityElement
@@ -455,6 +485,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 		isHighlightActive = false;
 		isDragOutsidePanel = false;
+		isCurrentDragFromPalette = false;
 		currentPreview = null;
 		originalElementsBeforeDrag = null;
 		draggedAbilityElement = null;
@@ -505,15 +536,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		}
 
 		String currentMessage = element.getValue();
-		String input = (String) JOptionPane.showInputDialog(
-				view.asComponent(),
-				"Edit tooltip text:",
-				"Edit Tooltip",
-				JOptionPane.PLAIN_MESSAGE,
-				null,
-				null,
-				currentMessage
-		);
+		String input = promptForTooltipText(currentMessage);
 
 		if (input == null) {
 			return;
@@ -540,6 +563,31 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			updateExpression();
 			refreshFlowView();
 		}
+
+	private String promptForTooltipText(String initialValue) {
+		JTextField inputField = new JTextField(initialValue != null ? initialValue : "", 26);
+		JOptionPane optionPane = new JOptionPane(
+				inputField,
+				JOptionPane.PLAIN_MESSAGE,
+				JOptionPane.OK_CANCEL_OPTION
+		);
+
+		JDialog dialog = optionPane.createDialog(view.asComponent(), "Tooltip Properties");
+		dialog.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowOpened(WindowEvent e) {
+				inputField.requestFocusInWindow();
+				inputField.selectAll();
+			}
+		});
+
+		dialog.setVisible(true);
+		Object value = optionPane.getValue();
+		if (value instanceof Integer option && option == JOptionPane.OK_OPTION) {
+			return inputField.getText();
+		}
+		return null;
+	}
 
 	private void openAbilityPropertiesAt(int elementIndex) {
 		if (elementIndex < 0 || elementIndex >= currentElements.size()) {
