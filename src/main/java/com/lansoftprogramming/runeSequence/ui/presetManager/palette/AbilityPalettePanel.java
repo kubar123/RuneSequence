@@ -604,6 +604,20 @@ public class AbilityPalettePanel extends JPanel {
 		return text.substring(0, maxLength - 3) + "...";
 	}
 
+	private String formatCardDisplayName(String displayName) {
+		if (displayName == null) {
+			return "";
+		}
+		String trimmed = displayName.trim();
+		if (trimmed.equals("Greater")) {
+			return "G.";
+		}
+		if (trimmed.startsWith("Greater ")) {
+			return "G. " + trimmed.substring("Greater ".length());
+		}
+		return displayName;
+	}
+
 	public JTextField getSearchField() {
 		return searchField;
 	}
@@ -690,7 +704,7 @@ public class AbilityPalettePanel extends JPanel {
 			iconLabel.setMaximumSize(new Dimension(50, 50));
 
 			// Name
-			String displayText = truncateText(item.getDisplayName(), 12);
+			String displayText = truncateText(formatCardDisplayName(item.getDisplayName()), 12);
 			nameLabel = new JLabel(displayText);
 			nameLabel.setFont(nameLabel.getFont().deriveFont(9f));
 			nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);

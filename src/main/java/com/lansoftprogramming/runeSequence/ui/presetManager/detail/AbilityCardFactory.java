@@ -73,7 +73,7 @@ class AbilityCardFactory {
 			iconLabel.add(indicatorWrap, BorderLayout.NORTH);
 		}
 
-		String displayText = truncateText(item.getDisplayName(), 12);
+		String displayText = truncateText(formatCardDisplayName(item.getDisplayName()), 12);
 		JLabel nameLabel = new JLabel(displayText);
 		nameLabel.setFont(nameLabel.getFont().deriveFont(9f));
 		nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -113,6 +113,20 @@ class AbilityCardFactory {
 				item.getDisplayName(),
 				item.getType(),
 				item.getLevel());
+	}
+
+	private String formatCardDisplayName(String displayName) {
+		if (displayName == null) {
+			return "";
+		}
+		String trimmed = displayName.trim();
+		if (trimmed.equals("Greater")) {
+			return "G.";
+		}
+		if (trimmed.startsWith("Greater ")) {
+			return "G. " + trimmed.substring("Greater ".length());
+		}
+		return displayName;
 	}
 
 	private String truncateText(String text, int maxLength) {
