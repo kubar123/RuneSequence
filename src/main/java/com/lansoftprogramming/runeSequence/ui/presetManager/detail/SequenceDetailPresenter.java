@@ -307,8 +307,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	}
 
 	@Override
-	public void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex) {
-		logger.info("Drag start: key={}, abilityIndex={}", item.getKey(), abilityIndex);
+	public void onDragStart(AbilityItem item, boolean isFromPalette, int cardIndex, int elementIndex) {
+		logger.info("Drag start: key={}, cardIndex={}, elementIndex={}", item.getKey(), cardIndex, elementIndex);
 		flowView.resetPreview();
 		flowView.setDragOutsidePanel(false);
 		isHighlightActive = false;
@@ -319,19 +319,24 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		originalElementsBeforeDrag = new ArrayList<>(currentElements);
 		if (!isFromPalette) {
 			if (item instanceof TooltipItem) {
-				int removalIndex = resolveTooltipElementIndex(abilityIndex);
-				logger.info("Drag start resolved tooltip removalIndex={} (cardIndex={})", removalIndex, abilityIndex);
+				int removalIndex = (elementIndex >= 0 && elementIndex < currentElements.size() && currentElements.get(elementIndex).isTooltip())
+						? elementIndex
+						: resolveTooltipElementIndex(cardIndex);
+				logger.info("Drag start resolved tooltip removalIndex={} (cardIndex={}, elementIndex={})",
+						removalIndex, cardIndex, elementIndex);
 				if (removalIndex >= 0) {
 					List<SequenceElement> working = new ArrayList<>(currentElements);
 					previewElements = expressionBuilder.removeTooltipAt(working, removalIndex);
 				} else {
-					logger.warn("Failed to resolve tooltip index for drag start: abilityIndex={}", abilityIndex);
+					logger.warn("Failed to resolve tooltip index for drag start: cardIndex={}, elementIndex={}", cardIndex, elementIndex);
 					previewElements = new ArrayList<>(currentElements);
 				}
 			} else {
-				int removalIndex = resolveElementIndexForDrag(item, abilityIndex);
-				logger.info("Drag start resolved removalIndex={} for key={} (abilityIndex={})",
-						removalIndex, item.getKey(), abilityIndex);
+				int removalIndex = (elementIndex >= 0 && elementIndex < currentElements.size() && currentElements.get(elementIndex).isAbility())
+						? elementIndex
+						: resolveElementIndexForDrag(item, -1);
+				logger.info("Drag start resolved removalIndex={} for key={} (cardIndex={}, elementIndex={})",
+						removalIndex, item.getKey(), cardIndex, elementIndex);
 				logAbilityOrder("Before removal", currentElements);
 				if (removalIndex >= 0) {
 					List<SequenceElement> working = new ArrayList<>(currentElements);
@@ -344,8 +349,8 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 					logger.info("Removed ability occurrence: key={}, before='{}', after='{}'",
 							item.getKey(), beforeExpr, afterExpr);
 				} else {
-					logger.warn("Failed to resolve element index for drag start: item={}, abilityIndex={}",
-							item.getKey(), abilityIndex);
+					logger.warn("Failed to resolve element index for drag start: item={}, cardIndex={}, elementIndex={}",
+							item.getKey(), cardIndex, elementIndex);
 					previewElements = new ArrayList<>(currentElements);
 				}
 				logAbilityOrder("After removal", previewElements);

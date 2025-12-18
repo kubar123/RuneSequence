@@ -43,7 +43,7 @@ public class AbilityDragController {
 	private boolean releasePhaseLogging = false;
 
 	public interface DragCallback {
-		void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex);
+		void onDragStart(AbilityItem item, boolean isFromPalette, int cardIndex, int elementIndex);
 
 		void onDragMove(AbilityItem draggedItem, DragPreviewModel previewModel);
 
@@ -88,7 +88,7 @@ public class AbilityDragController {
 					return;
 				}
 
-				int index = -1;
+				int cardIndex = -1;
 				int elementIndex = -1;
 				Component[] cardsSnapshot = callback.getAllCards();
 				if (logger.isInfoEnabled()) {
@@ -110,7 +110,7 @@ public class AbilityDragController {
 				if (!isFromPalette) {
 					for (int i = 0; i < cardsSnapshot.length; i++) {
 						if (cardsSnapshot[i] == card) {
-							index = i;
+							cardIndex = i;
 							break;
 						}
 					}
@@ -120,8 +120,8 @@ public class AbilityDragController {
 					}
 				}
 				logger.info("Start drag detected card index={}, elementIndex={}, abilityKey={}",
-						index, elementIndex, item.getKey());
-				startDrag(item, card, isFromPalette, index, e.getPoint(), e.getButton());
+						cardIndex, elementIndex, item.getKey());
+				startDrag(item, card, isFromPalette, cardIndex, elementIndex, e.getPoint(), e.getButton());
 			}
 
 			@Override
@@ -143,15 +143,16 @@ public class AbilityDragController {
 	private void startDrag(AbilityItem item,
 	                       JPanel card,
 	                       boolean isFromPalette,
-	                       int originalIndex,
+	                       int originalCardIndex,
+	                       int originalElementIndex,
 	                       Point startPoint,
 	                       int startButton) {
-		currentDrag = new DragState(item, card, isFromPalette, originalIndex, callback.getCurrentElements(), startButton);
+		currentDrag = new DragState(item, card, isFromPalette, originalCardIndex, callback.getCurrentElements(), startButton);
 
 		overlay.startFloating(card, startPoint);
 		indicatorController.setGlassPane(overlay.getGlassPane());
 
-		callback.onDragStart(item, isFromPalette, originalIndex);
+		callback.onDragStart(item, isFromPalette, originalCardIndex, originalElementIndex);
 
 		refreshGeometryCache();
 		lastPreviewModel = null;

@@ -92,7 +92,7 @@ class AbilityFlowViewGroupingTest {
 	private com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController.DragCallback stubDragCallback(AbilityFlowView view) {
 		return new com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.AbilityDragController.DragCallback() {
 			@Override
-			public void onDragStart(AbilityItem item, boolean isFromPalette, int abilityIndex) {
+			public void onDragStart(AbilityItem item, boolean isFromPalette, int cardIndex, int elementIndex) {
 			}
 
 			@Override
@@ -115,4 +115,3 @@ class AbilityFlowViewGroupingTest {
 		};
 	}
 }
-
