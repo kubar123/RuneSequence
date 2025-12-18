@@ -45,23 +45,11 @@ public class SequenceParser {
 		Map<String, AbilitySettingsOverrides> overridesByLabel = parts.perInstanceOverrides();
 
 		Tokenizer tokenizer = new Tokenizer();
-		try {
-			List<Token> tokens = tokenizer.tokenize(expression);
-			SequenceParser parser = new SequenceParser(tokens, overridesByLabel);
-			SequenceDefinition definition = parser.parseExpression();
-			parser.ensureFullyConsumed();
-			return definition;
-		} catch (RuntimeException primaryFailure) {
-			String cleanedExpression = new TooltipMarkupParser().parse(expression).cleanedExpression();
-			if (cleanedExpression == null || cleanedExpression.isBlank() || cleanedExpression.equals(expression)) {
-				throw primaryFailure;
-			}
-			List<Token> tokens = tokenizer.tokenize(cleanedExpression);
-			SequenceParser parser = new SequenceParser(tokens, overridesByLabel);
-			SequenceDefinition definition = parser.parseExpression();
-			parser.ensureFullyConsumed();
-			return definition;
-		}
+		List<Token> tokens = tokenizer.tokenize(expression);
+		SequenceParser parser = new SequenceParser(tokens, overridesByLabel);
+		SequenceDefinition definition = parser.parseExpression();
+		parser.ensureFullyConsumed();
+		return definition;
 	}
 
 	private SequenceDefinition parseExpression() {

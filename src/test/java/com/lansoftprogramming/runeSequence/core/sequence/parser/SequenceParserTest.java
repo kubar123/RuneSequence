@@ -68,6 +68,7 @@ class SequenceParserTest {
 				"(A -> -> B)",
 				"(-> A -> B)",
 				"(A B -> C -> D)",
+				"(A -> B (note) C)",
 				"(A -> + B -> C)",
 				"(A -> B -> )",
 				"A -> -> B"

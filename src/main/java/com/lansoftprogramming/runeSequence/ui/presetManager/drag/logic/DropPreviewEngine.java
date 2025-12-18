@@ -68,12 +68,10 @@ public class DropPreviewEngine {
 		int targetElementIndex = target.elementIndex;
 		int targetVisualIndex = target.visualIndex;
 
-		List<SequenceElement> elementsToCheck = originalElements != null
-				? originalElements
-				: elementSnapshot;
-		if (elementsToCheck == null) {
-			elementsToCheck = elementSnapshot;
-		}
+		// Important: all indices (CardSnapshot.elementIndex, insertIndex) are based on the current
+		// rendered element list (the "preview elements" during a drag). Using the original list here
+		// can shift indices after the dragged element is removed and leads to incorrect zone/insert decisions.
+		List<SequenceElement> elementsToCheck = elementSnapshot;
 		DropZoneType existingGroupZone = target.groupZone;
 
 		String targetAbilityKey = target.abilityKey;
@@ -106,9 +104,6 @@ public class DropPreviewEngine {
 
 		if (existingGroupZone == null) {
 			existingGroupZone = resolveGroupZoneAt(elementsToCheck, currentTargetIndex);
-		}
-		if (existingGroupZone == null) {
-			existingGroupZone = resolveGroupZoneAt(elementSnapshot, currentTargetIndex);
 		}
 
 		GroupBoundaries groupBounds = analyzeGroupBoundaries(elementSnapshot, currentTargetIndex, existingGroupZone);
@@ -194,14 +189,16 @@ public class DropPreviewEngine {
 		if (elements == null || abilityIndex < 0 || abilityIndex >= elements.size()) {
 			return null;
 		}
-		if (abilityIndex + 1 < elements.size()) {
-			DropZoneType zone = zoneForSeparator(elements.get(abilityIndex + 1).getType());
+		int nextStructural = nextNonTooltipIndex(elements, abilityIndex + 1);
+		if (nextStructural != -1) {
+			DropZoneType zone = zoneForSeparator(elements.get(nextStructural).getType());
 			if (zone != null) {
 				return zone;
 			}
 		}
-		if (abilityIndex - 1 >= 0) {
-			DropZoneType zone = zoneForSeparator(elements.get(abilityIndex - 1).getType());
+		int prevStructural = previousNonTooltipIndex(elements, abilityIndex - 1);
+		if (prevStructural != -1) {
+			DropZoneType zone = zoneForSeparator(elements.get(prevStructural).getType());
 			if (zone != null) {
 				return zone;
 			}
@@ -249,29 +246,64 @@ public class DropPreviewEngine {
 		}
 		int start = targetIndex;
 		int end = targetIndex;
-		for (int i = targetIndex - 1; i >= 0; i--) {
-			SequenceElement elem = elements.get(i);
-			if (elem.getType() == separatorType) {
-				i--;
-				if (i >= 0 && elements.get(i).isAbility()) {
-					start = i;
-				}
-			} else {
+
+		int cursor = previousNonTooltipIndex(elements, targetIndex - 1);
+		while (cursor != -1) {
+			SequenceElement elem = elements.get(cursor);
+			if (elem.getType() != separatorType) {
 				break;
 			}
-		}
-		for (int i = targetIndex + 1; i < elements.size(); i++) {
-			SequenceElement elem = elements.get(i);
-			if (elem.getType() == separatorType) {
-				i++;
-				if (i < elements.size() && elements.get(i).isAbility()) {
-					end = i;
-				}
-			} else {
+			int abilityIndex = previousNonTooltipIndex(elements, cursor - 1);
+			if (abilityIndex == -1 || !elements.get(abilityIndex).isAbility()) {
 				break;
 			}
+			start = abilityIndex;
+			cursor = previousNonTooltipIndex(elements, abilityIndex - 1);
 		}
+
+		cursor = nextNonTooltipIndex(elements, targetIndex + 1);
+		while (cursor != -1) {
+			SequenceElement elem = elements.get(cursor);
+			if (elem.getType() != separatorType) {
+				break;
+			}
+			int abilityIndex = nextNonTooltipIndex(elements, cursor + 1);
+			if (abilityIndex == -1 || !elements.get(abilityIndex).isAbility()) {
+				break;
+			}
+			end = abilityIndex;
+			cursor = nextNonTooltipIndex(elements, abilityIndex + 1);
+		}
+
 		return new GroupBoundaries(start, end);
+	}
+
+	private int previousNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
+		if (elements == null || elements.isEmpty()) {
+			return -1;
+		}
+		int index = Math.min(fromIndexInclusive, elements.size() - 1);
+		while (index >= 0) {
+			if (!elements.get(index).isTooltip()) {
+				return index;
+			}
+			index--;
+		}
+		return -1;
+	}
+
+	private int nextNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
+		if (elements == null || elements.isEmpty()) {
+			return -1;
+		}
+		int index = Math.max(0, fromIndexInclusive);
+		while (index < elements.size()) {
+			if (!elements.get(index).isTooltip()) {
+				return index;
+			}
+			index++;
+		}
+		return -1;
 	}
 
 	private DropZoneType determineZoneType(DropZoneType existingGroupZone,

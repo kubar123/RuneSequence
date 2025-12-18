@@ -87,15 +87,26 @@ public class DropIndicatorController {
 		Component leftCard = null;
 		Component rightCard = null;
 
+		List<SequenceElement> elementSnapshot = currentElementsSupplier.get();
+
+		int leftBoundaryVisual = targetVisualIndex;
+		int rightBoundaryVisual = targetVisualIndex;
+
+		Integer targetElementIndex = elementIndexExtractor.apply(targetCard);
+		if (targetElementIndex != null && elementSnapshot != null && !elementSnapshot.isEmpty()) {
+			leftBoundaryVisual = expandBoundaryLeft(allCards, targetVisualIndex, targetElementIndex, elementSnapshot, elementIndexExtractor);
+			rightBoundaryVisual = expandBoundaryRight(allCards, targetVisualIndex, targetElementIndex, elementSnapshot, elementIndexExtractor);
+		}
+
 		if (preview.getDropSide() == DropSide.LEFT) {
-			rightCard = targetCard;
-			if (targetVisualIndex > 0) {
-				leftCard = allCards[targetVisualIndex - 1];
+			rightCard = allCards[Math.max(0, leftBoundaryVisual)];
+			if (leftBoundaryVisual > 0) {
+				leftCard = allCards[leftBoundaryVisual - 1];
 			}
 		} else {
-			leftCard = targetCard;
-			if (targetVisualIndex + 1 < allCards.length) {
-				rightCard = allCards[targetVisualIndex + 1];
+			leftCard = allCards[Math.min(allCards.length - 1, rightBoundaryVisual)];
+			if (rightBoundaryVisual + 1 < allCards.length) {
+				rightCard = allCards[rightBoundaryVisual + 1];
 			}
 		}
 
@@ -128,16 +139,12 @@ public class DropIndicatorController {
 		}
 
 		if (indicatorZone == null) {
-			List<SequenceElement> elementsToCheck = currentDrag != null
-					? currentDrag.getOriginalElements()
-					: currentElementsSupplier.get();
-
 			Integer elementIdx = elementIndexExtractor.apply(targetCard);
 			if (elementIdx == null) {
 				return;
 			}
 
-			indicatorZone = groupZoneResolver.apply(elementsToCheck, elementIdx);
+			indicatorZone = groupZoneResolver.apply(elementSnapshot, elementIdx);
 		}
 
 		String groupSymbol = symbolResolver.apply(indicatorZone);
@@ -149,6 +156,48 @@ public class DropIndicatorController {
 				: null;
 
 		indicators.showIndicators(targetCard, topSymbol, bottomSymbol);
+	}
+
+	private int expandBoundaryRight(Component[] cards,
+	                                int startVisualIndex,
+	                                int startElementIndex,
+	                                List<SequenceElement> elements,
+	                                Function<Component, Integer> elementIndexExtractor) {
+		int visual = startVisualIndex;
+		int elementIndex = startElementIndex;
+		while (visual + 1 < cards.length) {
+			Integer nextElementIndex = elementIndexExtractor.apply(cards[visual + 1]);
+			if (nextElementIndex == null || nextElementIndex != elementIndex + 1) {
+				break;
+			}
+			if (nextElementIndex < 0 || nextElementIndex >= elements.size() || !elements.get(nextElementIndex).isTooltip()) {
+				break;
+			}
+			visual++;
+			elementIndex = nextElementIndex;
+		}
+		return visual;
+	}
+
+	private int expandBoundaryLeft(Component[] cards,
+	                               int startVisualIndex,
+	                               int startElementIndex,
+	                               List<SequenceElement> elements,
+	                               Function<Component, Integer> elementIndexExtractor) {
+		int visual = startVisualIndex;
+		int elementIndex = startElementIndex;
+		while (visual - 1 >= 0) {
+			Integer prevElementIndex = elementIndexExtractor.apply(cards[visual - 1]);
+			if (prevElementIndex == null || prevElementIndex != elementIndex - 1) {
+				break;
+			}
+			if (prevElementIndex < 0 || prevElementIndex >= elements.size() || !elements.get(prevElementIndex).isTooltip()) {
+				break;
+			}
+			visual--;
+			elementIndex = prevElementIndex;
+		}
+		return visual;
 	}
 
 	public void cleanup() {

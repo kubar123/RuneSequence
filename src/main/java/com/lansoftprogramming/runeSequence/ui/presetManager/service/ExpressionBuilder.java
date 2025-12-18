@@ -277,19 +277,27 @@ public class ExpressionBuilder {
         // Check after the inserted block
         int endIndex = startIndex + length;
         if (endIndex < elements.size()) {
-            SequenceElement lastPayload = elements.get(endIndex - 1);
-            SequenceElement nextExisting = elements.get(endIndex);
-            if (lastPayload.isAbility() && nextExisting.isAbility()) {
-                elements.add(endIndex, SequenceElement.arrow());
+            int leftStructural = previousNonTooltipIndex(elements, endIndex - 1);
+            int rightStructural = nextNonTooltipIndex(elements, endIndex);
+            if (leftStructural != -1
+                    && rightStructural != -1
+                    && elements.get(leftStructural).isAbility()
+                    && elements.get(rightStructural).isAbility()
+                    && onlyTooltipsBetween(elements, leftStructural, rightStructural)) {
+                elements.add(rightStructural, SequenceElement.arrow());
             }
         }
 
         // Check before the inserted block
         if (startIndex > 0) {
-            SequenceElement prevExisting = elements.get(startIndex - 1);
-            SequenceElement firstPayload = elements.get(startIndex);
-            if (prevExisting.isAbility() && firstPayload.isAbility()) {
-                elements.add(startIndex, SequenceElement.arrow());
+            int leftStructural = previousNonTooltipIndex(elements, startIndex - 1);
+            int rightStructural = nextNonTooltipIndex(elements, startIndex);
+            if (leftStructural != -1
+                    && rightStructural != -1
+                    && elements.get(leftStructural).isAbility()
+                    && elements.get(rightStructural).isAbility()
+                    && onlyTooltipsBetween(elements, leftStructural, rightStructural)) {
+                elements.add(rightStructural, SequenceElement.arrow());
             }
         }
     }
@@ -315,9 +323,30 @@ public class ExpressionBuilder {
         // Clamp insertIndex to valid range
         insertIndex = Math.max(0, Math.min(insertIndex, elements.size()));
 
+        if (dropSide == DropSide.RIGHT) {
+            int leftStructural = previousNonTooltipIndex(elements, insertIndex - 1);
+            if (leftStructural != -1
+                    && elements.get(leftStructural).isAbility()
+                    && onlyTooltipsBetween(elements, leftStructural, insertIndex)) {
+                while (insertIndex < elements.size() && elements.get(insertIndex).isTooltip()) {
+                    insertIndex++;
+                }
+            }
+        } else if (dropSide == DropSide.LEFT) {
+            int rightStructural = nextNonTooltipIndex(elements, insertIndex);
+            if (rightStructural != -1
+                    && elements.get(rightStructural).isAbility()
+                    && onlyTooltipsBetween(elements, insertIndex, rightStructural)) {
+                while (insertIndex > 0 && elements.get(insertIndex - 1).isTooltip()) {
+                    insertIndex--;
+                }
+            }
+        }
+
         // If insertIndex is at the end, just append
         if (insertIndex >= elements.size()) {
-            if (!elements.isEmpty() && elements.get(elements.size() - 1).isAbility()) {
+            int lastStructural = previousNonTooltipIndex(elements, elements.size() - 1);
+            if (lastStructural != -1 && elements.get(lastStructural).isAbility()) {
                 SequenceElement separator = requestedGroupType == SequenceElement.Type.PLUS
                     ? SequenceElement.plus()
                     : SequenceElement.slash();
@@ -397,6 +426,10 @@ public class ExpressionBuilder {
         while (checkIndex >= 0) {
             SequenceElement elem = elements.get(checkIndex);
 
+            if (elem.isTooltip()) {
+                checkIndex--;
+                continue;
+            }
             if (elem.isPlus() || elem.isSlash()) {
                 if (groupType == null) {
                     groupType = elem.getType();
@@ -419,6 +452,10 @@ public class ExpressionBuilder {
         while (checkIndex < elements.size()) {
             SequenceElement elem = elements.get(checkIndex);
 
+            if (elem.isTooltip()) {
+                checkIndex++;
+                continue;
+            }
             if (elem.isPlus() || elem.isSlash()) {
                 if (groupType == null) {
                     groupType = elem.getType();
@@ -452,79 +489,129 @@ public class ExpressionBuilder {
 
         if (insertIndex == 0) {
             elements.add(0, abilityElement);
-            if (elements.size() > 1 && elements.get(1).isAbility()) {
+            int nextStructural = nextNonTooltipIndex(elements, 1);
+            if (nextStructural != -1 && elements.get(nextStructural).isAbility()) {
                 elements.add(1, SequenceElement.arrow());
             }
             return;
         }
 
         if (insertIndex >= elements.size()) {
-            if (!elements.isEmpty() && elements.get(elements.size() - 1).isAbility()) {
+            int lastStructural = previousNonTooltipIndex(elements, elements.size() - 1);
+            if (lastStructural != -1 && elements.get(lastStructural).isAbility()) {
                 elements.add(SequenceElement.arrow());
             }
             elements.add(abilityElement);
             return;
         }
 
-        // The key insight: insertIndex points to where we want to insert in the element array
-        // We need to check what's at insertIndex-1 and insertIndex to understand the context
-
-        SequenceElement beforeElement = elements.get(insertIndex - 1);
-        SequenceElement atElement = elements.get(insertIndex);
-
-        logger.debug("  beforeElement[{}]: {}", insertIndex - 1, beforeElement);
-        logger.debug("  atElement[{}]: {}", insertIndex, atElement);
-
-        // Case 1: Inserting right after an ability
-        if (beforeElement.isAbility()) {
-            // Check if the ability is part of a group
-            GroupInfo groupInfo = analyzeGroup(elements, insertIndex - 1);
-            logger.debug("  groupInfo: isInGroup={}, groupType={}", groupInfo.isInGroup, groupInfo.groupType);
-
-            if (groupInfo.isInGroup) {
-                // The ability before us is in a group
-                // We need to split the group at this point
-
-                // Check what comes after: if it's a group separator, we're splitting mid-group
-                if (atElement.isPlus() || atElement.isSlash()) {
-                    logger.debug("  Splitting group: replacing separator at {} with arrow", insertIndex);
-                    // Replace the group separator with arrow to split the group
-                    elements.set(insertIndex, SequenceElement.arrow());
-                    // Insert the new ability after the arrow
-                    elements.add(insertIndex + 1, abilityElement);
-                    // Check if we need another arrow after the new ability
-                    if (insertIndex + 2 < elements.size() && elements.get(insertIndex + 2).isAbility()) {
-                        elements.add(insertIndex + 2, SequenceElement.arrow());
-                    }
-                } else {
-                    // The group already ended (atElement is arrow or we're at boundary)
-                    // Just insert normally
-                    logger.debug("  Group already ended, inserting normally");
-                    elements.add(insertIndex, SequenceElement.arrow());
-                    elements.add(insertIndex + 1, abilityElement);
-                    if (atElement.isAbility()) {
-                        elements.add(insertIndex + 2, SequenceElement.arrow());
-                    }
-                }
-            } else {
-                // Standalone ability - standard insertion
-                logger.debug("  Standalone ability, standard insertion");
-                elements.add(insertIndex, SequenceElement.arrow());
-                elements.add(insertIndex + 1, abilityElement);
-                if (atElement.isAbility()) {
-                    elements.add(insertIndex + 2, SequenceElement.arrow());
-                }
-            }
-        } else {
-            // beforeElement is a separator
-            logger.debug("  Before element is separator, inserting after it");
-            elements.add(insertIndex, abilityElement);
-            if (atElement.isAbility()) {
-                elements.add(insertIndex + 1, SequenceElement.arrow());
+        int leftStructuralIndex = previousNonTooltipIndex(elements, insertIndex - 1);
+        if (leftStructuralIndex != -1
+                && elements.get(leftStructuralIndex).isAbility()
+                && onlyTooltipsBetween(elements, leftStructuralIndex, insertIndex)) {
+            while (insertIndex < elements.size() && elements.get(insertIndex).isTooltip()) {
+                insertIndex++;
             }
         }
 
-        logger.debug("  Result: {}", buildExpression(elements));
+        if (insertIndex >= elements.size()) {
+            int lastStructural = previousNonTooltipIndex(elements, elements.size() - 1);
+            if (lastStructural != -1 && elements.get(lastStructural).isAbility()) {
+                elements.add(SequenceElement.arrow());
+            }
+            elements.add(abilityElement);
+            return;
+        }
+
+        leftStructuralIndex = previousNonTooltipIndex(elements, insertIndex - 1);
+        int rightStructuralIndex = nextNonTooltipIndex(elements, insertIndex);
+
+        SequenceElement leftStructural = leftStructuralIndex != -1 ? elements.get(leftStructuralIndex) : null;
+        SequenceElement rightStructural = rightStructuralIndex != -1 ? elements.get(rightStructuralIndex) : null;
+
+        logger.debug("  leftStructural[{}]: {}", leftStructuralIndex, leftStructural);
+        logger.debug("  rightStructural[{}]: {}", rightStructuralIndex, rightStructural);
+
+        if (leftStructural != null && leftStructural.isAbility()) {
+            GroupInfo groupInfo = analyzeGroup(elements, leftStructuralIndex);
+            logger.debug("  groupInfo: isInGroup={}, groupType={}", groupInfo.isInGroup, groupInfo.groupType);
+
+            if (groupInfo.isInGroup && rightStructural != null && (rightStructural.isPlus() || rightStructural.isSlash())) {
+                logger.debug("  Splitting group: replacing separator at {} with arrow", rightStructuralIndex);
+                elements.set(rightStructuralIndex, SequenceElement.arrow());
+                elements.add(rightStructuralIndex + 1, abilityElement);
+
+                int nextStructural = nextNonTooltipIndex(elements, rightStructuralIndex + 2);
+                if (nextStructural != -1 && elements.get(nextStructural).isAbility()
+                        && onlyTooltipsBetween(elements, rightStructuralIndex + 1, nextStructural)) {
+                    elements.add(rightStructuralIndex + 2, SequenceElement.arrow());
+                }
+                return;
+            }
+
+            logger.debug("  Standard NEXT insertion after ability");
+            elements.add(insertIndex, SequenceElement.arrow());
+            elements.add(insertIndex + 1, abilityElement);
+
+            int nextStructural = nextNonTooltipIndex(elements, insertIndex + 2);
+            if (nextStructural != -1 && elements.get(nextStructural).isAbility()
+                    && onlyTooltipsBetween(elements, insertIndex + 1, nextStructural)) {
+                elements.add(insertIndex + 2, SequenceElement.arrow());
+            }
+            return;
+        }
+
+        logger.debug("  Inserting NEXT after separator/boundary");
+        elements.add(insertIndex, abilityElement);
+
+        int nextStructural = nextNonTooltipIndex(elements, insertIndex + 1);
+        if (nextStructural != -1 && elements.get(nextStructural).isAbility()
+                && onlyTooltipsBetween(elements, insertIndex, nextStructural)) {
+            elements.add(insertIndex + 1, SequenceElement.arrow());
+        }
+    }
+
+    private int previousNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
+        if (elements == null || elements.isEmpty()) {
+            return -1;
+        }
+        int index = Math.min(fromIndexInclusive, elements.size() - 1);
+        while (index >= 0) {
+            if (!elements.get(index).isTooltip()) {
+                return index;
+            }
+            index--;
+        }
+        return -1;
+    }
+
+    private int nextNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
+        if (elements == null || elements.isEmpty()) {
+            return -1;
+        }
+        int index = Math.max(0, fromIndexInclusive);
+        while (index < elements.size()) {
+            if (!elements.get(index).isTooltip()) {
+                return index;
+            }
+            index++;
+        }
+        return -1;
+    }
+
+    private boolean onlyTooltipsBetween(List<SequenceElement> elements, int leftIndex, int rightIndex) {
+        if (elements == null || leftIndex < 0 || rightIndex < 0) {
+            return false;
+        }
+        if (rightIndex <= leftIndex + 1) {
+            return true;
+        }
+        for (int i = leftIndex + 1; i < rightIndex; i++) {
+            if (!elements.get(i).isTooltip()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -539,6 +626,8 @@ public class ExpressionBuilder {
      */
     private void cleanupAfterRemoval(List<SequenceElement> elements, int removalPoint) {
         if (elements.isEmpty()) return;
+
+        normalizeSeparatorsWithTooltips(elements);
 
         // Remove orphaned separator at removal point
         if (removalPoint < elements.size() && elements.get(removalPoint).isSeparator()) {
@@ -565,6 +654,8 @@ public class ExpressionBuilder {
         while (!elements.isEmpty() && elements.get(elements.size() - 1).isSeparator()) {
             elements.remove(elements.size() - 1);
         }
+
+        normalizeSeparatorsWithTooltips(elements);
     }
 
     private List<SequenceElement> trimSeparators(List<SequenceElement> snippet) {
@@ -583,6 +674,8 @@ public class ExpressionBuilder {
             return;
         }
 
+        normalizeSeparatorsWithTooltips(elements);
+
         // Clean up consecutive separators
         for (int i = elements.size() - 1; i > 0; i--) {
             if (elements.get(i).isSeparator() && elements.get(i - 1).isSeparator()) {
@@ -597,6 +690,79 @@ public class ExpressionBuilder {
         while (!elements.isEmpty() && elements.get(elements.size() - 1).isSeparator()) {
             elements.remove(elements.size() - 1);
         }
+
+        normalizeSeparatorsWithTooltips(elements);
+    }
+
+    private void normalizeSeparatorsWithTooltips(List<SequenceElement> elements) {
+        if (elements == null || elements.isEmpty()) {
+            return;
+        }
+
+        boolean changed;
+        do {
+            changed = false;
+            for (int i = 0; i < elements.size(); i++) {
+                SequenceElement element = elements.get(i);
+                if (element == null || !element.isSeparator()) {
+                    continue;
+                }
+
+                if (element.getType() == SequenceElement.Type.PLUS || element.getType() == SequenceElement.Type.SLASH) {
+                    boolean hasLeftAbility = hasAbilityToLeftInSameStep(elements, i);
+                    boolean hasRightAbility = hasAbilityToRightInSameStep(elements, i);
+                    if (!hasLeftAbility || !hasRightAbility) {
+                        elements.remove(i);
+                        changed = true;
+                        break;
+                    }
+                } else if (element.getType() == SequenceElement.Type.ARROW) {
+                    boolean hasLeftAbility = hasAbilityToLeftInSameStep(elements, i);
+                    boolean hasRightAbility = hasAbilityToRightInSameStep(elements, i);
+                    if (!hasLeftAbility || !hasRightAbility) {
+                        elements.remove(i);
+                        changed = true;
+                        break;
+                    }
+                } else {
+                    elements.remove(i);
+                    changed = true;
+                    break;
+                }
+            }
+        } while (changed);
+    }
+
+    private boolean hasAbilityToLeftInSameStep(List<SequenceElement> elements, int fromIndexExclusive) {
+        int cursor = previousNonTooltipIndex(elements, fromIndexExclusive - 1);
+        while (cursor != -1) {
+            SequenceElement candidate = elements.get(cursor);
+            if (candidate.getType() == SequenceElement.Type.ARROW) {
+                return false;
+            }
+            if (candidate.isAbility()) {
+                return true;
+            }
+            // Skip group separators when searching left; they don't satisfy "ability exists".
+            cursor = previousNonTooltipIndex(elements, cursor - 1);
+        }
+        return false;
+    }
+
+    private boolean hasAbilityToRightInSameStep(List<SequenceElement> elements, int fromIndexExclusive) {
+        int cursor = nextNonTooltipIndex(elements, fromIndexExclusive + 1);
+        while (cursor != -1) {
+            SequenceElement candidate = elements.get(cursor);
+            if (candidate.getType() == SequenceElement.Type.ARROW) {
+                return false;
+            }
+            if (candidate.isAbility()) {
+                return true;
+            }
+            // Skip group separators when searching right; they don't satisfy "ability exists".
+            cursor = nextNonTooltipIndex(elements, cursor + 1);
+        }
+        return false;
     }
 
     /**

@@ -31,6 +31,8 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 	private final JPanel emptyDropIndicator;
 	private Component[] cachedAbilityCards;
 	private DragPreviewModel activePreview;
+	private List<JComponent> highlightedCards;
+	private List<SequenceElement> lastRenderedElements;
 	private boolean sequenceWideModified;
 	private Set<String> modifiedAbilityKeys;
 
@@ -40,6 +42,8 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		this.defaultBackground = getBackground();
 		this.defaultBorder = getBorder();
 		this.emptyDropIndicator = createEmptyDropIndicator();
+		this.highlightedCards = List.of();
+		this.lastRenderedElements = List.of();
 		this.sequenceWideModified = false;
 		this.modifiedAbilityKeys = Set.of();
 	}
@@ -66,15 +70,18 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		hideEmptyDropIndicator();
 		removeAll();
 		activePreview = null;
+		highlightedCards = List.of();
 		cachedAbilityCards = null;
+		lastRenderedElements = elements != null ? new ArrayList<>(elements) : List.of();
 
 		int index = 0;
 		while (index < elements.size()) {
 			SequenceElement element = elements.get(index);
 
 			if (element.isAbility()) {
-				if (index + 1 < elements.size()) {
-					SequenceElement next = elements.get(index + 1);
+				int nextStructuralIndex = nextNonTooltipIndex(elements, index + 1);
+				if (nextStructuralIndex != -1) {
+					SequenceElement next = elements.get(nextStructuralIndex);
 					if (next.isPlus() || next.isSlash()) {
 						index = renderAbilityGroup(elements, index, next.getType());
 						index++;
@@ -120,12 +127,15 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		hideEmptyDropIndicator();
 
 		int targetIndex = preview.getTargetAbilityIndex();
-		if (targetIndex >= 0 && targetIndex < cards.length && cards[targetIndex] instanceof JPanel targetCard) {
+		if (targetIndex >= 0 && targetIndex < cards.length && cards[targetIndex] instanceof JPanel) {
 			Color highlightColor = getHighlightColor(preview.getZoneType());
-			targetCard.setBackground(highlightColor);
-			targetCard.setBorder(BorderFactory.createLineBorder(highlightColor.darker(), 2));
-			repaint(targetCard.getBounds());
-			return true;
+			highlightedCards = collectPreviewHighlightCards(cards, preview);
+			for (JComponent card : highlightedCards) {
+				card.setBackground(highlightColor);
+				card.setBorder(BorderFactory.createLineBorder(highlightColor.darker(), 2));
+				repaint(card.getBounds());
+			}
+			return !highlightedCards.isEmpty();
 		}
 
 		return false;
@@ -141,15 +151,15 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 	}
 
 	private void clearPreviewHighlight(Component[] cards, DragPreviewModel previewModel) {
-		if (previewModel == null || previewModel.getDropPreview() == null) {
+		if (previewModel == null || previewModel.getDropPreview() == null || highlightedCards == null || highlightedCards.isEmpty()) {
 			return;
 		}
-		int previousIndex = previewModel.getDropPreview().getTargetAbilityIndex();
-		if (previousIndex >= 0 && previousIndex < cards.length && cards[previousIndex] instanceof JPanel previousCard) {
+		for (JComponent previousCard : highlightedCards) {
 			previousCard.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
 			previousCard.setBorder(UiColorPalette.CARD_BORDER);
 			repaint(previousCard.getBounds());
 		}
+		highlightedCards = List.of();
 	}
 
 	Component[] getAbilityCardArray() {
@@ -214,43 +224,29 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 
 		AbilityGroupPanel groupPanel = new AbilityGroupPanel(groupColor);
 
-		SequenceElement firstElement = elements.get(startIndex);
-		String firstKey = firstElement.getResolvedAbilityKey();
-		AbilityItem firstItem = detailService.createAbilityItem(firstKey);
-		if (firstItem != null) {
-			JPanel card = cardFactory.createAbilityCard(firstItem, isElementModified(firstElement));
-			card.putClientProperty("elementIndex", startIndex);
-			card.putClientProperty("zoneType", zoneForGroupType(groupType));
-			attachAbilityPopup(card);
-			groupPanel.add(card);
-		}
-
-		int currentIndex = startIndex + 1;
+		int currentIndex = startIndex;
 		while (currentIndex < elements.size()) {
-			SequenceElement separator = elements.get(currentIndex);
+			SequenceElement element = elements.get(currentIndex);
 
-			if (separator.getType() != groupType) {
-				break;
+			if (element.isTooltip()) {
+				addTooltipCard(element, currentIndex, groupPanel);
+				currentIndex++;
+				continue;
 			}
 
-			groupPanel.add(cardFactory.createSeparatorLabel(separator));
-
-				if (currentIndex + 1 < elements.size() && elements.get(currentIndex + 1).isAbility()) {
-					int abilityElementIndex = currentIndex + 1;
-					SequenceElement abilityElement = elements.get(abilityElementIndex);
-					String abilityKey = abilityElement.getResolvedAbilityKey();
-					AbilityItem abilityItem = detailService.createAbilityItem(abilityKey);
-				if (abilityItem != null) {
-					JPanel abilityCard = cardFactory.createAbilityCard(abilityItem, isElementModified(abilityElement));
-					abilityCard.putClientProperty("elementIndex", abilityElementIndex);
-					abilityCard.putClientProperty("zoneType", zoneForGroupType(groupType));
-					attachAbilityPopup(abilityCard);
-					groupPanel.add(abilityCard);
-				}
-				currentIndex += 2;
-			} else {
-				break;
+			if (element.isAbility()) {
+				addAbilityCard(element, currentIndex, zoneForGroupType(groupType), groupPanel);
+				currentIndex++;
+				continue;
 			}
+
+			if (element.getType() == groupType) {
+				groupPanel.add(cardFactory.createSeparatorLabel(element));
+				currentIndex++;
+				continue;
+			}
+
+			break;
 		}
 
 		add(groupPanel);
@@ -258,18 +254,26 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 	}
 
 	private void addStandaloneAbility(SequenceElement element, int elementIndex) {
+		addAbilityCard(element, elementIndex, null, this);
+	}
+
+	private void addAbilityCard(SequenceElement element, int elementIndex, DropZoneType zoneType, Container parent) {
 		String abilityKey = element.getResolvedAbilityKey();
 		AbilityItem item = detailService.createAbilityItem(abilityKey);
 		if (item != null) {
 			JPanel card = cardFactory.createAbilityCard(item, isElementModified(element));
 			card.putClientProperty("elementIndex", elementIndex);
-			card.putClientProperty("zoneType", null);
+			card.putClientProperty("zoneType", zoneType);
 			attachAbilityPopup(card);
-			add(card);
+			parent.add(card);
 		}
 	}
 
 	private void addTooltipCard(SequenceElement element, int elementIndex) {
+		addTooltipCard(element, elementIndex, this);
+	}
+
+	private void addTooltipCard(SequenceElement element, int elementIndex, Container parent) {
 		JPanel card = cardFactory.createTooltipCard(element.getValue());
 		card.putClientProperty("elementIndex", elementIndex);
 		card.putClientProperty("zoneType", null);
@@ -287,7 +291,153 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 				}
 			});
 		}
-		add(card);
+		parent.add(card);
+	}
+
+	private int nextNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
+		if (elements == null || elements.isEmpty()) {
+			return -1;
+		}
+		int index = Math.max(0, fromIndexInclusive);
+		while (index < elements.size()) {
+			if (!elements.get(index).isTooltip()) {
+				return index;
+			}
+			index++;
+		}
+		return -1;
+	}
+
+	private List<JComponent> collectPreviewHighlightCards(Component[] cards, DropPreview preview) {
+		if (cards == null || cards.length == 0 || preview == null) {
+			return List.of();
+		}
+		int targetIndex = preview.getTargetAbilityIndex();
+		if (targetIndex < 0 || targetIndex >= cards.length) {
+			return List.of();
+		}
+
+		Integer targetElementIndex = extractElementIndex(cards[targetIndex]);
+		if (targetElementIndex == null) {
+			return List.of();
+		}
+
+		int highlightStart = targetElementIndex;
+		int highlightEnd = targetElementIndex;
+
+		if (preview.getZoneType() == DropZoneType.AND || preview.getZoneType() == DropZoneType.OR) {
+			SequenceElement.Type separator = preview.getZoneType() == DropZoneType.AND
+					? SequenceElement.Type.PLUS
+					: SequenceElement.Type.SLASH;
+			Range abilityRange = computeGroupAbilityRange(lastRenderedElements, targetElementIndex, separator);
+			if (abilityRange != null && abilityRange.isValid()) {
+				highlightStart = expandLeftTooltips(lastRenderedElements, abilityRange.start());
+				highlightEnd = expandRightTooltips(lastRenderedElements, abilityRange.end());
+			}
+		} else {
+			highlightStart = expandLeftTooltips(lastRenderedElements, targetElementIndex);
+			highlightEnd = expandRightTooltips(lastRenderedElements, targetElementIndex);
+		}
+
+		List<JComponent> out = new ArrayList<>();
+		for (Component component : cards) {
+			Integer idx = extractElementIndex(component);
+			if (idx == null) {
+				continue;
+			}
+			if (idx >= highlightStart && idx <= highlightEnd && component instanceof JComponent jc) {
+				out.add(jc);
+			}
+		}
+		return out;
+	}
+
+	private Integer extractElementIndex(Component component) {
+		if (!(component instanceof JComponent jc)) {
+			return null;
+		}
+		Object prop = jc.getClientProperty("elementIndex");
+		if (prop instanceof Integer idx) {
+			return idx;
+		}
+		return null;
+	}
+
+	private Range computeGroupAbilityRange(List<SequenceElement> elements, int targetAbilityIndex, SequenceElement.Type separatorType) {
+		if (elements == null || targetAbilityIndex < 0 || targetAbilityIndex >= elements.size()) {
+			return null;
+		}
+		if (!elements.get(targetAbilityIndex).isAbility()) {
+			return null;
+		}
+		int start = targetAbilityIndex;
+		int end = targetAbilityIndex;
+
+		int cursor = previousNonTooltipIndex(elements, targetAbilityIndex - 1);
+		while (cursor != -1) {
+			SequenceElement elem = elements.get(cursor);
+			if (elem.getType() != separatorType) {
+				break;
+			}
+			int abilityIdx = previousNonTooltipIndex(elements, cursor - 1);
+			if (abilityIdx == -1 || !elements.get(abilityIdx).isAbility()) {
+				break;
+			}
+			start = abilityIdx;
+			cursor = previousNonTooltipIndex(elements, abilityIdx - 1);
+		}
+
+		cursor = nextNonTooltipIndex(elements, targetAbilityIndex + 1);
+		while (cursor != -1) {
+			SequenceElement elem = elements.get(cursor);
+			if (elem.getType() != separatorType) {
+				break;
+			}
+			int abilityIdx = nextNonTooltipIndex(elements, cursor + 1);
+			if (abilityIdx == -1 || !elements.get(abilityIdx).isAbility()) {
+				break;
+			}
+			end = abilityIdx;
+			cursor = nextNonTooltipIndex(elements, abilityIdx + 1);
+		}
+
+		return new Range(start, end);
+	}
+
+	private int previousNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
+		if (elements == null || elements.isEmpty()) {
+			return -1;
+		}
+		int index = Math.min(fromIndexInclusive, elements.size() - 1);
+		while (index >= 0) {
+			if (!elements.get(index).isTooltip()) {
+				return index;
+			}
+			index--;
+		}
+		return -1;
+	}
+
+	private int expandLeftTooltips(List<SequenceElement> elements, int index) {
+		if (elements == null || index <= 0) {
+			return Math.max(0, index);
+		}
+		int cursor = Math.min(index, elements.size() - 1);
+		while (cursor - 1 >= 0 && elements.get(cursor - 1).isTooltip()) {
+			cursor--;
+		}
+		return cursor;
+	}
+
+	private int expandRightTooltips(List<SequenceElement> elements, int index) {
+		if (elements == null || elements.isEmpty()) {
+			return index;
+		}
+		int cursor = Math.max(0, Math.min(index, elements.size() - 1));
+		while (cursor + 1 < elements.size() && elements.get(cursor + 1).isTooltip()) {
+			cursor++;
+		}
+		return cursor;
 	}
 
 	private void attachTooltipPopup(JPanel card) {
@@ -444,5 +594,11 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 			return DropZoneType.OR;
 		}
 		return null;
+	}
+
+	private record Range(int start, int end) {
+		boolean isValid() {
+			return start >= 0 && end >= start;
+		}
 	}
 }

@@ -54,4 +54,84 @@ class ExpressionBuilderTest {
 
 		assertEquals("A+C+B", builder.buildExpression(result), "When dropping into an AND group, requested OR should still use '+' separators");
 	}
+
+	@Test
+	void insertNextAfterTrailingTooltipShouldKeepTooltipWithLeftAbility() {
+		List<SequenceElement> elements = new ArrayList<>(List.of(
+				SequenceElement.ability("A"),
+				SequenceElement.arrow(),
+				SequenceElement.ability("B"),
+				SequenceElement.tooltip("note")
+		));
+
+		List<SequenceElement> result = builder.insertAbility(elements, "C", elements.size(), DropZoneType.NEXT, DropSide.RIGHT);
+
+		assertEquals("A→B(note)→C", builder.buildExpression(result));
+	}
+
+	@Test
+	void insertAndAfterTrailingTooltipShouldKeepTooltipWithLeftAbility() {
+		List<SequenceElement> elements = new ArrayList<>(List.of(
+				SequenceElement.ability("A"),
+				SequenceElement.plus(),
+				SequenceElement.ability("B"),
+				SequenceElement.tooltip("note")
+		));
+
+		List<SequenceElement> result = builder.insertAbility(elements, "C", elements.size(), DropZoneType.AND, DropSide.RIGHT);
+
+		assertEquals("A+B(note)+C", builder.buildExpression(result));
+	}
+
+	@Test
+	void removeLeadingAbilityShouldNotLeaveGroupSeparatorBetweenTooltipAndNextAbility() {
+		List<SequenceElement> elements = new ArrayList<>(List.of(
+				SequenceElement.ability("A"),
+				SequenceElement.tooltip("note"),
+				SequenceElement.plus(),
+				SequenceElement.ability("B"),
+				SequenceElement.plus(),
+				SequenceElement.ability("C")
+		));
+
+		List<SequenceElement> result = builder.removeAbilityAt(elements, 0);
+
+		assertEquals("(note)B+C", builder.buildExpression(result));
+	}
+
+	@Test
+	void moveMiddleAbilityNextAfterLast_withLeadingTooltipGroup_shouldKeepAndGroupAndInsertAfterLast() {
+		List<SequenceElement> elements = new ArrayList<>(List.of(
+				SequenceElement.ability("A"),
+				SequenceElement.tooltip("note"),
+				SequenceElement.plus(),
+				SequenceElement.ability("B"),
+				SequenceElement.plus(),
+				SequenceElement.ability("C")
+		));
+
+		List<SequenceElement> afterRemoval = builder.removeAbilityAt(elements, 3);
+		List<SequenceElement> afterInsert = builder.insertAbility(afterRemoval, "B", afterRemoval.size(), DropZoneType.NEXT, DropSide.RIGHT);
+
+		assertEquals("A(note)+C→B", builder.buildExpression(afterInsert));
+	}
+
+	@Test
+	void moveAbilityOutOfStepShouldKeepTooltipAtStepBoundary_NotAttachedToPreviousStep() {
+		List<SequenceElement> elements = new ArrayList<>(List.of(
+				SequenceElement.ability("A"),
+				SequenceElement.arrow(),
+				SequenceElement.ability("B"),
+				SequenceElement.tooltip("tip"),
+				SequenceElement.plus(),
+				SequenceElement.ability("C"),
+				SequenceElement.plus(),
+				SequenceElement.ability("D")
+		));
+
+		List<SequenceElement> afterRemoval = builder.removeAbilityAt(elements, 2);
+		List<SequenceElement> afterInsert = builder.insertAbility(afterRemoval, "B", afterRemoval.size(), DropZoneType.NEXT, DropSide.RIGHT);
+
+		assertEquals("A→(tip)C+D→B", builder.buildExpression(afterInsert));
+	}
 }
