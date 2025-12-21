@@ -54,6 +54,41 @@ class SequenceManagerEffectiveConfigTest {
 		assertTrue(requirement.effectiveAbilityConfig().isTriggersGcd(), "Override should mark ability as GCD-triggering");
 	}
 
+	@Test
+	void latchSelectionShouldOnlyTrackCurrentStepRequirements() {
+		AbilityConfig abilityConfig = new AbilityConfig();
+
+		AbilityConfig.AbilityData alpha = new AbilityConfig.AbilityData();
+		alpha.setTriggersGcd(true);
+		abilityConfig.putAbility("Alpha", alpha);
+
+		AbilityConfig.AbilityData beta = new AbilityConfig.AbilityData();
+		beta.setTriggersGcd(true);
+		abilityConfig.putAbility("Beta", beta);
+
+		SequenceDefinition definition = new SequenceDefinition(List.of(
+				new Step(List.of(new Term(List.of(new Alternative("Alpha", null))))),
+				new Step(List.of(new Term(List.of(new Alternative("Beta", null)))))
+		));
+
+		Map<String, SequenceDefinition> namedSequences = new HashMap<>();
+		namedSequences.put("test", definition);
+
+		SequenceManager manager = new SequenceManager(
+				namedSequences,
+				Map.of("test", TooltipSchedule.empty()),
+				abilityConfig,
+				new NoopNotificationService(),
+				new TemplateDetector(new TestTemplateCache(), abilityConfig)
+		);
+		manager.activateSequence("test");
+
+		List<ActiveSequence.DetectionRequirement> selected = manager.previewGcdLatchRequirements();
+
+		assertEquals(1, selected.size());
+		assertEquals("Alpha#0", selected.get(0).instanceId());
+	}
+
 	private static final class NoopNotificationService implements NotificationService {
 		@Override
 		public void showInfo(String message) {

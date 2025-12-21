@@ -106,12 +106,26 @@ public class Main {
 							entry -> entry.getValue().schedule()
 					));
 
+			Map<String, Boolean> alwaysGBargeByPresetId = rotationConfig.getPresets().entrySet().stream()
+					.collect(Collectors.toMap(
+							Map.Entry::getKey,
+							entry -> {
+								RotationConfig.PresetData preset = entry.getValue();
+								if (preset == null || preset.getAbilitySettings() == null
+										|| preset.getAbilitySettings().getRotationDefaults() == null) {
+									return false;
+								}
+								return Boolean.TRUE.equals(preset.getAbilitySettings().getRotationDefaults().getAlwaysGBarge());
+							}
+					));
+
 			SequenceManager sequenceManager = new SequenceManager(
 					namedSequences,
 					tooltipSchedules,
 					configManager.getAbilities(),
 					notifications,
-					templateDetector
+					templateDetector,
+					alwaysGBargeByPresetId
 			);
 
 			//Hotkeys

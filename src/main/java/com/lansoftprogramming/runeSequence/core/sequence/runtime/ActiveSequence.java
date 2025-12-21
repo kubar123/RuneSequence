@@ -73,6 +73,27 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		return out;
 	}
 
+	public List<DetectionRequirement> getDetectionRequirementsForStep(int stepIndex) {
+		Map<String, DetectionRequirement> requirements = new LinkedHashMap<>();
+		addRequirementsForStep(stepIndex, requirements);
+		List<DetectionRequirement> out = new ArrayList<>(requirements.values());
+		System.out.println("ActiveSequence.getDetectionRequirementsForStep[" + stepIndex + "]: " + out);
+		return out;
+	}
+
+	/**
+	 * Allows external (non-template) signals (e.g. cooldown darken / latch-like events)
+	 * to feed the runtime modification engine.
+	 */
+	public void onAbilityUsed(String abilityKey, String instanceId, StepPosition position, long nowMs) {
+		if (complete) {
+			return;
+		}
+		SequenceRuntimeContext context = buildContext(nowMs);
+		modificationEngine.onEvent(context, new SequenceEvent.AbilityUsed(abilityKey, instanceId, position));
+		applyTimingDirectives(nowMs);
+	}
+
 	public void processDetections(List<DetectionResult> results) {
 
 		if (complete) {
@@ -478,6 +499,10 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 				stepTimer.setStepDurationMs(duration.durationMs());
 			} else if (directive instanceof TimingDirective.ForceStepSatisfiedAt force) {
 				stepTimer.forceSatisfiedAt(force.nowMs());
+			} else if (directive instanceof TimingDirective.PauseStepTimer) {
+				stepTimer.pause();
+			} else if (directive instanceof TimingDirective.ResumeStepTimer) {
+				stepTimer.resume();
 			}
 		}
 	}

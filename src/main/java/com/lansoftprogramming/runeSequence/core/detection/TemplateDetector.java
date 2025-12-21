@@ -252,6 +252,56 @@ public class TemplateDetector {
 		}
 	}
 
+	/**
+	 * Measure mean saturation of the given ROI in the frame (HSV S-channel).
+	 * Returns a negative value if sampling fails.
+	 */
+	public double measureSaturation(Mat frame, Rectangle roi) {
+		if (frame == null || frame.empty() || roi == null) {
+			return -1;
+		}
+
+		Rectangle clamped = clampToFrame(roi, frame);
+		if (clamped == null) {
+			return -1;
+		}
+
+		Rect rect = new Rect(clamped.x, clamped.y, clamped.width, clamped.height);
+		Mat roiMat = null;
+		Mat bgr = null;
+		Mat hsv = null;
+		try {
+			roiMat = new Mat(frame, rect);
+
+			Mat source;
+			int channels = roiMat.channels();
+			if (channels == 4) {
+				bgr = new Mat();
+				cvtColor(roiMat, bgr, COLOR_BGRA2BGR);
+				source = bgr;
+			} else {
+				source = roiMat;
+			}
+
+			hsv = new Mat();
+			cvtColor(source, hsv, COLOR_BGR2HSV);
+			return mean(hsv).get(1);
+		} catch (Exception e) {
+			logger.warn("Failed to sample saturation for ROI {}", clamped, e);
+			return -1;
+		} finally {
+			if (hsv != null) {
+				hsv.close();
+			}
+			if (bgr != null) {
+				bgr.close();
+			}
+			if (roiMat != null) {
+				roiMat.close();
+			}
+		}
+	}
+
 	private boolean isValidRoi(Rectangle roi, Mat frame) {
 		if (roi == null || frame == null || frame.empty()) {
 			return false;

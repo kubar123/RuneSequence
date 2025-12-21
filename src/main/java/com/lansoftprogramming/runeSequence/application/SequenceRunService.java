@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.application;
 import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder.BuildResult;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -120,6 +121,38 @@ public class SequenceRunService implements HotkeyListener {
 		}
 
 		sequenceManager.upsertSequence(presetId, definition, result.schedule());
+		logger.info("Refreshed in-memory sequence definition for preset '{}'.", presetId);
+		return true;
+	}
+
+	/**
+	 * Rebuilds and updates the in-memory sequence definition, tooltip schedule, and rotation-wide settings
+	 * for the given preset id.
+	 */
+	public synchronized boolean refreshSequenceFromPreset(String presetId, RotationConfig.PresetData presetData) {
+		if (presetId == null || presetId.isBlank()) {
+			logger.warn("Ignoring sequence refresh with blank preset id.");
+			return false;
+		}
+
+		String expression = presetData != null && presetData.getExpression() != null ? presetData.getExpression() : "";
+		BuildResult result = buildSchedule(expression);
+		SequenceDefinition definition = result.definition();
+
+		Boolean alwaysGBargeEnabled = null;
+		if (presetData != null
+				&& presetData.getAbilitySettings() != null
+				&& presetData.getAbilitySettings().getRotationDefaults() != null) {
+			alwaysGBargeEnabled = Boolean.TRUE.equals(presetData.getAbilitySettings().getRotationDefaults().getAlwaysGBarge());
+		}
+
+		if (definition == null) {
+			logger.warn("Parsed sequence for preset '{}' is unavailable; definition is null.", presetId);
+			sequenceManager.upsertSequence(presetId, null, result.schedule(), alwaysGBargeEnabled);
+			return false;
+		}
+
+		sequenceManager.upsertSequence(presetId, definition, result.schedule(), alwaysGBargeEnabled);
 		logger.info("Refreshed in-memory sequence definition for preset '{}'.", presetId);
 		return true;
 	}
