@@ -189,27 +189,15 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		if (activeSequence == null || sequenceComplete) {
 			return List.of();
 		}
-		List<SequenceTooltip> runtimeTooltips = activeSequence.getRuntimeTooltips();
-
 		if (activeSequenceId == null) {
-			return runtimeTooltips;
+			return List.of();
 		}
 		TooltipSchedule schedule = tooltipSchedules.get(activeSequenceId);
 		if (schedule == null) {
-			return runtimeTooltips;
+			return List.of();
 		}
 		int stepIndex = activeSequence.getCurrentStepIndex();
-		List<SequenceTooltip> scheduledTooltips = schedule.getTooltipsForStep(stepIndex);
-		if (scheduledTooltips.isEmpty()) {
-			return runtimeTooltips;
-		}
-		if (runtimeTooltips.isEmpty()) {
-			return scheduledTooltips;
-		}
-		List<SequenceTooltip> merged = new ArrayList<>(scheduledTooltips.size() + runtimeTooltips.size());
-		merged.addAll(scheduledTooltips);
-		merged.addAll(runtimeTooltips);
-		return List.copyOf(merged);
+		return schedule.getTooltipsForStep(stepIndex);
 	}
 
 	public synchronized List<String> getActiveSequenceAbilityKeys() {

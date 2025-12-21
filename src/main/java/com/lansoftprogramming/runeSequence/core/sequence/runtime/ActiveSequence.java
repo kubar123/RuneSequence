@@ -3,7 +3,6 @@ package com.lansoftprogramming.runeSequence.core.sequence.runtime;
 import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.sequence.model.*;
-import com.lansoftprogramming.runeSequence.core.sequence.runtime.modification.*;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 
 import java.util.*;
@@ -18,45 +17,27 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 	private int currentStepIndex = 0;
 	public final StepTimer stepTimer;
-	private final AbilityModificationEngine modificationEngine;
 
 	private final Map<String, DetectionResult> lastDetections = new HashMap<>();
-	private final Map<String, Boolean> previousFoundByInstanceId = new HashMap<>();
 
 	@Override
 	public void onStateChanged(SequenceController.State oldState, SequenceController.State newState) {
 		if (newState == SequenceController.State.RUNNING) {
-			long nowMs = System.currentTimeMillis();
 			stepTimer.resume();
-			modificationEngine.onEvent(buildContext(nowMs), new SequenceEvent.SequenceResumed());
-			applyTimingDirectives(nowMs);
 		} else {
-			long nowMs = System.currentTimeMillis();
-			modificationEngine.onEvent(buildContext(nowMs), new SequenceEvent.SequencePaused());
-			applyTimingDirectives(nowMs);
 			stepTimer.pause();
 		}
 	}
 
 	public ActiveSequence(SequenceDefinition def, AbilityConfig abilityConfig) {
-		this(def, abilityConfig, AbilityModificationEngine.empty());
-	}
-
-	public ActiveSequence(SequenceDefinition def, AbilityConfig abilityConfig, AbilityModificationEngine modificationEngine) {
 		this.definition = def;
 		this.abilityConfig = abilityConfig;
 		this.stepInstances = indexInstances(def, abilityConfig);
 		this.stepTimer = new StepTimer();
-		this.modificationEngine = modificationEngine != null ? modificationEngine : AbilityModificationEngine.empty();
 
 		System.out.println("ActiveSequence: Created with " + def.getSteps().size() + " steps");
 		logStepInstances();
-		long nowMs = System.currentTimeMillis();
-		startCurrentStepTiming(nowMs, false);
-		SequenceRuntimeContext context = buildContext(nowMs);
-		this.modificationEngine.onEvent(context, new SequenceEvent.SequenceInitialized());
-		this.modificationEngine.onEvent(context, new SequenceEvent.StepStarted(currentStepIndex));
-		applyTimingDirectives(nowMs);
+		this.stepTimer.startStep(def.getStep(currentStepIndex), abilityConfig);
 	}
 
 
@@ -79,15 +60,9 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			return; // Finished rotations ignore further detections until reset
 		}
 
-		long nowMs = System.currentTimeMillis();
-		SequenceRuntimeContext context = buildContext(nowMs);
-		modificationEngine.onEvent(context, new SequenceEvent.Heartbeat());
-
 		System.out.println("ActiveSequence.processDetections: Received " + results.size() + " results");
 
 		lastDetections.clear();
-		Set<String> currentInstanceIds = getInstanceIdsForStep(currentStepIndex);
-		Set<String> nextInstanceIds = getInstanceIdsForStep(currentStepIndex + 1);
 		for (DetectionResult r : results) {
 			lastDetections.put(r.templateName, r);
 
@@ -95,17 +70,8 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			System.out.println("  Stored detection: " + r.templateName +
 					(abilityKey != null ? " (" + abilityKey + ")" : "") +
 					" found=" + r.found);
-
-			boolean previouslyFound = previousFoundByInstanceId.getOrDefault(r.templateName, false);
-			if (r.found && !previouslyFound) {
-				StepPosition position = resolvePosition(r.templateName, currentInstanceIds, nextInstanceIds);
-				String resolvedKey = abilityKey != null ? abilityKey : fallbackAbilityKey(r.templateName);
-				modificationEngine.onEvent(context, new SequenceEvent.AbilityDetected(resolvedKey, r.templateName, position));
-			}
-			previousFoundByInstanceId.put(r.templateName, r.found);
 		}
 
-		applyTimingDirectives(nowMs);
 
 		System.out.println("  Checking if step is satisfied...");
 		if (stepTimer.isStepSatisfied(lastDetections)) {
@@ -183,17 +149,12 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			return;
 		}
 
-		int fromStepIndex = currentStepIndex;
 		currentStepIndex++;
 
 		System.out.println("advanceStep: Advanced to step " + currentStepIndex);
 
-		long nowMs = System.currentTimeMillis();
-		startCurrentStepTiming(nowMs, false);
-		SequenceRuntimeContext context = buildContext(nowMs);
-		modificationEngine.onEvent(context, new SequenceEvent.StepAdvanced(fromStepIndex, currentStepIndex));
-		modificationEngine.onEvent(context, new SequenceEvent.StepStarted(currentStepIndex));
-		applyTimingDirectives(nowMs);
+		Step step = getCurrentStep();
+		stepTimer.startStep(step, abilityConfig);
 	}
 
 	public void reset() {
@@ -201,18 +162,11 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		System.out.println("ActiveSequence.reset: Resetting to step 0");
 		currentStepIndex = 0;
 		stepTimer.reset();
-		modificationEngine.reset();
 		// Restart baseline timing so future runs resume properly
 		if (!definition.getSteps().isEmpty()) {
-			long nowMs = System.currentTimeMillis();
-			startCurrentStepTiming(nowMs, false);
-			SequenceRuntimeContext context = buildContext(nowMs);
-			modificationEngine.onEvent(context, new SequenceEvent.SequenceReset());
-			modificationEngine.onEvent(context, new SequenceEvent.StepStarted(currentStepIndex));
-			applyTimingDirectives(nowMs);
+			stepTimer.startStep(definition.getStep(currentStepIndex), abilityConfig);
 		}
 		lastDetections.clear();
-		previousFoundByInstanceId.clear();
 		complete = false;
 	}
 
@@ -239,8 +193,6 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			complete = true;
 			stepTimer.reset();
 			lastDetections.clear();
-			previousFoundByInstanceId.clear();
-			modificationEngine.reset();
 			return;
 		}
 
@@ -250,22 +202,14 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			complete = true;
 			stepTimer.reset();
 			lastDetections.clear();
-			previousFoundByInstanceId.clear();
-			modificationEngine.reset();
 			return;
 		}
 
 		currentStepIndex = normalizedIndex;
 		complete = false;
 		stepTimer.reset();
-		modificationEngine.reset();
-		long nowMs = System.currentTimeMillis();
-		startCurrentStepTiming(nowMs, false);
+		stepTimer.startStep(definition.getStep(currentStepIndex), abilityConfig);
 		lastDetections.clear();
-		previousFoundByInstanceId.clear();
-		SequenceRuntimeContext context = buildContext(nowMs);
-		modificationEngine.onEvent(context, new SequenceEvent.StepStarted(currentStepIndex));
-		applyTimingDirectives(nowMs);
 	}
 
 	public List<String> getAbilityKeysForStep(int stepIndex) {
@@ -426,13 +370,10 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		}
 
 		currentStepIndex++;
-		startCurrentStepTiming(latchTimeMs, true);
-		SequenceRuntimeContext context = buildContext(latchTimeMs);
-		modificationEngine.onEvent(context, new SequenceEvent.LatchStarted(latchTimeMs));
-		modificationEngine.onEvent(context, new SequenceEvent.StepStarted(currentStepIndex));
-		applyTimingDirectives(latchTimeMs);
+		Step step = getCurrentStep();
+		stepTimer.startStep(step, abilityConfig);
+		stepTimer.restartAt(latchTimeMs);
 		lastDetections.clear();
-		previousFoundByInstanceId.clear();
 		return false;
 	}
 
@@ -444,80 +385,5 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		for (int i = 0; i < stepInstances.size(); i++) {
 			System.out.println("ActiveSequence.stepInstances[" + i + "]=" + stepInstances.get(i));
 		}
-	}
-
-	public List<SequenceTooltip> getRuntimeTooltips() {
-		long nowMs = System.currentTimeMillis();
-		return modificationEngine.getRuntimeTooltips(buildContext(nowMs));
-	}
-
-	private SequenceRuntimeContext buildContext(long nowMs) {
-		List<String> currentKeys = getAbilityKeysForStep(currentStepIndex);
-		List<String> nextKeys = getAbilityKeysForStep(currentStepIndex + 1);
-		return new SequenceRuntimeContext(abilityConfig, currentStepIndex, currentKeys, nextKeys, stepTimer, nowMs);
-	}
-
-	private void startCurrentStepTiming(long startTimeMs, boolean overrideStartTime) {
-		if (currentStepIndex < 0 || currentStepIndex >= definition.size()) {
-			return;
-		}
-		Step step = definition.getStep(currentStepIndex);
-		SequenceRuntimeContext context = buildContext(startTimeMs);
-		stepTimer.startStep(step, abilityConfig, profile -> modificationEngine.applyTimingOverrides(context, profile));
-		if (overrideStartTime) {
-			stepTimer.restartAt(startTimeMs);
-		}
-	}
-
-	private void applyTimingDirectives(long nowMs) {
-		List<TimingDirective> directives = modificationEngine.drainTimingDirectives();
-		for (TimingDirective directive : directives) {
-			if (directive instanceof TimingDirective.RestartStepAt restart) {
-				stepTimer.restartAt(restart.startTimeMs());
-			} else if (directive instanceof TimingDirective.SetStepDurationMs duration) {
-				stepTimer.setStepDurationMs(duration.durationMs());
-			} else if (directive instanceof TimingDirective.ForceStepSatisfiedAt force) {
-				stepTimer.forceSatisfiedAt(force.nowMs());
-			}
-		}
-	}
-
-	private Set<String> getInstanceIdsForStep(int stepIndex) {
-		if (stepIndex < 0 || stepIndex >= stepInstances.size()) {
-			return Set.of();
-		}
-		List<AbilityInstance> instances = stepInstances.get(stepIndex);
-		if (instances == null || instances.isEmpty()) {
-			return Set.of();
-		}
-		Set<String> ids = new HashSet<>(instances.size());
-		for (AbilityInstance instance : instances) {
-			ids.add(instance.instanceId);
-		}
-		return ids;
-	}
-
-	private StepPosition resolvePosition(String instanceId, Set<String> currentInstanceIds, Set<String> nextInstanceIds) {
-		if (instanceId == null) {
-			return StepPosition.OTHER;
-		}
-		if (currentInstanceIds.contains(instanceId)) {
-			return StepPosition.CURRENT_STEP;
-		}
-		if (nextInstanceIds.contains(instanceId)) {
-			return StepPosition.NEXT_STEP;
-		}
-		return StepPosition.OTHER;
-	}
-
-	private String fallbackAbilityKey(String instanceId) {
-		if (instanceId == null) {
-			return null;
-		}
-		int hash = instanceId.indexOf('#');
-		if (hash > 0) {
-			return instanceId.substring(0, hash);
-		}
-		return instanceId;
 	}
 }
