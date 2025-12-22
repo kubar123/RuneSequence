@@ -436,7 +436,12 @@ public class OverlayRenderer {
 		}
 		if (overlayVisible != visible) {
 			overlayVisible = visible;
-			SwingUtilities.invokeLater(() -> overlayWindow.setVisible(visible));
+			SwingUtilities.invokeLater(() -> {
+				overlayWindow.setVisible(visible);
+				if (visible) {
+					ClickThroughWindowSupport.enable(overlayWindow);
+				}
+			});
 
 			logger.debug("Overlay visibility: {}", visible);
 		}

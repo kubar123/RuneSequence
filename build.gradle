@@ -47,6 +47,10 @@ dependencies {
 
     // GUI
     implementation 'com.formdev:flatlaf:3.6.2'
+
+    // Native window helpers (click-through overlays on Windows)
+    implementation 'net.java.dev.jna:jna:5.16.0'
+    implementation 'net.java.dev.jna:jna-platform:5.16.0'
     // Testing (JUnit Jupiter 5)
     testImplementation platform('org.junit:junit-bom:5.11.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'

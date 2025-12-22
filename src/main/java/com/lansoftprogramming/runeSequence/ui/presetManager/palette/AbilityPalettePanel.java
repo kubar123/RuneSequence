@@ -127,7 +127,7 @@ public class AbilityPalettePanel extends JPanel {
 				settingsAction.execute();
 			}
 		});
-		selectRegionButton = createMainAppButton("Region", "Select capture region", () -> {
+		selectRegionButton = createMainAppButton("Region", "Manage capture regions", () -> {
 			if (regionSelectorAction != null) {
 				regionSelectorAction.execute();
 			}

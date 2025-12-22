@@ -216,6 +216,7 @@ public class MouseTooltipOverlay {
 			positionWindowAtMouse(null);
 			window.pack();
 			window.setVisible(true);
+			ClickThroughWindowSupport.enable(window);
 			panel.repaint();
 		} else {
 			window.setVisible(false);
