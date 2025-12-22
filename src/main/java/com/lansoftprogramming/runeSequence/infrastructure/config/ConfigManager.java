@@ -13,6 +13,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 
 public class ConfigManager {
 	private static final Logger logger = LoggerFactory.getLogger(ConfigManager.class);
@@ -30,6 +33,7 @@ public class ConfigManager {
 	private RotationConfig rotations;
 	private AbilityConfig abilities;
 	private AbilityCategoryConfig abilityCategories;
+	private final List<Consumer<AppSettings>> settingsSaveListeners = new CopyOnWriteArrayList<>();
 
 	public ConfigManager() {
 		this.configDir = getAppDataPath().resolve(APP_NAME);
@@ -168,6 +172,28 @@ public class ConfigManager {
 	public void saveSettings() throws IOException {
 		settings.setUpdated(Instant.now());
 		objectMapper.writeValue(settingsPath.toFile(), settings);
+		notifySettingsSaved();
+	}
+
+	public void addSettingsSaveListener(Consumer<AppSettings> listener) {
+		if (listener == null) {
+			return;
+		}
+		settingsSaveListeners.add(listener);
+	}
+
+	public void removeSettingsSaveListener(Consumer<AppSettings> listener) {
+		settingsSaveListeners.remove(listener);
+	}
+
+	private void notifySettingsSaved() {
+		for (Consumer<AppSettings> listener : settingsSaveListeners) {
+			try {
+				listener.accept(settings);
+			} catch (Exception e) {
+				logger.debug("Settings save listener failed", e);
+			}
+		}
 	}
 
 	public void saveRotations() throws IOException {

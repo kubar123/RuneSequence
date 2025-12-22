@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class HotkeyManager {
 	private static final Logger logger = LoggerFactory.getLogger(HotkeyManager.class);
@@ -18,12 +19,18 @@ public class HotkeyManager {
 	private static volatile NativeHotkeyListener nativeListener;
 	private static final Object HOOK_LOCK = new Object();
 
-	private final Map<HotkeyEvent, List<KeyChord>> hotkeyBindings;
+	private final AtomicReference<Map<HotkeyEvent, List<KeyChord>>> hotkeyBindingsRef;
 
 	public HotkeyManager(Map<HotkeyEvent, List<KeyChord>> hotkeyBindings) {
-		this.hotkeyBindings = (hotkeyBindings != null)
+		this.hotkeyBindingsRef = new AtomicReference<>((hotkeyBindings != null)
 				? hotkeyBindings
-				: Collections.emptyMap();
+				: Collections.emptyMap());
+	}
+
+	public void refreshBindings(Map<HotkeyEvent, List<KeyChord>> hotkeyBindings) {
+		hotkeyBindingsRef.set((hotkeyBindings != null)
+				? hotkeyBindings
+				: Collections.emptyMap());
 	}
 
 	public void initialize() {
@@ -37,7 +44,7 @@ public class HotkeyManager {
 					GlobalScreen.registerNativeHook();
 				}
 				if (nativeListener == null) {
-					nativeListener = new NativeHotkeyListener(this::notifyListeners, hotkeyBindings);
+					nativeListener = new NativeHotkeyListener(this::notifyListeners, hotkeyBindingsRef);
 					GlobalScreen.addNativeKeyListener(nativeListener);
 				}
 				nativeInitialized = true;
@@ -96,11 +103,11 @@ public class HotkeyManager {
 	private static final class NativeHotkeyListener implements NativeKeyListener {
 		private final EnumSet<ModifierKey> activeModifiers = EnumSet.noneOf(ModifierKey.class);
 		private final Notifier notifier;
-		private final Map<HotkeyEvent, List<KeyChord>> bindings;
+		private final AtomicReference<Map<HotkeyEvent, List<KeyChord>>> bindingsRef;
 
-		NativeHotkeyListener(Notifier notifier, Map<HotkeyEvent, List<KeyChord>> bindings) {
+		NativeHotkeyListener(Notifier notifier, AtomicReference<Map<HotkeyEvent, List<KeyChord>>> bindingsRef) {
 			this.notifier = notifier;
-			this.bindings = bindings;
+			this.bindingsRef = bindingsRef;
 		}
 
 		@Override
@@ -111,6 +118,7 @@ public class HotkeyManager {
 				return;
 			}
 			KeyChord chord = new KeyChord(activeModifiers, e.getKeyCode());
+			Map<HotkeyEvent, List<KeyChord>> bindings = bindingsRef.get();
 			for (Map.Entry<HotkeyEvent, List<KeyChord>> en : bindings.entrySet()) {
 				List<KeyChord> chords = en.getValue();
 				if (chords != null && chords.contains(chord)) {

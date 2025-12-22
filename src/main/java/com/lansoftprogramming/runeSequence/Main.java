@@ -189,6 +189,13 @@ public class Main {
 			hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
 			hotkeyManager.initialize();
 			hotkeyManager.addListener(sequenceRunService);
+			configManager.addSettingsSaveListener(settings -> {
+				if (hotkeyManager == null) {
+					return;
+				}
+				AppSettings.HotkeySettings hotkeys = settings != null ? settings.getHotkeys() : null;
+				hotkeyManager.refreshBindings(bindingSource.loadBindings(hotkeys));
+			});
 
 			detectionEngine.primeActiveSequence();
 			detectionEngine.start();
