@@ -4,10 +4,14 @@ import org.jnativehook.GlobalScreen;
 import org.jnativehook.NativeHookException;
 import org.jnativehook.keyboard.NativeKeyEvent;
 import org.jnativehook.keyboard.NativeKeyListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class HotkeyManager {
+	private static final Logger logger = LoggerFactory.getLogger(HotkeyManager.class);
+
 	// listeners are per-instance; the native hook and listener are process-wide
 	private final List<HotkeyListener> listeners = new ArrayList<>();
 	private static volatile boolean nativeInitialized = false;
@@ -110,12 +114,13 @@ public class HotkeyManager {
 			for (Map.Entry<HotkeyEvent, List<KeyChord>> en : bindings.entrySet()) {
 				List<KeyChord> chords = en.getValue();
 				if (chords != null && chords.contains(chord)) {
-					EnumSet<ModifierKey> snapshot = activeModifiers.isEmpty()
-							? EnumSet.noneOf(ModifierKey.class)
-							: EnumSet.copyOf(activeModifiers);
-					System.out.println("HotkeyManager: Hotkey pressed for event " + en.getKey()
-							+ " key=" + NativeKeyEvent.getKeyText(e.getKeyCode())
-							+ " modifiers=" + snapshot);
+					if (logger.isDebugEnabled()) {
+						EnumSet<ModifierKey> snapshot = activeModifiers.isEmpty()
+								? EnumSet.noneOf(ModifierKey.class)
+								: EnumSet.copyOf(activeModifiers);
+						logger.debug("HotkeyManager: Hotkey pressed for event {} key={} modifiers={}",
+								en.getKey(), NativeKeyEvent.getKeyText(e.getKeyCode()), snapshot);
+					}
 					notifier.notify(en.getKey());
 				}
 			}

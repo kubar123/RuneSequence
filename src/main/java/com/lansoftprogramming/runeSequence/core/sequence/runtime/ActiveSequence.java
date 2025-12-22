@@ -4,10 +4,14 @@ import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.sequence.model.*;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class ActiveSequence implements SequenceController.StateChangeListener{
+
+	private static final Logger logger = LoggerFactory.getLogger(ActiveSequence.class);
 
 	private final SequenceDefinition definition;
 	private final AbilityConfig abilityConfig;
@@ -35,8 +39,10 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		this.stepInstances = indexInstances(def, abilityConfig);
 		this.stepTimer = new StepTimer();
 
-		System.out.println("ActiveSequence: Created with " + def.getSteps().size() + " steps");
-		logStepInstances();
+		if (logger.isDebugEnabled()) {
+			logger.debug("ActiveSequence: Created with {} steps", def.getSteps().size());
+			logStepInstances();
+		}
 		this.stepTimer.startStep(def.getStep(currentStepIndex), abilityConfig);
 	}
 
@@ -50,7 +56,9 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		addRequirementsForStep(currentStepIndex, requirements);
 		addRequirementsForStep(currentStepIndex + 1, requirements);
 		List<DetectionRequirement> out = new ArrayList<>(requirements.values());
-		System.out.println("ActiveSequence.getDetectionRequirements: " + out);
+		if (logger.isDebugEnabled()) {
+			logger.debug("ActiveSequence.getDetectionRequirements: {}", out);
+		}
 		return out;
 	}
 
@@ -60,32 +68,45 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			return; // Finished rotations ignore further detections until reset
 		}
 
-		System.out.println("ActiveSequence.processDetections: Received " + results.size() + " results");
+		if (logger.isDebugEnabled()) {
+			logger.debug("ActiveSequence.processDetections: Received {} results", results.size());
+		}
 
 		lastDetections.clear();
 		for (DetectionResult r : results) {
 			lastDetections.put(r.templateName, r);
 
 			String abilityKey = getAbilityKeyForInstance(r.templateName);
-			System.out.println("  Stored detection: " + r.templateName +
-					(abilityKey != null ? " (" + abilityKey + ")" : "") +
-					" found=" + r.found);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Stored detection: {}{} found={}",
+						r.templateName,
+						abilityKey != null ? " (" + abilityKey + ")" : "",
+						r.found);
+			}
 		}
 
 
-		System.out.println("  Checking if step is satisfied...");
+		if (logger.isDebugEnabled()) {
+			logger.debug("Checking if step is satisfied...");
+		}
 		if (stepTimer.isStepSatisfied(lastDetections)) {
 
-			System.out.println("  Step satisfied! Advancing...");
+			if (logger.isDebugEnabled()) {
+				logger.debug("Step satisfied! Advancing...");
+			}
 			if (isOnLastStep()) {
 				complete = true;
-				System.out.println("  Sequence complete");
+				if (logger.isDebugEnabled()) {
+					logger.debug("Sequence complete");
+				}
 			} else {
 				advanceStep();
 			}
 		} else {
 
-			System.out.println("  Step not yet satisfied");
+			if (logger.isDebugEnabled()) {
+				logger.debug("Step not yet satisfied");
+			}
 		}
 	}
 
@@ -93,19 +114,26 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		Step step = getCurrentStep();
 		if (step == null) {
 
-			System.out.println("ActiveSequence.getCurrentAbilities: No current step");
+			if (logger.isDebugEnabled()) {
+				logger.debug("ActiveSequence.getCurrentAbilities: No current step");
+			}
 			return List.of();
 		}
 
 		List<DetectionResult> current = buildDetectionsForStep(currentStepIndex);
 
-		System.out.println("ActiveSequence.getCurrentAbilities: " + current.size() + " abilities");
+		if (logger.isDebugEnabled()) {
+			logger.debug("ActiveSequence.getCurrentAbilities: {} abilities", current.size());
+		}
 
 		for (DetectionResult result : current) {
 			String abilityKey = getAbilityKeyForInstance(result.templateName);
-			System.out.println("  Current ability: " + result.templateName +
-					(abilityKey != null ? " (" + abilityKey + ")" : "") +
-					" found=" + result.found);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Current ability: {}{} found={}",
+						result.templateName,
+						abilityKey != null ? " (" + abilityKey + ")" : "",
+						result.found);
+			}
 		}
 
 		return current;
@@ -114,12 +142,16 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	public List<DetectionResult> getNextAbilities() {
 		Step step = getNextStep();
 		if (step == null) {
-			System.out.println("ActiveSequence.getNextAbilities: No next step");
+			if (logger.isDebugEnabled()) {
+				logger.debug("ActiveSequence.getNextAbilities: No next step");
+			}
 			return List.of();
 		}
 
 		List<DetectionResult> next = buildDetectionsForStep(currentStepIndex + 1);
-		System.out.println("ActiveSequence.getNextAbilities: " + next.size() + " abilities");
+		if (logger.isDebugEnabled()) {
+			logger.debug("ActiveSequence.getNextAbilities: {} abilities", next.size());
+		}
 
 		return next;
 	}
@@ -127,7 +159,9 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	private Step getCurrentStep() {
 
 		if (currentStepIndex >= definition.size()) {
-			System.out.println("getCurrentStep: Index " + currentStepIndex + " >= " + definition.size());
+			if (logger.isDebugEnabled()) {
+				logger.debug("getCurrentStep: Index {} >= {}", currentStepIndex, definition.size());
+			}
 			return null;
 		}
 		return definition.getStep(currentStepIndex);
@@ -136,7 +170,9 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	private Step getNextStep() {
 
 		if (currentStepIndex + 1 >= definition.size()) {
-			System.out.println("getNextStep: No next step (currentIndex=" + currentStepIndex + ")");
+			if (logger.isDebugEnabled()) {
+				logger.debug("getNextStep: No next step (currentIndex={})", currentStepIndex);
+			}
 			return null;
 		}
 		return definition.getStep(currentStepIndex + 1);
@@ -145,13 +181,17 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	private void advanceStep() {
 		if (currentStepIndex >= definition.size() - 1) {
 
-			System.out.println("advanceStep: Already at last step");
+			if (logger.isDebugEnabled()) {
+				logger.debug("advanceStep: Already at last step");
+			}
 			return;
 		}
 
 		currentStepIndex++;
 
-		System.out.println("advanceStep: Advanced to step " + currentStepIndex);
+		if (logger.isDebugEnabled()) {
+			logger.debug("advanceStep: Advanced to step {}", currentStepIndex);
+		}
 
 		Step step = getCurrentStep();
 		stepTimer.startStep(step, abilityConfig);
@@ -159,7 +199,9 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 	public void reset() {
 
-		System.out.println("ActiveSequence.reset: Resetting to step 0");
+		if (logger.isDebugEnabled()) {
+			logger.debug("ActiveSequence.reset: Resetting to step 0");
+		}
 		currentStepIndex = 0;
 		stepTimer.reset();
 		// Restart baseline timing so future runs resume properly
@@ -291,8 +333,10 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			AbilityInstance instance = new AbilityInstance(instanceId, abilityKey, parentTermIsAlternative, effectiveConfig);
 			collector.add(instance);
 			instancesById.put(instanceId, instance);
-			System.out.println("ActiveSequence.collectInstances: instanceId=" + instanceId +
-					" abilityKey=" + abilityKey + " isAlternative=" + parentTermIsAlternative);
+			if (logger.isDebugEnabled()) {
+				logger.debug("ActiveSequence.collectInstances: instanceId={} abilityKey={} isAlternative={}",
+						instanceId, abilityKey, parentTermIsAlternative);
+			}
 		} else {
 			for (Step step : alt.getSubgroup().getSteps()) {
 				collectInstancesFromStep(step, occurrenceCounters, collector, parentTermIsAlternative, abilityConfig);
@@ -382,8 +426,11 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	}
 
 	private void logStepInstances() {
+		if (!logger.isDebugEnabled()) {
+			return;
+		}
 		for (int i = 0; i < stepInstances.size(); i++) {
-			System.out.println("ActiveSequence.stepInstances[" + i + "]=" + stepInstances.get(i));
+			logger.debug("ActiveSequence.stepInstances[{}]={}", i, stepInstances.get(i));
 		}
 	}
 }

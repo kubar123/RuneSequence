@@ -39,6 +39,13 @@ public class Main {
 	private static TemplateCache templateCache;
 	private static Window toastHostWindow;
 	private static Taskbar taskbar;
+	private static ScreenCapture screenCapture;
+	private static OverlayRenderer overlayRenderer;
+	private static MouseTooltipOverlay mouseTooltipOverlay;
+	private static DetectionEngine detectionEngine;
+	private static HotkeyManager hotkeyManager;
+	private static final Object shutdownLock = new Object();
+	private static boolean shutdownInitiated = false;
 
 	public static void main(String[] args) {
 		logger.info("Starting {} application...", APP_NAME);
@@ -50,9 +57,9 @@ public class Main {
 			populateTemplateCache();
 
 			// 3. Initialize core components
-			ScreenCapture screenCapture = new ScreenCapture(configManager.getSettings());
+			screenCapture = new ScreenCapture(configManager.getSettings());
 			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
-				OverlayRenderer overlayRenderer = new OverlayRenderer(
+				overlayRenderer = new OverlayRenderer(
 						() -> {
 							AppSettings settings = configManager.getSettings();
 							return settings != null
@@ -72,7 +79,7 @@ public class Main {
 									: 600L;
 						}
 				);
-				MouseTooltipOverlay mouseTooltipOverlay = new MouseTooltipOverlay();
+				mouseTooltipOverlay = new MouseTooltipOverlay();
 				NotificationService notifications = createNotificationService();
 
 			// 4. Set up the Sequence Manager with our debug rotation
@@ -154,7 +161,7 @@ public class Main {
 			}
 
 			// 5. Initialize and start the detection engine
-			DetectionEngine detectionEngine = new DetectionEngine(
+			detectionEngine = new DetectionEngine(
 					screenCapture,
 					templateDetector,
 					sequenceManager,
@@ -179,7 +186,7 @@ public class Main {
 			}
 
 			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
-			HotkeyManager hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
+			hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
 			hotkeyManager.initialize();
 			hotkeyManager.addListener(sequenceRunService);
 
@@ -191,6 +198,7 @@ public class Main {
 				FlatDarkLaf.setup(); // Set the look and feel
 				taskbar = new Taskbar();
 				taskbar.initialize();
+				taskbar.setExitHandler(Main::requestShutdown);
 
 				PresetManagerAction presetManagerAction = new PresetManagerAction(configManager, sequenceRunService);
 
@@ -206,20 +214,7 @@ public class Main {
 			});
 
 			// Add a shutdown hook to clean up resources gracefully
-			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-				logger.info("Shutdown sequence initiated.");
-				if (taskbar != null) {
-					taskbar.dispose();
-				}
-				detectionEngine.stop();
-				overlayRenderer.shutdown();
-				mouseTooltipOverlay.shutdown();
-				templateCache.shutdown();
-				if (toastHostWindow != null) {
-					toastHostWindow.dispose();
-				}
-				logger.info("Application has been shut down successfully.");
-			}));
+			Runtime.getRuntime().addShutdownHook(new Thread(Main::shutdownApplication));
 
 			logger.info("Application setup complete. Detection engine is running.");
 
@@ -280,5 +275,51 @@ public class Main {
 			throw new RuntimeException(e);
 		}
 		logger.info("ConfigManager initialized. Settings loaded.");
+	}
+
+	public static void requestShutdown() {
+		shutdownApplication();
+		try {
+			System.exit(0);
+		} catch (SecurityException e) {
+			logger.error("System.exit was blocked; application will continue running.", e);
+		}
+	}
+
+	private static void shutdownApplication() {
+		synchronized (shutdownLock) {
+			if (shutdownInitiated) {
+				return;
+			}
+			shutdownInitiated = true;
+		}
+
+		logger.info("Shutdown sequence initiated.");
+		if (taskbar != null) {
+			taskbar.dispose();
+		}
+		if (detectionEngine != null) {
+			detectionEngine.stop();
+		}
+		if (screenCapture != null) {
+			screenCapture.shutdown();
+		}
+		if (hotkeyManager != null) {
+			hotkeyManager.shutdown();
+		}
+		if (overlayRenderer != null) {
+			overlayRenderer.shutdown();
+		}
+		if (mouseTooltipOverlay != null) {
+			mouseTooltipOverlay.shutdown();
+		}
+		if (templateCache != null) {
+			templateCache.shutdown();
+		}
+		if (toastHostWindow != null) {
+			toastHostWindow.dispose();
+			toastHostWindow = null;
+		}
+		logger.info("Application has been shut down successfully.");
 	}
 }

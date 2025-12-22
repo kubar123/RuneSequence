@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
+import com.lansoftprogramming.runeSequence.Main;
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder;
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
@@ -184,7 +185,7 @@ public class PresetManagerWindow extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                System.exit(0);
+                Main.requestShutdown();
             }
         });
     }

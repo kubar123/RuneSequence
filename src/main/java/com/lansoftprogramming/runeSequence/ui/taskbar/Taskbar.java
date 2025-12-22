@@ -11,6 +11,7 @@ public class Taskbar {
     private static final Logger logger = LoggerFactory.getLogger(Taskbar.class);
     private TrayIcon trayIcon;
     private SystemTray tray;
+    private volatile Runnable exitHandler;
 
     public void initialize() {
         if (!SystemTray.isSupported()) {
@@ -32,10 +33,7 @@ public class Taskbar {
         trayIcon.setImageAutoSize(false);
 
         MenuItem exitItem = new MenuItem("Exit");
-        exitItem.addActionListener(e -> {
-            dispose();
-            System.exit(0);
-        });
+        exitItem.addActionListener(e -> handleExit());
         popup.add(exitItem);
 
         try {
@@ -76,5 +74,19 @@ public class Taskbar {
             return;
         }
         trayIcon.getPopupMenu().insertSeparator(0);
+    }
+
+    public void setExitHandler(Runnable exitHandler) {
+        this.exitHandler = exitHandler;
+    }
+
+    private void handleExit() {
+        Runnable handler = exitHandler;
+        if (handler != null) {
+            handler.run();
+            return;
+        }
+        dispose();
+        System.exit(0);
     }
 }
