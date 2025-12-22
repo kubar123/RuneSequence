@@ -5,12 +5,23 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.awt.*;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AppSettings {
 	private static final Logger LOGGER = Logger.getLogger(AppSettings.class.getName());
+	private static final String ABILITIES_REGION_KEY = "abilities";
+	private static final List<RegionDescriptor> DEFAULT_REGIONS = List.of(
+			new RegionDescriptor(ABILITIES_REGION_KEY, "Abilities", true),
+			new RegionDescriptor("chat-box", "Chat box", true),
+			new RegionDescriptor("buff-bar", "Buff Bar", true),
+			new RegionDescriptor("debuff-bar", "Debuff Bar", true),
+			new RegionDescriptor("timer", "Timer", true)
+	);
 
 	@JsonProperty("version")
 	private String version = "1.0.0";
@@ -20,6 +31,9 @@ public class AppSettings {
 
 	@JsonProperty("region")
 	private RegionSettings region = new RegionSettings();
+
+	@JsonProperty("regions")
+	private List<RegionSettings> regions = new java.util.ArrayList<>();
 
 	@JsonProperty("updated")
 	private Instant updated = Instant.now();
@@ -54,11 +68,31 @@ public class AppSettings {
 	}
 
 	public RegionSettings getRegion() {
+		ensureDefaultRegions();
 		return region;
 	}
 
 	public void setRegion(RegionSettings region) {
 		this.region = region;
+		if (region == null) {
+			return;
+		}
+		List<RegionSettings> namedRegions = getRegions();
+		if (namedRegions.isEmpty()) {
+			namedRegions.add(region);
+		} else {
+			namedRegions.set(0, region);
+		}
+	}
+
+	public List<RegionSettings> getRegions() {
+		ensureDefaultRegions();
+		return regions;
+	}
+
+	public void setRegions(List<RegionSettings> regions) {
+		this.regions = regions != null ? new ArrayList<>(regions) : new ArrayList<>();
+		ensureDefaultRegions();
 	}
 
 	public Instant getUpdated() {
@@ -105,6 +139,15 @@ public class AppSettings {
 	// ------------------------------ REGION ------------------------------
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	public static class RegionSettings {
+		@JsonProperty("name")
+		private String name;
+
+		@JsonProperty("key")
+		private String key;
+
+		@JsonProperty("locked")
+		private boolean locked;
+
 		@JsonProperty("x")
 		private int x = 0;
 
@@ -125,6 +168,30 @@ public class AppSettings {
 
 		@JsonProperty("timestamp")
 		private Instant timestamp = Instant.now();
+
+		public String getName() {
+			return name;
+		}
+
+		public void setName(String name) {
+			this.name = name;
+		}
+
+		public String getKey() {
+			return key;
+		}
+
+		public void setKey(String key) {
+			this.key = key;
+		}
+
+		public boolean isLocked() {
+			return locked;
+		}
+
+		public void setLocked(boolean locked) {
+			this.locked = locked;
+		}
 
 		// Getters and setters
 		public int getX() {
@@ -185,6 +252,134 @@ public class AppSettings {
 
 		public Rectangle toRectangle() {
 			return new Rectangle(x, y, width, height);
+		}
+	}
+
+	private void ensureDefaultRegions() {
+		if (regions == null) {
+			regions = new ArrayList<>();
+		}
+
+		List<RegionSettings> working = new ArrayList<>();
+		for (RegionSettings entry : regions) {
+			if (entry == null) {
+				continue;
+			}
+			assignKeyIfMissing(entry);
+			working.add(entry);
+		}
+
+		List<RegionSettings> ordered = new ArrayList<>();
+		for (RegionDescriptor descriptor : DEFAULT_REGIONS) {
+			RegionSettings existing = removeRegionByKey(working, descriptor.key());
+			if (existing == null) {
+				existing = new RegionSettings();
+				existing.setKey(descriptor.key());
+			}
+			existing.setName(descriptor.displayName());
+			existing.setLocked(descriptor.locked());
+			ordered.add(existing);
+		}
+
+		if (!working.isEmpty()) {
+			ordered.addAll(working);
+		}
+
+		if (ordered.isEmpty()) {
+			RegionSettings defaultRegion = new RegionSettings();
+			defaultRegion.setKey(ABILITIES_REGION_KEY);
+			defaultRegion.setName("Abilities");
+			defaultRegion.setLocked(true);
+			ordered.add(defaultRegion);
+		}
+
+		RegionSettings abilityRegion = null;
+		for (RegionSettings entry : ordered) {
+			if (ABILITIES_REGION_KEY.equals(entry.getKey())) {
+				abilityRegion = entry;
+				break;
+			}
+		}
+		if (abilityRegion == null) {
+			abilityRegion = ordered.get(0);
+		}
+
+		if (region != null && region != abilityRegion && hasMeaningfulRegion(region)
+				&& !hasMeaningfulRegion(abilityRegion)) {
+			copyRegionGeometry(region, abilityRegion);
+		}
+
+		region = abilityRegion;
+		regions = ordered;
+	}
+
+	private static void copyRegionGeometry(RegionSettings source, RegionSettings target) {
+		if (source == null || target == null) {
+			return;
+		}
+		target.setX(source.getX());
+		target.setY(source.getY());
+		target.setWidth(source.getWidth());
+		target.setHeight(source.getHeight());
+		target.setScreenWidth(source.getScreenWidth());
+		target.setScreenHeight(source.getScreenHeight());
+		target.setTimestamp(source.getTimestamp() != null ? source.getTimestamp() : Instant.now());
+	}
+
+	private static boolean hasMeaningfulRegion(RegionSettings settings) {
+		return settings != null && settings.getWidth() > 0 && settings.getHeight() > 0;
+	}
+
+	private static RegionSettings removeRegionByKey(List<RegionSettings> list, String key) {
+		if (list == null || list.isEmpty()) {
+			return null;
+		}
+		Iterator<RegionSettings> iterator = list.iterator();
+		while (iterator.hasNext()) {
+			RegionSettings entry = iterator.next();
+			if (entry != null && key.equals(entry.getKey())) {
+				iterator.remove();
+				return entry;
+			}
+		}
+		return null;
+	}
+
+	private static void assignKeyIfMissing(RegionSettings settings) {
+		if (settings == null) {
+			return;
+		}
+		String existing = settings.getKey();
+		if (existing == null || existing.trim().isEmpty()) {
+			settings.setKey(generateRegionKey());
+		}
+	}
+
+	private static String generateRegionKey() {
+		return "region-" + UUID.randomUUID();
+	}
+
+	private static final class RegionDescriptor {
+		private final String key;
+		private final String displayName;
+		private final boolean locked;
+
+		private RegionDescriptor(String key, String displayName, boolean locked) {
+			this.key = key;
+			this.displayName = displayName;
+			this.locked = locked;
+		}
+
+		String key() {
+			return key;
+		}
+
+		String displayName() {
+			return displayName;
+		}
+
+		boolean locked() {
+			return locked;
 		}
 	}
 

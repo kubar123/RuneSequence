@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 public class RegionManagerWindow extends JFrame {
@@ -114,7 +115,7 @@ public class RegionManagerWindow extends JFrame {
 				if (previewOverlay != null) {
 					previewOverlay.showOverlay();
 				}
-				toFront();
+				bringWindowToFront();
 			}
 
 			@Override
@@ -136,7 +137,7 @@ public class RegionManagerWindow extends JFrame {
 				if (previewOverlay != null) {
 					previewOverlay.showOverlay();
 				}
-				toFront();
+				bringWindowToFront();
 			}
 		});
 	}
@@ -168,7 +169,7 @@ public class RegionManagerWindow extends JFrame {
 			}
 			overlayItems.add(new RegionPreviewOverlay.RegionOverlayItem(
 					i,
-					entry.name != null ? entry.name : ("Region " + (i + 1)),
+					entry.getDisplayName(i),
 					new Rectangle(entry.region)
 			));
 		}
@@ -179,13 +180,26 @@ public class RegionManagerWindow extends JFrame {
 		regions.clear();
 		AppSettings settings = configManager.getSettings();
 		if (settings == null) {
-			regions.add(RegionEntry.persisted("Region 1", new Rectangle(0, 0, 0, 0), new Dimension(0, 0)));
+			regions.add(RegionEntry.placeholder("Abilities", true));
+			regions.add(RegionEntry.placeholder("Chat box", true));
+			regions.add(RegionEntry.placeholder("Buff Bar", true));
+			regions.add(RegionEntry.placeholder("Debuff Bar", true));
+			regions.add(RegionEntry.placeholder("Timer", true));
 			return;
 		}
-		AppSettings.RegionSettings regionSettings = settings.getRegion();
-		Rectangle rect = regionSettings != null ? regionSettings.toRectangle() : new Rectangle(0, 0, 0, 0);
-		Dimension screen = regionSettings != null ? new Dimension(regionSettings.getScreenWidth(), regionSettings.getScreenHeight()) : new Dimension(0, 0);
-		regions.add(RegionEntry.persisted("Region 1", rect, screen));
+
+		List<AppSettings.RegionSettings> storedRegions = settings.getRegions();
+		if (storedRegions == null || storedRegions.isEmpty()) {
+			regions.add(RegionEntry.placeholder("Abilities", true));
+			return;
+		}
+
+		for (AppSettings.RegionSettings regionSettings : storedRegions) {
+			RegionEntry entry = RegionEntry.fromSettings(regionSettings);
+			if (entry != null) {
+				regions.add(entry);
+			}
+		}
 	}
 
 	private void rebuildRegionPanels() {
@@ -206,17 +220,55 @@ public class RegionManagerWindow extends JFrame {
 		}
 
 		updatePreviewOverlay();
+		updateRemoveButtonState();
 		regionsListPanel.revalidate();
 		regionsListPanel.repaint();
 	}
 
+	private void updateRemoveButtonState() {
+		int selectedIndex = getSelectedIndex();
+		boolean enabled = selectedIndex >= 0
+				&& selectedIndex < regions.size()
+				&& regions.get(selectedIndex).isRemovable();
+		removeButton.setEnabled(enabled);
+	}
+
+	private void bringWindowToFront() {
+		if (!isDisplayable()) {
+			return;
+		}
+		SwingUtilities.invokeLater(() -> {
+			if (!isDisplayable()) {
+				return;
+			}
+			setAlwaysOnTop(true);
+			toFront();
+			repaint();
+			requestFocus();
+		});
+	}
+
 	private void addRegion() {
-		int index = regions.size() + 1;
-		regions.add(RegionEntry.transientRegion("Region " + index, new Rectangle(0, 0, 0, 0), new Dimension(0, 0)));
+		String name = generateCustomRegionName();
+		regions.add(RegionEntry.createCustom(name));
 		rebuildRegionPanels();
 		if (!regionPanels.isEmpty()) {
 			regionPanels.getLast().select();
 		}
+	}
+
+	private String generateCustomRegionName() {
+		int counter = 1;
+		while (counter < 1000) {
+			String candidate = "Region " + counter;
+			boolean exists = regions.stream()
+					.anyMatch(entry -> entry != null && entry.hasName(candidate));
+			if (!exists) {
+				return candidate;
+			}
+			counter++;
+		}
+		return "Region " + UUID.randomUUID().toString().substring(0, 4);
 	}
 
 	private void removeSelectedRegion() {
@@ -228,54 +280,38 @@ public class RegionManagerWindow extends JFrame {
 		RegionEntry entry = regions.get(selectedIndex);
 		NotificationService notifications = notificationsSupplier.get();
 
-		boolean confirmed = requestDeleteConfirmation(regions.size(), entry);
+		if (!entry.isRemovable()) {
+			if (notifications != null) {
+				notifications.showInfo("This region cannot be deleted.");
+			}
+			return;
+		}
+
+		boolean confirmed = requestDeleteConfirmation(entry);
 		if (!confirmed) {
 			return;
 		}
 
-		if (regions.size() == 1 && entry.persisted) {
-			clearRegionAt(selectedIndex, true);
-		} else if (entry.persisted) {
-			clearRegionAt(selectedIndex, true);
-			regions.remove(selectedIndex);
-		} else {
-			regions.remove(selectedIndex);
+		if (entry.persisted) {
+			try {
+				deleteRegionFromSettings(entry);
+			} catch (Exception ex) {
+				logger.error("Failed to delete region from settings.", ex);
+				if (notifications != null) {
+					notifications.showError("Error deleting region: " + ex.getMessage());
+				}
+				return;
+			}
 		}
 
+		regions.remove(selectedIndex);
 		rebuildRegionPanels();
 	}
 
-	private void clearRegionAt(int index, boolean persistClear) {
-		RegionEntry entry = regions.get(index);
-		if (entry == null) {
-			return;
-		}
-		entry.region = new Rectangle(0, 0, 0, 0);
-		entry.screen = new Dimension(0, 0);
-		entry.updatedAt = Instant.now();
-		if (persistClear) {
-			try {
-				saveRegionToSettings(entry);
-			} catch (Exception ex) {
-				logger.error("Failed to clear region settings.", ex);
-				NotificationService notifications = notificationsSupplier.get();
-				if (notifications != null) {
-					notifications.showError("Error clearing region: " + ex.getMessage());
-				}
-			}
-		}
-	}
-
-	private boolean requestDeleteConfirmation(int regionCount, RegionEntry entry) {
-		String title;
-		String message;
-		if (regionCount == 1 && entry.persisted) {
-			title = "Clear Region";
-			message = "Clear the saved region coordinates?";
-		} else {
-			title = "Delete Region";
-			message = "Delete the saved region?";
-		}
+	private boolean requestDeleteConfirmation(RegionEntry entry) {
+		String title = "Delete Region";
+		String name = entry != null ? entry.getDisplayName(regions.indexOf(entry)) : "region";
+		String message = "Delete the saved region \"" + name + "\"?";
 
 		NotificationService notifications = notificationsSupplier.get();
 		if (notifications != null) {
@@ -314,6 +350,7 @@ public class RegionManagerWindow extends JFrame {
 		if (selectorWindow == null || !selectorWindow.isSelectionMade()) {
 			if (previewOverlay != null && isShowing()) {
 				previewOverlay.showOverlay();
+				bringWindowToFront();
 			}
 			return;
 		}
@@ -323,6 +360,7 @@ public class RegionManagerWindow extends JFrame {
 		if (selectedRegion == null || screenBounds == null) {
 			if (previewOverlay != null && isShowing()) {
 				previewOverlay.showOverlay();
+				bringWindowToFront();
 			}
 			return;
 		}
@@ -333,20 +371,16 @@ public class RegionManagerWindow extends JFrame {
 		entry.updatedAt = Instant.now();
 
 		NotificationService notifications = notificationsSupplier.get();
-		if (entry.persisted) {
-			try {
-				saveRegionToSettings(entry);
-				if (notifications != null) {
-					notifications.showSuccess("Region saved successfully!");
-				}
-			} catch (Exception ex) {
-				logger.error("Failed to save region settings.", ex);
-				if (notifications != null) {
-					notifications.showError("Error saving region: " + ex.getMessage());
-				}
+		try {
+			saveRegionToSettings(entry);
+			if (notifications != null) {
+				notifications.showSuccess("Region saved successfully!");
 			}
-		} else if (notifications != null) {
-			notifications.showInfo("Region updated (not yet saved).");
+		} catch (Exception ex) {
+			logger.error("Failed to save region settings.", ex);
+			if (notifications != null) {
+				notifications.showError("Error saving region: " + ex.getMessage());
+			}
 		}
 
 		for (RegionEntryPanel panel : regionPanels) {
@@ -359,6 +393,7 @@ public class RegionManagerWindow extends JFrame {
 		updatePreviewOverlay();
 		if (previewOverlay != null && isShowing()) {
 			previewOverlay.showOverlay();
+			bringWindowToFront();
 		}
 	}
 
@@ -367,11 +402,18 @@ public class RegionManagerWindow extends JFrame {
 		if (settings == null) {
 			throw new IllegalStateException("Settings are not loaded. Cannot save region.");
 		}
-		AppSettings.RegionSettings regionSettings = settings.getRegion();
+		List<AppSettings.RegionSettings> storedRegions = settings.getRegions();
+		AppSettings.RegionSettings regionSettings = findRegionSettingsByKey(storedRegions, entry.key);
 		if (regionSettings == null) {
 			regionSettings = new AppSettings.RegionSettings();
-			settings.setRegion(regionSettings);
+			regionSettings.setKey(entry.key != null ? entry.key : createRegionKey());
+			storedRegions.add(regionSettings);
 		}
+
+		if (entry.name != null && !entry.name.trim().isEmpty()) {
+			regionSettings.setName(entry.name);
+		}
+		regionSettings.setLocked(entry.locked);
 
 		Rectangle region = entry.region != null ? entry.region : new Rectangle(0, 0, 0, 0);
 		regionSettings.setX(region.x);
@@ -383,31 +425,119 @@ public class RegionManagerWindow extends JFrame {
 		regionSettings.setScreenWidth(screen.width);
 		regionSettings.setScreenHeight(screen.height);
 
-		regionSettings.setTimestamp(Instant.now());
+		Instant timestamp = entry.updatedAt != null ? entry.updatedAt : Instant.now();
+		regionSettings.setTimestamp(timestamp);
+
+		entry.persisted = true;
+		entry.key = regionSettings.getKey();
 		configManager.saveSettings();
 	}
 
+	private void deleteRegionFromSettings(RegionEntry entry) throws Exception {
+		AppSettings settings = configManager.getSettings();
+		if (settings == null) {
+			throw new IllegalStateException("Settings are not loaded. Cannot delete region.");
+		}
+		List<AppSettings.RegionSettings> storedRegions = settings.getRegions();
+		if (storedRegions == null) {
+			return;
+		}
+		boolean removed = storedRegions.removeIf(regionSettings ->
+				regionSettings != null && Objects.equals(entry.key, regionSettings.getKey()));
+		if (removed) {
+			configManager.saveSettings();
+		}
+	}
+
+	private AppSettings.RegionSettings findRegionSettingsByKey(List<AppSettings.RegionSettings> regions, String key) {
+		if (regions == null || key == null) {
+			return null;
+		}
+		for (AppSettings.RegionSettings regionSettings : regions) {
+			if (regionSettings != null && key.equals(regionSettings.getKey())) {
+				return regionSettings;
+			}
+		}
+		return null;
+	}
+
 	private static final class RegionEntry {
-		private final String name;
-		private final boolean persisted;
+		private String key;
+		private String name;
+		private boolean locked;
+		private boolean persisted;
 		private Rectangle region;
 		private Dimension screen;
 		private Instant updatedAt;
 
-		private RegionEntry(String name, boolean persisted, Rectangle region, Dimension screen) {
+		private RegionEntry(String key, String name, boolean locked, boolean persisted,
+		                    Rectangle region, Dimension screen, Instant updatedAt) {
+			this.key = key;
 			this.name = name;
+			this.locked = locked;
 			this.persisted = persisted;
-			this.region = region;
-			this.screen = screen;
-			this.updatedAt = Instant.now();
+			this.region = region != null ? new Rectangle(region) : new Rectangle(0, 0, 0, 0);
+			this.screen = screen != null ? new Dimension(screen) : new Dimension(0, 0);
+			this.updatedAt = updatedAt != null ? updatedAt : Instant.now();
 		}
 
-		static RegionEntry persisted(String name, Rectangle region, Dimension screen) {
-			return new RegionEntry(name, true, region, screen);
+		static RegionEntry fromSettings(AppSettings.RegionSettings settings) {
+			if (settings == null) {
+				return null;
+			}
+			Rectangle rect = settings.toRectangle();
+			Dimension screen = new Dimension(settings.getScreenWidth(), settings.getScreenHeight());
+			return new RegionEntry(
+					settings.getKey(),
+					settings.getName(),
+					settings.isLocked(),
+					true,
+					rect,
+					screen,
+					settings.getTimestamp()
+			);
 		}
 
-		static RegionEntry transientRegion(String name, Rectangle region, Dimension screen) {
-			return new RegionEntry(name, false, region, screen);
+		static RegionEntry createCustom(String name) {
+			return new RegionEntry(
+					createRegionKey(),
+					name,
+					false,
+					false,
+					new Rectangle(0, 0, 0, 0),
+					new Dimension(0, 0),
+					Instant.now()
+			);
+		}
+
+		static RegionEntry placeholder(String name, boolean locked) {
+			return new RegionEntry(
+					createRegionKey(),
+					name,
+					locked,
+					false,
+					new Rectangle(0, 0, 0, 0),
+					new Dimension(0, 0),
+					Instant.now()
+			);
+		}
+
+		String getDisplayName(int fallbackIndex) {
+			if (name != null && !name.trim().isEmpty()) {
+				return name;
+			}
+			return "Region " + (fallbackIndex + 1);
+		}
+
+		boolean hasName(String candidate) {
+			if (name == null || candidate == null) {
+				return false;
+			}
+			return name.equalsIgnoreCase(candidate);
+		}
+
+		boolean isRemovable() {
+			return !locked;
 		}
 	}
 
@@ -432,6 +562,7 @@ public class RegionManagerWindow extends JFrame {
 			selectButton.setOpaque(false);
 			selectButton.setFocusable(false);
 			selectionGroup.add(selectButton);
+			selectButton.addActionListener(e -> select());
 
 			JPanel left = new JPanel(new BorderLayout(8, 0));
 			left.setOpaque(false);
@@ -459,7 +590,10 @@ public class RegionManagerWindow extends JFrame {
 
 			setButton = new JButton("Set");
 			setButton.setFocusable(false);
-			setButton.addActionListener(e -> setRegion(this.index));
+			setButton.addActionListener(e -> {
+				select();
+				setRegion(this.index);
+			});
 			add(setButton, BorderLayout.EAST);
 
 			MouseAdapter selectOnClick = new MouseAdapter() {
@@ -479,17 +613,21 @@ public class RegionManagerWindow extends JFrame {
 		}
 
 		void refresh(RegionEntry entry) {
-			nameLabel.setText(entry != null && entry.name != null ? entry.name : ("Region " + (index + 1)));
+			nameLabel.setText(entry != null ? entry.getDisplayName(index) : "Region " + (index + 1));
 
 			Rectangle rect = entry != null && entry.region != null ? entry.region : new Rectangle(0, 0, 0, 0);
 			Dimension screen = entry != null && entry.screen != null ? entry.screen : new Dimension(0, 0);
 			String coords = String.format("x=%d, y=%d, w=%d, h=%d (screen %dx%d)", rect.x, rect.y, rect.width, rect.height, screen.width, screen.height);
 			coordsLabel.setText(coords);
 
-			if (entry != null && entry.persisted) {
-				statusLabel.setText("Saved in settings");
-			} else {
+			if (entry == null) {
+				statusLabel.setText("");
+			} else if (!entry.persisted) {
 				statusLabel.setText("Not saved yet");
+			} else if (entry.locked) {
+				statusLabel.setText("Default region (locked)");
+			} else {
+				statusLabel.setText("Saved in settings");
 			}
 		}
 
@@ -499,6 +637,11 @@ public class RegionManagerWindow extends JFrame {
 
 		void select() {
 			selectButton.setSelected(true);
+			updateRemoveButtonState();
 		}
+	}
+
+	private static String createRegionKey() {
+		return "region-" + UUID.randomUUID();
 	}
 }

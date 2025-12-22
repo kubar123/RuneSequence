@@ -10,6 +10,68 @@
     "screenHeight": 1400,
     "timestamp": "2025-09-03T12:06:33.670Z"
   },
+  "regions": [
+    {
+      "name": "Abilities",
+      "key": "abilities",
+      "locked": true,
+      "x": 447,
+      "y": 501,
+      "width": 1731,
+      "height": 875,
+      "screenWidth": 2560,
+      "screenHeight": 1400,
+      "timestamp": "2025-09-03T12:06:33.670Z"
+    },
+    {
+      "name": "Chat box",
+      "key": "chat-box",
+      "locked": true,
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "screenWidth": 2560,
+      "screenHeight": 1400,
+      "timestamp": "2025-09-03T12:06:33.670Z"
+    },
+    {
+      "name": "Buff Bar",
+      "key": "buff-bar",
+      "locked": true,
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "screenWidth": 2560,
+      "screenHeight": 1400,
+      "timestamp": "2025-09-03T12:06:33.670Z"
+    },
+    {
+      "name": "Debuff Bar",
+      "key": "debuff-bar",
+      "locked": true,
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "screenWidth": 2560,
+      "screenHeight": 1400,
+      "timestamp": "2025-09-03T12:06:33.670Z"
+    },
+    {
+      "name": "Timer",
+      "key": "timer",
+      "locked": true,
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "screenWidth": 2560,
+      "screenHeight": 1400,
+      "timestamp": "2025-09-03T12:06:33.670Z"
+    }
+  ],
   "updated": "2025-11-06T09:07:49.788305300Z",
   "detection" : {
     "intervalMs" : 100,

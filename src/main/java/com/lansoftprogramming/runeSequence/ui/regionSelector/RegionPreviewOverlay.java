@@ -15,6 +15,10 @@ import java.util.Objects;
 final class RegionPreviewOverlay implements AutoCloseable {
 	private static final int BORDER_THICKNESS = 2;
 	private static final int FILL_ALPHA = 70;
+	private static final int LABEL_PADDING_X = 8;
+	private static final int LABEL_PADDING_Y = 4;
+	private static final int LABEL_MARGIN = 4;
+	private static final int LABEL_ARC = 10;
 
 	private final boolean headless;
 	private final JWindow overlayWindow;
@@ -129,10 +133,56 @@ final class RegionPreviewOverlay implements AutoCloseable {
 					g2.setColor(border);
 					g2.setStroke(new BasicStroke(BORDER_THICKNESS));
 					g2.draw(item.region);
+
+					drawRegionLabel(g2, item, border);
 				}
 			} finally {
 				g2.dispose();
 			}
+		}
+
+		private void drawRegionLabel(Graphics2D g2, RegionOverlayItem item, Color accent) {
+			String label = item != null ? item.name : null;
+			if (label == null || label.trim().isEmpty() || item.region == null) {
+				return;
+			}
+
+			Font previousFont = g2.getFont();
+			g2.setFont(previousFont.deriveFont(Font.BOLD));
+			FontMetrics metrics = g2.getFontMetrics();
+
+			int textWidth = metrics.stringWidth(label);
+			int textHeight = metrics.getHeight();
+			int boxWidth = textWidth + (LABEL_PADDING_X * 2);
+			int boxHeight = textHeight + (LABEL_PADDING_Y * 2);
+
+			int preferredX = item.region.x + BORDER_THICKNESS + LABEL_MARGIN;
+			int preferredY = item.region.y - boxHeight - LABEL_MARGIN;
+			boolean placeAbove = preferredY >= 0;
+
+			int x = preferredX;
+			int y = placeAbove ? preferredY : (item.region.y + BORDER_THICKNESS + LABEL_MARGIN);
+
+			int maxX = Math.max(0, getWidth() - boxWidth - LABEL_MARGIN);
+			int maxY = Math.max(0, getHeight() - boxHeight - LABEL_MARGIN);
+			x = Math.max(LABEL_MARGIN, Math.min(x, maxX));
+			y = Math.max(LABEL_MARGIN, Math.min(y, maxY));
+
+			g2.setColor(UiColorPalette.DROP_ZONE_LABEL_BACKGROUND);
+			g2.fillRoundRect(x, y, boxWidth, boxHeight, LABEL_ARC, LABEL_ARC);
+
+			if (accent != null) {
+				g2.setColor(accent);
+				g2.setStroke(new BasicStroke(1f));
+				g2.drawRoundRect(x, y, boxWidth, boxHeight, LABEL_ARC, LABEL_ARC);
+			}
+
+			g2.setColor(UiColorPalette.TOOLTIP_OVERLAY_TEXT);
+			int textX = x + LABEL_PADDING_X;
+			int textY = y + LABEL_PADDING_Y + metrics.getAscent();
+			g2.drawString(label, textX, textY);
+
+			g2.setFont(previousFont);
 		}
 
 		private static Color borderColorForIndex(int index) {
