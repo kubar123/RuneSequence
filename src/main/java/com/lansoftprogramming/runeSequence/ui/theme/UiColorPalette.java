@@ -57,6 +57,8 @@ public final class UiColorPalette {
 	public static final Color UI_CARD_BORDER_SUBTLE = Color.LIGHT_GRAY;
 	public static final Color UI_CARD_BORDER_STRONG = new Color(180, 180, 180);
 	public static final Color UI_DIVIDER_FAINT = new Color(255, 255, 255, 70);
+	public static final Color DIALOG_TITLE_GOLD = new Color(207, 173, 92);
+	public static final Color DIALOG_MESSAGE_TEXT = new Color(204, 204, 204);
 
 	// --- Region selector overlays ---
 	public static final Color REGION_OVERLAY_SCRIM = new Color(0, 0, 0, 100);

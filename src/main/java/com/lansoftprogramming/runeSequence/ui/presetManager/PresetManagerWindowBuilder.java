@@ -8,10 +8,9 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.Sequ
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.SequenceVisualService;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.swing.*;
 
 /**
  * Centralizes the construction of Preset Manager UI dependencies so
@@ -60,11 +59,10 @@ public class PresetManagerWindowBuilder {
 			);
 		} catch (Exception e) {
 			logger.error("Failed to build PresetManagerWindow", e);
-			JOptionPane.showMessageDialog(
+			ThemedDialogs.showMessageDialog(
 					null,
-					"Failed to open Preset Manager: " + e.getMessage(),
 					"Preset Manager Error",
-					JOptionPane.ERROR_MESSAGE
+					"Failed to open Preset Manager: " + e.getMessage()
 			);
 			return null;
 		}

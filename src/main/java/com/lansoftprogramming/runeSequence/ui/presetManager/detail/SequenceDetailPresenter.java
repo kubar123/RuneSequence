@@ -16,15 +16,16 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverr
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.ExpressionBuilder;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedTextBoxPanel;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedTextBoxes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.event.AncestorEvent;
+import javax.swing.event.AncestorListener;
 import java.awt.*;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -573,25 +574,31 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 	private String promptForTooltipText(String initialValue) {
 		JTextField inputField = new JTextField(initialValue != null ? initialValue : "", 26);
-		ThemedTextBoxPanel inputPanel = ThemedTextBoxes.wrap(inputField);
-		JOptionPane optionPane = new JOptionPane(
-				inputPanel,
-				JOptionPane.PLAIN_MESSAGE,
-				JOptionPane.OK_CANCEL_OPTION
-		);
-
-		JDialog dialog = optionPane.createDialog(view.asComponent(), "Tooltip Properties");
-		dialog.addWindowListener(new WindowAdapter() {
+		inputField.addAncestorListener(new AncestorListener() {
 			@Override
-			public void windowOpened(WindowEvent e) {
-				inputField.requestFocusInWindow();
-				inputField.selectAll();
+			public void ancestorAdded(AncestorEvent event) {
+				SwingUtilities.invokeLater(() -> {
+					inputField.requestFocusInWindow();
+					inputField.selectAll();
+				});
+				inputField.removeAncestorListener(this);
+			}
+
+			@Override
+			public void ancestorRemoved(AncestorEvent event) {
+			}
+
+			@Override
+			public void ancestorMoved(AncestorEvent event) {
 			}
 		});
-
-		dialog.setVisible(true);
-		Object value = optionPane.getValue();
-		if (value instanceof Integer option && option == JOptionPane.OK_OPTION) {
+		ThemedTextBoxPanel inputPanel = ThemedTextBoxes.wrap(inputField);
+		ThemedDialogs.Result result = ThemedDialogs.showOkCancelDialog(
+				view.asComponent(),
+				"Tooltip Properties",
+				inputPanel
+		);
+		if (result == ThemedDialogs.Result.OK) {
 			return inputField.getText();
 		}
 		return null;

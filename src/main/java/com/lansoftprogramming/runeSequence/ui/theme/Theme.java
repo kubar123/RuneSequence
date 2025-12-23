@@ -20,4 +20,16 @@ public interface Theme {
 	Insets getTextBoxPadding(TextBoxStyle style);
 
 	BufferedImage getTextBoxImage(TextBoxStyle style);
+
+	NineSliceSpec getPanelSpec(PanelStyle style);
+
+	Insets getPanelPadding(PanelStyle style);
+
+	BufferedImage getPanelBorderImage(PanelStyle style);
+
+	BufferedImage getPanelBackgroundImage(PanelStyle style);
+
+	BufferedImage getDialogDividerImage(DialogStyle style);
+
+	Font getDialogTitleFont(float size);
 }

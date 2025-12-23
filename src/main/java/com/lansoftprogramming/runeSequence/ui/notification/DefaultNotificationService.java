@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.notification;
 
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastClient;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,7 @@ public class DefaultNotificationService implements NotificationService {
 			runOnEdt(() -> toastClient.info(message));
 			return;
 		}
-		showDialog(DEFAULT_TITLE, message, JOptionPane.INFORMATION_MESSAGE);
+		showDialog(DEFAULT_TITLE, message);
 	}
 
 	@Override
@@ -42,7 +43,7 @@ public class DefaultNotificationService implements NotificationService {
 			runOnEdt(() -> toastClient.success(message));
 			return;
 		}
-		showDialog(DEFAULT_TITLE, message, JOptionPane.INFORMATION_MESSAGE);
+		showDialog(DEFAULT_TITLE, message);
 	}
 
 	@Override
@@ -51,7 +52,7 @@ public class DefaultNotificationService implements NotificationService {
 			runOnEdt(() -> toastClient.warn(message));
 			return;
 		}
-		showDialog(DEFAULT_TITLE, message, JOptionPane.WARNING_MESSAGE);
+		showDialog(DEFAULT_TITLE, message);
 	}
 
 	@Override
@@ -60,26 +61,23 @@ public class DefaultNotificationService implements NotificationService {
 			runOnEdt(() -> toastClient.error(message));
 			return;
 		}
-		showDialog(DEFAULT_TITLE, message, JOptionPane.ERROR_MESSAGE);
+		showDialog(DEFAULT_TITLE, message);
 	}
 
 	@Override
 	public boolean showConfirmDialog(String title, String message) {
-		return invokeAndReturn(() -> JOptionPane.showConfirmDialog(
+		return invokeAndReturn(() -> ThemedDialogs.showConfirmDialog(
 				parentComponent,
-				message,
 				title != null ? title : DEFAULT_TITLE,
-				JOptionPane.YES_NO_OPTION,
-				JOptionPane.QUESTION_MESSAGE
-		)) == JOptionPane.YES_OPTION;
+				message
+		));
 	}
 
-	private void showDialog(String title, String message, int messageType) {
-		runOnEdt(() -> JOptionPane.showMessageDialog(
+	private void showDialog(String title, String message) {
+		runOnEdt(() -> ThemedDialogs.showMessageDialog(
 				parentComponent,
-				message,
 				title != null ? title : DEFAULT_TITLE,
-				messageType
+				message
 		));
 	}
 
@@ -91,11 +89,11 @@ public class DefaultNotificationService implements NotificationService {
 		}
 	}
 
-	private int invokeAndReturn(DialogSupplier supplier) {
+	private boolean invokeAndReturn(DialogSupplier supplier) {
 		if (SwingUtilities.isEventDispatchThread()) {
 			return supplier.get();
 		}
-		final int[] result = new int[1];
+		final boolean[] result = new boolean[1];
 		try {
 			long startNanos = System.nanoTime();
 			if (logger.isDebugEnabled()) {
@@ -108,12 +106,12 @@ public class DefaultNotificationService implements NotificationService {
 			}
 		} catch (Exception e) {
 			logger.warn("DefaultNotificationService.invokeAndReturn failed; returning NO_OPTION", e);
-			return JOptionPane.NO_OPTION;
+			return false;
 		}
 		return result[0];
 	}
 
 	private interface DialogSupplier {
-		int get();
+		boolean get();
 	}
 }

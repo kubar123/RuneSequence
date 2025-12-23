@@ -27,7 +27,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
 
-public class SequenceDetailPanel extends JPanel implements SequenceDetailPresenter.View {
+public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPresenter.View {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailPanel.class);
 	private static final String ICON_COGWHEEL_DARK = "/ui/dark/PresetManagerWindow.cogWheel.png";
 	private static final String ICON_INSERT_CLIPBOARD_DARK = "/ui/dark/PresetManagerWindow.insertFromClipboard.png";
@@ -57,11 +57,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	public SequenceDetailPanel(SequenceDetailService detailService,
 	                           AbilityOverridesService overridesService,
 	                           NotificationService notifications) {
+		super(PanelStyle.DETAIL, new BorderLayout());
 		this.detailService = detailService;
 		this.overridesService = overridesService;
 		this.notifications = notifications;
-		setLayout(new BorderLayout());
-		setBorder(new EmptyBorder(10, 10, 10, 10));
 
 		sequenceNameField = new JTextField();
 		installTextCursor(sequenceNameField);
@@ -112,8 +111,10 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	}
 
 	private JPanel createHeaderPanel() {
-		JPanel headerPanel = new JPanel(new BorderLayout(10, 0));
-		headerPanel.setBorder(new EmptyBorder(2, 0, 2, 0));
+		ThemedPanel headerPanel = new ThemedPanel(PanelStyle.DETAIL_HEADER, new BorderLayout());
+		JPanel headerContent = new JPanel(new BorderLayout(10, 0));
+		headerContent.setOpaque(false);
+		headerContent.setBorder(new EmptyBorder(2, 0, 2, 0));
 
 		JPanel palettePanel = new HoverGlowContainerPanel(
 				new FlowLayout(FlowLayout.LEFT, 6, 2),
@@ -124,18 +125,20 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		palettePanel.add(insertButton);
 
 		JPanel namePanel = new JPanel(new BorderLayout(5, 0));
-		namePanel.setBorder(new EmptyBorder(2, 0, 2, 0));
+		namePanel.setOpaque(false);
 		namePanel.add(new JLabel("Sequence Name:"), BorderLayout.WEST);
 		namePanel.add(sequenceNamePanel, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 2));
+		buttonPanel.setOpaque(false);
 		buttonPanel.add(settingsButton);
 		buttonPanel.add(discardButton);
 		buttonPanel.add(saveButton);
 
-		headerPanel.add(palettePanel, BorderLayout.WEST);
-		headerPanel.add(namePanel, BorderLayout.CENTER);
-		headerPanel.add(buttonPanel, BorderLayout.EAST);
+		headerContent.add(palettePanel, BorderLayout.WEST);
+		headerContent.add(namePanel, BorderLayout.CENTER);
+		headerContent.add(buttonPanel, BorderLayout.EAST);
+		headerPanel.add(headerContent, BorderLayout.CENTER);
 
 		return headerPanel;
 	}
@@ -353,6 +356,9 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 		scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		scrollPane.getVerticalScrollBar().setUnitIncrement(5);
+		scrollPane.setOpaque(false);
+		scrollPane.getViewport().setOpaque(false);
+		abilityFlowView.setOpaque(false);
 		return scrollPane;
 	}
 

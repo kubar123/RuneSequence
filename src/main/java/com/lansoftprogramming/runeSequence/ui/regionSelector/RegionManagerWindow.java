@@ -5,6 +5,7 @@ import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -326,13 +327,7 @@ public class RegionManagerWindow extends JFrame {
 			return notifications.showConfirmDialog(title, message);
 		}
 
-		return JOptionPane.showConfirmDialog(
-				this,
-				message,
-				title,
-				JOptionPane.YES_NO_OPTION,
-				JOptionPane.QUESTION_MESSAGE
-		) == JOptionPane.YES_OPTION;
+		return ThemedDialogs.showConfirmDialog(this, title, message);
 	}
 
 	private int getSelectedIndex() {
