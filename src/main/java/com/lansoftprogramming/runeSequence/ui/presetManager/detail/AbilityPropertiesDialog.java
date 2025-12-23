@@ -5,6 +5,8 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityValueSanit
 import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
 import com.lansoftprogramming.runeSequence.core.validation.FilenameValidators;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -192,6 +194,9 @@ class AbilityPropertiesDialog extends JDialog {
 		JButton resetAllButton = new JButton("Reset All Overrides");
 		JButton cancelButton = new JButton("Cancel");
 		JButton okButton = new JButton("OK");
+		ThemedButtons.apply(resetAllButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(cancelButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(okButton, ButtonStyle.DEFAULT);
 
 		resetAllButton.addActionListener(e -> resetAll());
 		cancelButton.addActionListener(e -> dispose());

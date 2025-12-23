@@ -8,6 +8,8 @@ import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -303,6 +305,7 @@ public class AbilityPalettePanel extends JPanel {
 
 	private static JButton createMainAppButton(String label, String tooltip, Runnable action) {
 		JButton button = new JButton(label);
+		ThemedButtons.apply(button, ButtonStyle.DEFAULT);
 		button.setToolTipText(tooltip);
 		button.setFocusable(false);
 		button.setMargin(new Insets(2, 10, 2, 10));
@@ -312,6 +315,7 @@ public class AbilityPalettePanel extends JPanel {
 
 	private static JButton createMainAppButton(ImageIcon icon, String fallbackLabel, String tooltip, Runnable action) {
 		JButton button = icon != null ? new JButton(icon) : new JButton(fallbackLabel);
+		ThemedButtons.apply(button, ButtonStyle.DEFAULT);
 		button.setToolTipText(tooltip);
 		button.setFocusable(false);
 		if (icon != null) {

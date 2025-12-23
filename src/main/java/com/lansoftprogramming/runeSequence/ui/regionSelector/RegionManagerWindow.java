@@ -3,6 +3,8 @@ package com.lansoftprogramming.runeSequence.ui.regionSelector;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,9 +57,11 @@ public class RegionManagerWindow extends JFrame {
 		JPanel actions = new JPanel();
 		actions.setLayout(new BoxLayout(actions, BoxLayout.X_AXIS));
 		addButton = new JButton("+");
+		ThemedButtons.apply(addButton, ButtonStyle.DEFAULT);
 		addButton.setFocusable(false);
 		addButton.setToolTipText("Add region");
 		removeButton = createDeleteButtonOrFallback();
+		ThemedButtons.apply(removeButton, ButtonStyle.DEFAULT);
 		removeButton.setFocusable(false);
 		removeButton.setToolTipText("Delete selected region");
 		actions.add(addButton);
@@ -98,9 +102,13 @@ public class RegionManagerWindow extends JFrame {
 		}
 
 		if (trashIcon != null) {
-			return new JButton(trashIcon);
+			JButton deleteButton = new JButton(trashIcon);
+			ThemedButtons.apply(deleteButton, ButtonStyle.DEFAULT);
+			return deleteButton;
 		}
-		return new JButton("Delete");
+		JButton deleteButton = new JButton("Delete");
+		ThemedButtons.apply(deleteButton, ButtonStyle.DEFAULT);
+		return deleteButton;
 	}
 
 	private void installActions() {
@@ -589,6 +597,7 @@ public class RegionManagerWindow extends JFrame {
 			add(left, BorderLayout.CENTER);
 
 			setButton = new JButton("Set");
+			ThemedButtons.apply(setButton, ButtonStyle.DEFAULT);
 			setButton.setFocusable(false);
 			setButton.addActionListener(e -> {
 				select();

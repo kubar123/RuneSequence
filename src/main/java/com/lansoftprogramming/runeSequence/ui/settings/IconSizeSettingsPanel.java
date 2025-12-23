@@ -3,6 +3,8 @@ package com.lansoftprogramming.runeSequence.ui.settings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ScalingConverter;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -115,6 +117,7 @@ public class IconSizeSettingsPanel extends JPanel {
 		gbc.anchor = GridBagConstraints.EAST;
 		gbc.gridx = 1;
 		JButton saveButton = new JButton("Save");
+		ThemedButtons.apply(saveButton, ButtonStyle.DEFAULT);
 		saveButton.addActionListener(e -> handleSave());
 		formPanel.add(saveButton, gbc);
 

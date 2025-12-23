@@ -5,6 +5,8 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOv
 import com.lansoftprogramming.runeSequence.core.sequence.parser.RotationDslCodec;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -81,6 +83,7 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 		sequenceList.addListSelectionListener(new SequenceSelectionHandler());
 
 		addButton = new JButton("+");
+		ThemedButtons.apply(addButton, ButtonStyle.DEFAULT);
 		addButton.addActionListener(e -> notifyAddListeners());
 
 		runControlPanel = new RunControlPanel();
@@ -117,12 +120,15 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 		} else {
 			deleteButton = new JButton("🗑"); // Fallback to text if icon fails to load
 		}
+		ThemedButtons.apply(deleteButton, ButtonStyle.DEFAULT);
 
 		deleteButton.addActionListener(e -> notifyDeleteListeners(getSelectedSequenceEntry()));
 
 		importButton = new JButton("Import");
+		ThemedButtons.apply(importButton, ButtonStyle.DEFAULT);
 		importButton.addActionListener(e -> importFromClipboard());
 		exportButton = new JButton("Export \u25BE");
+		ThemedButtons.apply(exportButton, ButtonStyle.DEFAULT);
 		exportButton.setEnabled(false);
 		exportButton.setToolTipText("Export to clipboard");
 		exportButton.getAccessibleContext().setAccessibleName("Export menu");

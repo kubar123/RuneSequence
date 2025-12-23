@@ -3,6 +3,8 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetRotationDefaults;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -73,6 +75,9 @@ public class RotationSettingsDialog extends JDialog {
 		JButton resetButton = new JButton("Reset to Global Defaults");
 		JButton cancelButton = new JButton("Cancel");
 		JButton okButton = new JButton("OK");
+		ThemedButtons.apply(resetButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(cancelButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(okButton, ButtonStyle.DEFAULT);
 
 		resetButton.addActionListener(e -> resetToGlobal());
 		cancelButton.addActionListener(e -> dispose());

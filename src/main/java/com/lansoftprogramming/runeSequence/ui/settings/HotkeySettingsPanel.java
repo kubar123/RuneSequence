@@ -2,6 +2,8 @@ package com.lansoftprogramming.runeSequence.ui.settings;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -124,6 +126,7 @@ public class HotkeySettingsPanel extends JPanel {
 		footer.add(statusLabel, BorderLayout.CENTER);
 
 		JButton saveButton = new JButton("Save hotkeys");
+		ThemedButtons.apply(saveButton, ButtonStyle.DEFAULT);
 		saveButton.addActionListener(e -> handleSave());
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
 		buttonPanel.add(saveButton);
@@ -325,6 +328,7 @@ public class HotkeySettingsPanel extends JPanel {
 			this.field.setEditable(false);
 			this.field.setFocusable(false);
 			this.captureButton = new JButton("Capture");
+			ThemedButtons.apply(captureButton, ButtonStyle.DEFAULT);
 			captureButton.setToolTipText("Open a menu to record a keybind");
 			captureButton.setMargin(new Insets(2, 8, 2, 8));
 			captureButton.setFocusable(false);

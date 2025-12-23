@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.regionSelector;
 
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -23,6 +25,7 @@ public class RegionSelectorWindow extends JDialog {
         super(owner, "Select Region", true); // Modal dialog
         this.selection = new Rectangle();
         this.confirmButton = new JButton("Confirm Selection");
+        ThemedButtons.apply(confirmButton, ButtonStyle.DEFAULT);
 
         setUndecorated(true);
         setBackground(UiColorPalette.TRANSLUCENT_WINDOW); // Almost fully transparent
@@ -110,6 +113,7 @@ public class RegionSelectorWindow extends JDialog {
         });
 
         JButton cancelButton = new JButton("Cancel");
+        ThemedButtons.apply(cancelButton, ButtonStyle.DEFAULT);
         cancelButton.setFocusable(false);
         cancelButton.addActionListener(e -> {
             selectionMade = false;

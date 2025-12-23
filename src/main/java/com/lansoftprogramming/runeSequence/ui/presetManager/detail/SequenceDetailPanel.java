@@ -6,6 +6,8 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElemen
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +72,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		insertButton = createInsertButton();
 		tooltipButton = createTooltipButton();
 		settingsButton = new JButton("Settings");
+		ThemedButtons.apply(settingsButton, ButtonStyle.DEFAULT);
 		saveButton = new JButton("Save");
 		discardButton = new JButton("Discard");
 		abilityFlowView = new AbilityFlowView(detailService);
