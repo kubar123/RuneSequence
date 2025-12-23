@@ -6,9 +6,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElemen
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +34,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 	private static final String ICON_TEXT_ADD_DARK = "/ui/dark/PresetWindowManager.textAdd.png";
 
 	private final JTextField sequenceNameField;
+	private final ThemedTextBoxPanel sequenceNamePanel;
 	private final JPanel tooltipButton;
 	private final JPanel insertButton;
 	private final JButton settingsButton;
@@ -66,7 +65,8 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 
 		sequenceNameField = new JTextField();
 		installTextCursor(sequenceNameField);
-		sequenceNameField.setMargin(new Insets(2, 6, 2, 6));
+		sequenceNamePanel = ThemedTextBoxes.wrap(sequenceNameField);
+		installTextCursor(sequenceNamePanel);
 		insertIcon = loadScaledIconOrFallback(ICON_INSERT_CLIPBOARD_DARK, 18, 18, this::createInsertIcon);
 		tooltipIcon = loadScaledIconOrFallback(ICON_TEXT_ADD_DARK, 18, 18, this::createTooltipIcon);
 		insertButton = createInsertButton();
@@ -91,6 +91,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		super.addNotify();
 		// Ensure look-and-feel/UI updates don't override the text cursor.
 		installTextCursor(sequenceNameField);
+		installTextCursor(sequenceNamePanel);
 		installTextCursorResolver();
 		dirtyStateTimer.start();
 	}
@@ -125,7 +126,7 @@ public class SequenceDetailPanel extends JPanel implements SequenceDetailPresent
 		JPanel namePanel = new JPanel(new BorderLayout(5, 0));
 		namePanel.setBorder(new EmptyBorder(2, 0, 2, 0));
 		namePanel.add(new JLabel("Sequence Name:"), BorderLayout.WEST);
-		namePanel.add(sequenceNameField, BorderLayout.CENTER);
+		namePanel.add(sequenceNamePanel, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 2));
 		buttonPanel.add(settingsButton);

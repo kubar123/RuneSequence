@@ -5,9 +5,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityValueSanit
 import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
 import com.lansoftprogramming.runeSequence.core.validation.FilenameValidators;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -64,6 +62,7 @@ class AbilityPropertiesDialog extends JDialog {
 
 	private final JCheckBox maskOverride;
 	private final JTextField maskValue;
+	private final ThemedTextBoxPanel maskValuePanel;
 	private final JCheckBox maskApplyAll;
 	private final JLabel maskEffective;
 
@@ -106,6 +105,7 @@ class AbilityPropertiesDialog extends JDialog {
 
 		maskOverride = new JCheckBox();
 		maskValue = new JTextField();
+		maskValuePanel = ThemedTextBoxes.wrap(maskValue);
 		maskApplyAll = new JCheckBox();
 		maskEffective = new JLabel();
 
@@ -186,7 +186,7 @@ class AbilityPropertiesDialog extends JDialog {
 		gbc.gridy++;
 		addRow(formPanel, gbc, "Detection Threshold", thresholdOverride, thresholdValue, thresholdEffective, thresholdApplyAll);
 		gbc.gridy++;
-		addRow(formPanel, gbc, "Mask", maskOverride, maskValue, maskEffective, maskApplyAll);
+		addRow(formPanel, gbc, "Mask", maskOverride, maskValuePanel, maskEffective, maskApplyAll);
 
 		content.add(formPanel, BorderLayout.CENTER);
 
@@ -220,7 +220,7 @@ class AbilityPropertiesDialog extends JDialog {
 		attachOverrideHandler(castDurationOverride, castDurationValue);
 		attachOverrideHandler(cooldownOverride, cooldownValue);
 		attachOverrideHandler(thresholdOverride, thresholdValue);
-		attachOverrideHandler(maskOverride, maskValue);
+		attachOverrideHandler(maskOverride, maskValuePanel);
 
 		triggersGcdOverride.addActionListener(e -> updateEffectiveLabels());
 		triggersGcdValue.addActionListener(e -> updateEffectiveLabels());

@@ -14,4 +14,10 @@ public interface Theme {
 	BufferedImage getButtonBaseImage(ButtonStyle style);
 
 	BufferedImage getButtonImage(ButtonStyle style, ButtonVisualState state);
+
+	NineSliceSpec getTextBoxSpec(TextBoxStyle style);
+
+	Insets getTextBoxPadding(TextBoxStyle style);
+
+	BufferedImage getTextBoxImage(TextBoxStyle style);
 }

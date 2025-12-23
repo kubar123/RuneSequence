@@ -16,6 +16,8 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverr
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.ExpressionBuilder;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedTextBoxPanel;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedTextBoxes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -571,8 +573,9 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 
 	private String promptForTooltipText(String initialValue) {
 		JTextField inputField = new JTextField(initialValue != null ? initialValue : "", 26);
+		ThemedTextBoxPanel inputPanel = ThemedTextBoxes.wrap(inputField);
 		JOptionPane optionPane = new JOptionPane(
-				inputField,
+				inputPanel,
 				JOptionPane.PLAIN_MESSAGE,
 				JOptionPane.OK_CANCEL_OPTION
 		);

@@ -2,9 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.settings;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -290,6 +288,7 @@ public class HotkeySettingsPanel extends JPanel {
 
 	private void markFieldValidity(JTextField field, boolean valid) {
 		field.setBackground(valid ? defaultFieldBackground : INVALID_FIELD_BACKGROUND);
+		field.setOpaque(!valid);
 	}
 
 	private static String resolveActionLabel(String action) {
@@ -319,6 +318,7 @@ public class HotkeySettingsPanel extends JPanel {
 
 	private final class CustomBindingEditor extends JPanel {
 		private final JTextField field;
+		private final ThemedTextBoxPanel fieldPanel;
 		private final JButton captureButton;
 
 		private CustomBindingEditor(AppSettings.HotkeySettings.Binding binding) {
@@ -327,13 +327,14 @@ public class HotkeySettingsPanel extends JPanel {
 			this.field.setColumns(20);
 			this.field.setEditable(false);
 			this.field.setFocusable(false);
+			this.fieldPanel = ThemedTextBoxes.wrap(field);
 			this.captureButton = new JButton("Capture");
 			ThemedButtons.apply(captureButton, ButtonStyle.DEFAULT);
 			captureButton.setToolTipText("Open a menu to record a keybind");
 			captureButton.setMargin(new Insets(2, 8, 2, 8));
 			captureButton.setFocusable(false);
 			captureButton.addActionListener(e -> beginCapture());
-			add(field, BorderLayout.CENTER);
+			add(fieldPanel, BorderLayout.CENTER);
 			add(captureButton, BorderLayout.EAST);
 		}
 
@@ -353,7 +354,7 @@ public class HotkeySettingsPanel extends JPanel {
 		}
 
 		private void setEditorEnabled(boolean enabled) {
-			field.setEnabled(enabled);
+			fieldPanel.setEnabled(enabled);
 			captureButton.setEnabled(enabled);
 		}
 

@@ -8,14 +8,11 @@ import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -62,6 +59,13 @@ public class AbilityPalettePanel extends JPanel {
 	// Cache of category panels and their ability cards
 	private final Map<String, CategoryPanel> categoryPanels;
 	private final Map<String, List<AbilityItem>> categoryAbilities;
+	private final Color clearSearchEnabledColor = UiColorPalette.UI_TEXT_COLOR;
+	private final Color clearSearchHiddenColor = new Color(
+			clearSearchEnabledColor.getRed(),
+			clearSearchEnabledColor.getGreen(),
+			clearSearchEnabledColor.getBlue(),
+			0
+	);
 
 	public AbilityPalettePanel(AbilityConfig abilityConfig,
 	                           AbilityCategoryConfig categoryConfig,
@@ -109,13 +113,16 @@ public class AbilityPalettePanel extends JPanel {
 		clearSearchButton.setBorderPainted(false);
 		clearSearchButton.setContentAreaFilled(false);
 		clearSearchButton.setOpaque(false);
-		clearSearchButton.setFont(UiColorPalette.boldSans(16));
-		clearSearchButton.setMargin(new Insets(0, 10, 0, 10));
-		clearSearchButton.setForeground(UiColorPalette.UI_TEXT_COLOR);
+		clearSearchButton.setFont(UiColorPalette.boldSans(13));
+		clearSearchButton.setMargin(new Insets(0, 8, 0, 8));
+		clearSearchButton.setForeground(clearSearchEnabledColor);
 		int searchFieldHeight = searchField.getPreferredSize().height;
-		clearSearchButton.setPreferredSize(new Dimension(34, searchFieldHeight));
-		clearSearchButton.setMinimumSize(new Dimension(34, searchFieldHeight));
-		clearSearchButton.setVisible(false);
+		Dimension clearButtonSize = new Dimension(30, searchFieldHeight);
+		clearSearchButton.setPreferredSize(clearButtonSize);
+		clearSearchButton.setMinimumSize(clearButtonSize);
+		clearSearchButton.setMaximumSize(clearButtonSize);
+		clearSearchButton.setVisible(true);
+		updateClearSearchButton(false);
 		clearSearchButton.addActionListener(e -> {
 			searchField.setText("");
 			searchField.requestFocusInWindow();
@@ -142,14 +149,10 @@ public class AbilityPalettePanel extends JPanel {
 	private void layoutComponents() {
 		JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
 		searchPanel.add(new JLabel("Search:"), BorderLayout.WEST);
-		searchInputPanel = new JPanel(new BorderLayout(0, 0));
+		searchInputPanel = new ThemedTextBoxPanel(TextBoxStyle.DEFAULT, new BorderLayout(0, 0));
 		installTextCursor(searchInputPanel);
-		Border searchFieldBorder = searchField.getBorder();
-		if (searchFieldBorder != null) {
-			searchInputPanel.setBorder(searchFieldBorder);
-			searchField.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
-		}
-		searchInputPanel.setBackground(searchField.getBackground());
+		searchField.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+		searchField.setOpaque(false);
 		searchInputPanel.add(searchField, BorderLayout.CENTER);
 		searchInputPanel.add(clearSearchButton, BorderLayout.EAST);
 		searchPanel.add(searchInputPanel, BorderLayout.CENTER);
@@ -371,7 +374,7 @@ public class AbilityPalettePanel extends JPanel {
 		String trimmedQuery = query != null ? query.trim() : "";
 		boolean hasQuery = !trimmedQuery.isEmpty();
 
-		clearSearchButton.setVisible(hasQuery);
+		updateClearSearchButton(hasQuery);
 
 		if (!hasQuery) {
 			resetSearchUi();
@@ -399,6 +402,11 @@ public class AbilityPalettePanel extends JPanel {
 		updateTabTitles(searchStates);
 		selectClosestTabWithMatches(searchStates);
 		updateAbilityCards(searchStates);
+	}
+
+	private void updateClearSearchButton(boolean hasQuery) {
+		clearSearchButton.setEnabled(hasQuery);
+		clearSearchButton.setForeground(hasQuery ? clearSearchEnabledColor : clearSearchHiddenColor);
 	}
 
 	private void selectClosestTabWithMatches(Map<String, CategorySearchState> searchStates) {
