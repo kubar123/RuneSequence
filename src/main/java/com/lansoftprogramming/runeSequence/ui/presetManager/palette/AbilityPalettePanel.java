@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  * Panel component that displays the ability palette with categorized tabs.
  * Includes fuzzy search with real-time filtering and visual feedback.
  */
-public class AbilityPalettePanel extends JPanel {
+public class AbilityPalettePanel extends ThemedPanel {
 	private static final String ICON_COGWHEEL_DARK = "/ui/dark/PresetManagerWindow.cogWheel.png";
 
 	private static final Logger logger = LoggerFactory.getLogger(AbilityPalettePanel.class);
@@ -44,8 +44,9 @@ public class AbilityPalettePanel extends JPanel {
 
 	private JTextField searchField;
 	private JButton clearSearchButton;
-	private JTabbedPane categoryTabs;
+	private TabBar categoryTabs;
 	private JPanel searchInputPanel;
+	private JPanel contentPanel;
 	private SequenceDetailPanel detailPanel;
 	private JButton settingsButton;
 	private JButton selectRegionButton;
@@ -70,6 +71,7 @@ public class AbilityPalettePanel extends JPanel {
 	public AbilityPalettePanel(AbilityConfig abilityConfig,
 	                           AbilityCategoryConfig categoryConfig,
 	                           AbilityIconLoader iconLoader) {
+		super(PanelStyle.DETAIL, new BorderLayout());
 		this.abilityConfig = Objects.requireNonNull(abilityConfig, "Ability config cannot be null");
 		this.categoryConfig = Objects.requireNonNull(categoryConfig, "Category config cannot be null");
 		this.iconLoader = Objects.requireNonNull(iconLoader, "Icon loader cannot be null");
@@ -100,8 +102,10 @@ public class AbilityPalettePanel extends JPanel {
 	}
 
 	private void initializeComponents() {
-		setLayout(new BorderLayout());
-		setBorder(new EmptyBorder(10, 10, 10, 10));
+		contentPanel = new JPanel(new BorderLayout());
+		contentPanel.setOpaque(false);
+		contentPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+		add(contentPanel, BorderLayout.CENTER);
 
 		searchField = new JTextField();
 		installTextCursor(searchField);
@@ -128,7 +132,7 @@ public class AbilityPalettePanel extends JPanel {
 			searchField.requestFocusInWindow();
 		});
 
-		categoryTabs = new JTabbedPane();
+		categoryTabs = new TabBar();
 
 		ImageIcon settingsIcon = loadScaledIconOrNull(ICON_COGWHEEL_DARK, 16, 16);
 		settingsButton = createMainAppButton(settingsIcon, "Settings", "Open main app settings", () -> {
@@ -148,6 +152,7 @@ public class AbilityPalettePanel extends JPanel {
 
 	private void layoutComponents() {
 		JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
+		searchPanel.setOpaque(false);
 		searchPanel.add(new JLabel("Search:"), BorderLayout.WEST);
 		searchInputPanel = new ThemedTextBoxPanel(TextBoxStyle.DEFAULT, new BorderLayout(0, 0));
 		installTextCursor(searchInputPanel);
@@ -159,8 +164,8 @@ public class AbilityPalettePanel extends JPanel {
 		searchPanel.add(createMainAppSettingsPanel(), BorderLayout.EAST);
 		searchPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
 
-		add(searchPanel, BorderLayout.NORTH);
-		add(categoryTabs, BorderLayout.CENTER);
+		contentPanel.add(searchPanel, BorderLayout.NORTH);
+		contentPanel.add(categoryTabs, BorderLayout.CENTER);
 	}
 
 	@Override
@@ -548,6 +553,8 @@ public class AbilityPalettePanel extends JPanel {
 			categoryPanels.put(categoryName, categoryPanel);
 
 			JScrollPane scrollPane = new JScrollPane(categoryPanel);
+			scrollPane.setOpaque(false);
+			scrollPane.getViewport().setOpaque(false);
 			scrollPane.setBorder(BorderFactory.createEmptyBorder());
 			scrollPane.setViewportBorder(BorderFactory.createEmptyBorder());
 			scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
@@ -634,7 +641,7 @@ public class AbilityPalettePanel extends JPanel {
 		return searchField;
 	}
 
-	public JTabbedPane getCategoryTabs() {
+	public TabBar getCategoryTabs() {
 		return categoryTabs;
 	}
 
@@ -648,6 +655,8 @@ public class AbilityPalettePanel extends JPanel {
 			super(component -> component instanceof AbilityCard card && !card.isDimmed());
 			this.cardMap = new LinkedHashMap<>();
 
+			setOpaque(false);
+			setBackground(new Color(0, 0, 0, 0));
 			setBorder(new EmptyBorder(10, 10, 10, 10));
 			setLayout(new WrapLayout(FlowLayout.LEFT, 5, 5));
 
@@ -805,4 +814,5 @@ public class AbilityPalettePanel extends JPanel {
 			return dimmed;
 		}
 	}
+
 }
