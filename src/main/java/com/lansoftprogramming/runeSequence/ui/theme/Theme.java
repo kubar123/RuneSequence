@@ -32,4 +32,14 @@ public interface Theme {
 	BufferedImage getDialogDividerImage(DialogStyle style);
 
 	Font getDialogTitleFont(float size);
+
+	BufferedImage getTabBaseImage();
+
+	BufferedImage getTabActiveImage();
+
+	BufferedImage getTabContentBackgroundImage();
+
+	NineSliceSpec getTabSpec();
+
+	int getTabInterTabOverlapPx();
 }

@@ -2,23 +2,19 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.palette;
 
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.Objects;
 
 final class TabComponent extends JComponent {
 	private static final int MIN_TEXT_WIDTH_PX = 24;
 	private static final ButtonStyle TAB_STYLE = ButtonStyle.DEFAULT;
-	private static final String TAB_BASE_RESOURCE_SUFFIX = "/tabs/4.png";
-	private static final String TAB_ACTIVE_RESOURCE_SUFFIX = "/tabs/5.png";
-	private static final NineSliceSpec TAB_NINE_SLICE_SPEC = new NineSliceSpec(45, 11, 2, 2);
 	private static final float ACTIVE_LIGHTEN_ALPHA_FLOOR = 0.08f;
 
 	private final TabBar owner;
@@ -29,8 +25,9 @@ final class TabComponent extends JComponent {
 	private boolean selected;
 	private java.awt.Insets padding;
 	private int fixedHeightPx;
-	private String lastThemeName;
-	private final EnumMap<TabVisualState, Map<Dimension, BufferedImage>> backgroundCache;
+	private Theme lastTheme;
+	private NineSliceSpec tabAssetSpec;
+	private final EnumMap<TabVisualState, SizeCache> backgroundCache;
 	private final EnumMap<TabVisualState, BufferedImage> stateBaseCache;
 	private BufferedImage tabBaseImage;
 	private BufferedImage tabActiveImage;
@@ -46,7 +43,7 @@ final class TabComponent extends JComponent {
 		this.index = index;
 		this.backgroundCache = new EnumMap<>(TabVisualState.class);
 		for (TabVisualState state : TabVisualState.values()) {
-			backgroundCache.put(state, new HashMap<>());
+			backgroundCache.put(state, new SizeCache());
 		}
 		this.stateBaseCache = new EnumMap<>(TabVisualState.class);
 
@@ -79,15 +76,15 @@ final class TabComponent extends JComponent {
 
 	void refreshThemeMetrics() {
 		Theme theme = ThemeManager.getTheme();
-		String themeName = theme != null ? theme.getName() : null;
-		if (!Objects.equals(lastThemeName, themeName)) {
-			lastThemeName = themeName;
+		if (lastTheme != theme) {
+			lastTheme = theme;
 			clearCache();
 			stateBaseCache.clear();
 			tabBaseImage = null;
 			tabActiveImage = null;
 			tabBaseFromAsset = false;
 			tabActiveFromAsset = false;
+			tabAssetSpec = null;
 		}
 
 		java.awt.Insets nextPadding = new java.awt.Insets(4, 10, 4, 10);
@@ -97,6 +94,7 @@ final class TabComponent extends JComponent {
 			if (themePadding != null) {
 				nextPadding = themePadding;
 			}
+			tabAssetSpec = theme.getTabSpec();
 			BufferedImage baseImage = getTabBaseImage(theme);
 			if (baseImage != null && baseImage.getHeight() > 0) {
 				nextHeight = baseImage.getHeight();
@@ -234,19 +232,18 @@ final class TabComponent extends JComponent {
 			return null;
 		}
 
-		Map<Dimension, BufferedImage> sizeMap = backgroundCache.get(state);
-		if (sizeMap == null) {
+		SizeCache sizeCache = backgroundCache.get(state);
+		if (sizeCache == null) {
 			return null;
 		}
-		Dimension key = new Dimension(width, height);
-		BufferedImage cached = sizeMap.get(key);
+		BufferedImage cached = sizeCache.get(width, height);
 		if (cached != null) {
 			return cached;
 		}
 
 		BufferedImage rendered = renderBackground(theme, state, width, height);
 		if (rendered != null) {
-			sizeMap.put(key, rendered);
+			sizeCache.put(width, height, rendered);
 		}
 		return rendered;
 	}
@@ -270,7 +267,7 @@ final class TabComponent extends JComponent {
 		Graphics2D g2 = buffer.createGraphics();
 		try {
 			g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-			paintNineSlice(g2, stateImage, spec, 0, 0, width, height);
+			ThemeRenderers.paintNineSlice(g2, stateImage, spec, 0, 0, width, height);
 		} finally {
 			g2.dispose();
 		}
@@ -285,22 +282,15 @@ final class TabComponent extends JComponent {
 			return null;
 		}
 
-		// Prefer the theme's tab asset (e.g., /ui/metal/tabs/4.png) without hardcoding a specific theme name.
-		String themeName = theme.getName();
-		if (themeName != null && !themeName.isBlank()) {
-			String resourcePath = "/ui/" + themeName + TAB_BASE_RESOURCE_SUFFIX;
-			try (InputStream input = theme.getClass().getResourceAsStream(resourcePath)) {
-				if (input != null) {
-					BufferedImage loaded = ImageIO.read(input);
-					if (loaded != null) {
-						tabBaseImage = loaded;
-						tabBaseFromAsset = true;
-						return tabBaseImage;
-					}
-				}
-			} catch (IOException ignored) {
-				// Fall through to button fallback.
+		try {
+			BufferedImage loaded = theme.getTabBaseImage();
+			if (loaded != null) {
+				tabBaseImage = loaded;
+				tabBaseFromAsset = true;
+				return tabBaseImage;
 			}
+		} catch (RuntimeException ignored) {
+			// Fall through to button fallback.
 		}
 
 		// Fallback: render tabs with the themed button base if a tab asset is not provided.
@@ -322,21 +312,15 @@ final class TabComponent extends JComponent {
 			return null;
 		}
 
-		String themeName = theme.getName();
-		if (themeName != null && !themeName.isBlank()) {
-			String resourcePath = "/ui/" + themeName + TAB_ACTIVE_RESOURCE_SUFFIX;
-			try (InputStream input = theme.getClass().getResourceAsStream(resourcePath)) {
-				if (input != null) {
-					BufferedImage loaded = ImageIO.read(input);
-					if (loaded != null) {
-						tabActiveImage = loaded;
-						tabActiveFromAsset = true;
-						return tabActiveImage;
-					}
-				}
-			} catch (IOException ignored) {
-				// Fall through to base fallback.
+		try {
+			BufferedImage loaded = theme.getTabActiveImage();
+			if (loaded != null) {
+				tabActiveImage = loaded;
+				tabActiveFromAsset = true;
+				return tabActiveImage;
 			}
+		} catch (RuntimeException ignored) {
+			// Fall through to base fallback.
 		}
 
 		tabActiveImage = getTabBaseImage(theme);
@@ -361,10 +345,10 @@ final class TabComponent extends JComponent {
 
 		BufferedImage derived = switch (state) {
 			case NORMAL -> base;
-			case HOVER -> applyOverlay(base, UiColorPalette.BASE_WHITE, inferredHoverAlpha);
-			case PRESSED -> applyOverlay(base, UiColorPalette.BASE_BLACK, inferredPressedAlpha);
+			case HOVER -> ThemeRenderers.applyOverlay(base, UiColorPalette.BASE_WHITE, inferredHoverAlpha);
+			case PRESSED -> ThemeRenderers.applyOverlay(base, UiColorPalette.BASE_BLACK, inferredPressedAlpha);
 			case ACTIVE -> applyActiveTreatment(activeBase != null ? activeBase : base);
-			case DISABLED -> toDisabled(base, inferredDisabledAlpha);
+			case DISABLED -> ThemeRenderers.toDisabled(base, inferredDisabledAlpha);
 		};
 
 		stateBaseCache.put(state, derived);
@@ -372,11 +356,11 @@ final class TabComponent extends JComponent {
 	}
 
 	private NineSliceSpec resolveTabSpec(Theme theme, TabVisualState state) {
-		if (state == TabVisualState.ACTIVE && tabActiveFromAsset) {
-			return TAB_NINE_SLICE_SPEC;
+		if (tabAssetSpec != null && state == TabVisualState.ACTIVE && tabActiveFromAsset) {
+			return tabAssetSpec;
 		}
-		if (state != TabVisualState.ACTIVE && tabBaseFromAsset) {
-			return TAB_NINE_SLICE_SPEC;
+		if (tabAssetSpec != null && state != TabVisualState.ACTIVE && tabBaseFromAsset) {
+			return tabAssetSpec;
 		}
 		return theme.getButtonSpec(TAB_STYLE);
 	}
@@ -386,14 +370,14 @@ final class TabComponent extends JComponent {
 			return source;
 		}
 		float alpha = Math.max(ACTIVE_LIGHTEN_ALPHA_FLOOR, inferredHoverAlpha);
-		return applyOverlay(source, UiColorPalette.BASE_WHITE, alpha);
+		return ThemeRenderers.applyOverlay(source, UiColorPalette.BASE_WHITE, alpha);
 	}
 
 	private int computeMinimumTabWidth() {
-		if (tabBaseFromAsset || tabActiveFromAsset) {
+		if (tabAssetSpec != null && (tabBaseFromAsset || tabActiveFromAsset)) {
 			// Ensure we never compress a tab below the sum of the non-stretchable 9-slice borders.
 			// Otherwise, the slanted top edge/border gets clipped or distorted (especially for short titles).
-			return TAB_NINE_SLICE_SPEC.left() + TAB_NINE_SLICE_SPEC.right() + 1;
+			return tabAssetSpec.left() + tabAssetSpec.right() + 1;
 		}
 		return 0;
 	}
@@ -584,90 +568,9 @@ final class TabComponent extends JComponent {
 		return samples[sampleCount / 2];
 	}
 
-	private static BufferedImage applyOverlay(BufferedImage source, Color overlay, float alpha) {
-		if (source == null || overlay == null) {
-			return source;
-		}
-		if (alpha <= 0f) {
-			return source;
-		}
-		float clampedAlpha = Math.min(1f, alpha);
-
-		int width = source.getWidth();
-		int height = source.getHeight();
-		BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-
-		int overlayRgb = overlay.getRGB();
-		int or = (overlayRgb >> 16) & 0xFF;
-		int og = (overlayRgb >> 8) & 0xFF;
-		int ob = overlayRgb & 0xFF;
-
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				int argb = source.getRGB(x, y);
-				int a = (argb >> 24) & 0xFF;
-				if (a == 0) {
-					out.setRGB(x, y, 0);
-					continue;
-				}
-
-				int r = (argb >> 16) & 0xFF;
-				int g = (argb >> 8) & 0xFF;
-				int b = argb & 0xFF;
-
-				int nr = blendChannel(r, or, clampedAlpha);
-				int ng = blendChannel(g, og, clampedAlpha);
-				int nb = blendChannel(b, ob, clampedAlpha);
-				out.setRGB(x, y, (a << 24) | (nr << 16) | (ng << 8) | nb);
-			}
-		}
-
-		return out;
-	}
-
-	private static BufferedImage toDisabled(BufferedImage source, float disabledAlpha) {
-		if (source == null) {
-			return null;
-		}
-		float alphaMultiplier = Math.max(0f, Math.min(1f, disabledAlpha));
-
-		int width = source.getWidth();
-		int height = source.getHeight();
-		BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				int argb = source.getRGB(x, y);
-				int a = (argb >> 24) & 0xFF;
-				if (a == 0) {
-					out.setRGB(x, y, 0);
-					continue;
-				}
-
-				int r = (argb >> 16) & 0xFF;
-				int g = (argb >> 8) & 0xFF;
-				int b = argb & 0xFF;
-
-				int gray = (int) (0.299f * r + 0.587f * g + 0.114f * b);
-				int na = (int) Math.round(a * alphaMultiplier);
-				out.setRGB(x, y, (na << 24) | (gray << 16) | (gray << 8) | gray);
-			}
-		}
-
-		return out;
-	}
-
-	private static int blendChannel(int base, int overlay, float alpha) {
-		return clampToByte(Math.round(base * (1f - alpha) + overlay * alpha));
-	}
-
-	private static int clampToByte(int value) {
-		return Math.max(0, Math.min(255, value));
-	}
-
 	private void clearCache() {
-		for (Map<Dimension, BufferedImage> sizeMap : backgroundCache.values()) {
-			sizeMap.clear();
+		for (SizeCache cache : backgroundCache.values()) {
+			cache.clear();
 		}
 	}
 
@@ -726,85 +629,28 @@ final class TabComponent extends JComponent {
 		});
 	}
 
-	/**
-	 * Local 9-slice painter equivalent to the theme package's internal painter.
-	 * This avoids depending on package-private theme internals while keeping rendering consistent.
-	 */
-	private static void paintNineSlice(Graphics2D g, BufferedImage src, NineSliceSpec spec, int x, int y, int width, int height) {
-		if (g == null || src == null || spec == null) {
-			return;
-		}
-		if (width <= 0 || height <= 0) {
-			return;
-		}
+	private static final class SizeCache {
+		private int width = -1;
+		private int height = -1;
+		private BufferedImage image;
 
-		int w = src.getWidth();
-		int h = src.getHeight();
-
-		int L = spec.left();
-		int R = spec.right();
-		int T = spec.top();
-		int B = spec.bottom();
-
-		int left = Math.min(L, width);
-		int top = Math.min(T, height);
-		int right = Math.min(R, Math.max(0, width - left));
-		int bottom = Math.min(B, Math.max(0, height - top));
-
-		int centerW = Math.max(0, width - left - right);
-		int centerH = Math.max(0, height - top - bottom);
-
-		int dx0 = x;
-		int dx1 = x + left;
-		int dx2 = dx1 + centerW;
-		int dx3 = dx2 + right;
-
-		int dy0 = y;
-		int dy1 = y + top;
-		int dy2 = dy1 + centerH;
-		int dy3 = dy2 + bottom;
-
-		int sx0 = 0;
-		int sx1 = Math.min(L, w);
-		int sx2 = Math.max(sx1, w - R);
-		int sx3 = w;
-
-		int sy0 = 0;
-		int sy1 = Math.min(T, h);
-		int sy2 = Math.max(sy1, h - B);
-		int sy3 = h;
-
-		// Corners
-		if (left > 0 && top > 0) {
-			g.drawImage(src, dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1, null);
-		}
-		if (right > 0 && top > 0) {
-			g.drawImage(src, dx2, dy0, dx3, dy1, sx2, sy0, sx3, sy1, null);
-		}
-		if (left > 0 && bottom > 0) {
-			g.drawImage(src, dx0, dy2, dx1, dy3, sx0, sy2, sx1, sy3, null);
-		}
-		if (right > 0 && bottom > 0) {
-			g.drawImage(src, dx2, dy2, dx3, dy3, sx2, sy2, sx3, sy3, null);
+		private BufferedImage get(int width, int height) {
+			if (image == null || this.width != width || this.height != height) {
+				return null;
+			}
+			return image;
 		}
 
-		// Edges
-		if (centerW > 0 && top > 0) {
-			g.drawImage(src, dx1, dy0, dx2, dy1, sx1, sy0, sx2, sy1, null);
-		}
-		if (centerW > 0 && bottom > 0) {
-			g.drawImage(src, dx1, dy2, dx2, dy3, sx1, sy2, sx2, sy3, null);
-		}
-		if (left > 0 && centerH > 0) {
-			g.drawImage(src, dx0, dy1, dx1, dy2, sx0, sy1, sx1, sy2, null);
-		}
-		if (right > 0 && centerH > 0) {
-			g.drawImage(src, dx2, dy1, dx3, dy2, sx2, sy1, sx3, sy2, null);
+		private void put(int width, int height, BufferedImage image) {
+			this.width = width;
+			this.height = height;
+			this.image = image;
 		}
 
-		// Center
-		if (centerW > 0 && centerH > 0) {
-			g.drawImage(src, dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, null);
+		private void clear() {
+			width = -1;
+			height = -1;
+			image = null;
 		}
 	}
 }

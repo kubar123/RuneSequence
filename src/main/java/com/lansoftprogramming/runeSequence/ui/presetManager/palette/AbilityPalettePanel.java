@@ -133,6 +133,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 		});
 
 		categoryTabs = new TabBar();
+		categoryTabs.setPaintContentBackground(false);
 
 		ImageIcon settingsIcon = loadScaledIconOrNull(ICON_COGWHEEL_DARK, 16, 16);
 		settingsButton = createMainAppButton(settingsIcon, "Settings", "Open main app settings", () -> {

@@ -35,6 +35,11 @@ public final class MetalTheme implements Theme {
 	private static final String DIALOG_DIVIDER_IMAGE = "/ui/metal/Divider2.png";
 	private static final String DIALOG_TITLE_FONT = "/fonts/Cinzel-VariableFont_wght.ttf";
 
+	private static final String TAB_BASE_IMAGE = "/ui/metal/tabs/4.png";
+	private static final String TAB_ACTIVE_IMAGE = "/ui/metal/tabs/5.png";
+	private static final String TAB_CONTENT_BACKGROUND_IMAGE = "/ui/metal/tabs/Tab_Panel.png";
+	private static final NineSliceSpec TAB_SPEC = new NineSliceSpec(45, 11, 2, 2);
+
 	private static final ButtonStateTreatment BUTTON_TREATMENT = new ButtonStateTreatment(
 			UiColorPalette.BASE_WHITE, 0.08f,
 			UiColorPalette.BASE_BLACK, 0.14f,
@@ -49,6 +54,10 @@ public final class MetalTheme implements Theme {
 	private final Map<PanelStyle, BufferedImage> panelBackgroundImages = new EnumMap<>(PanelStyle.class);
 	private final Map<DialogStyle, BufferedImage> dialogDividerImages = new EnumMap<>(DialogStyle.class);
 	private Font dialogTitleBaseFont;
+	private BufferedImage tabBaseImage;
+	private BufferedImage tabActiveImage;
+	private BufferedImage tabContentBackgroundImage;
+	private Integer tabOverlapPx;
 
 	@Override
 	public String getName() {
@@ -157,6 +166,43 @@ public final class MetalTheme implements Theme {
 		return base.deriveFont(Font.PLAIN, clampedSize);
 	}
 
+	@Override
+	public BufferedImage getTabBaseImage() {
+		if (tabBaseImage == null) {
+			tabBaseImage = imageLoader.loadImage(TAB_BASE_IMAGE);
+		}
+		return tabBaseImage;
+	}
+
+	@Override
+	public BufferedImage getTabActiveImage() {
+		if (tabActiveImage == null) {
+			tabActiveImage = imageLoader.loadImage(TAB_ACTIVE_IMAGE);
+		}
+		return tabActiveImage;
+	}
+
+	@Override
+	public BufferedImage getTabContentBackgroundImage() {
+		if (tabContentBackgroundImage == null) {
+			tabContentBackgroundImage = imageLoader.loadImage(TAB_CONTENT_BACKGROUND_IMAGE);
+		}
+		return tabContentBackgroundImage;
+	}
+
+	@Override
+	public NineSliceSpec getTabSpec() {
+		return TAB_SPEC;
+	}
+
+	@Override
+	public int getTabInterTabOverlapPx() {
+		if (tabOverlapPx == null) {
+			tabOverlapPx = computeInterTabOverlapPx(getTabBaseImage(), getTabActiveImage());
+		}
+		return tabOverlapPx;
+	}
+
 	private ButtonImageSet getButtonImageSet(ButtonStyle style) {
 		return buttonImages.computeIfAbsent(style, this::createButtonImageSet);
 	}
@@ -205,5 +251,71 @@ public final class MetalTheme implements Theme {
 			}
 		}
 		return dialogTitleBaseFont;
+	}
+
+	private static int computeInterTabOverlapPx(BufferedImage inactive, BufferedImage active) {
+		if (inactive == null && active == null) {
+			return 0;
+		}
+
+		// Tabs are slanted: there may be no fully-transparent columns, but still a diagonal gap per scanline.
+		// Compute the maximum transparent margin sum (left + right) across all rows; that overlap removes seams.
+		// Be conservative: an overlap that works for the "most transparent" tab can slice into the visible
+		// border of a less-transparent variant (e.g. active tabs with a gold outline). Since the selected tab
+		// is also drawn on top, prefer the smallest computed overlap to preserve borders.
+		int overlap = Integer.MAX_VALUE;
+		int maxOverlap = 0;
+		if (inactive != null) {
+			overlap = Math.min(overlap, computeMaxRowTransparentMarginSum(inactive));
+			maxOverlap = Math.max(maxOverlap, inactive.getWidth() - 1);
+		}
+		if (active != null) {
+			overlap = Math.min(overlap, computeMaxRowTransparentMarginSum(active));
+			maxOverlap = Math.max(maxOverlap, active.getWidth() - 1);
+		}
+		if (overlap == Integer.MAX_VALUE) {
+			return 0;
+		}
+		return Math.max(0, Math.min(maxOverlap, overlap));
+	}
+
+	private static int computeMaxRowTransparentMarginSum(BufferedImage image) {
+		int w = image.getWidth();
+		int h = image.getHeight();
+		int max = 0;
+
+		for (int y = 0; y < h; y++) {
+			int leftMost = -1;
+			int rightMost = -1;
+
+			for (int x = 0; x < w; x++) {
+				int a = (image.getRGB(x, y) >>> 24) & 0xFF;
+				if (a == 0) {
+					continue;
+				}
+				leftMost = x;
+				break;
+			}
+			if (leftMost < 0) {
+				continue;
+			}
+			for (int x = w - 1; x >= 0; x--) {
+				int a = (image.getRGB(x, y) >>> 24) & 0xFF;
+				if (a == 0) {
+					continue;
+				}
+				rightMost = x;
+				break;
+			}
+			if (rightMost < 0) {
+				continue;
+			}
+
+			int leftTransparent = leftMost;
+			int rightTransparent = (w - 1) - rightMost;
+			max = Math.max(max, leftTransparent + rightTransparent);
+		}
+
+		return max;
 	}
 }

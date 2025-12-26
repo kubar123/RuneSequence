@@ -5,12 +5,9 @@ import com.lansoftprogramming.runeSequence.ui.theme.PanelStyle;
 import com.lansoftprogramming.runeSequence.ui.theme.Theme;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemeManager;
 
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -20,13 +17,13 @@ import java.util.Objects;
  * Uses 9-slice rendering based on the active {@link Theme} and switches content via {@link CardLayout}.
  */
 public final class TabBar extends JPanel {
-	private static final String TAB_CONTENT_BACKGROUND_SUFFIX = "/tabs/Tab_Panel.png";
-	private final JPanel tabsStrip;
+	private final TabStripPanel tabsStrip;
 	private final TabsStripLayout tabsLayout;
 	private final TabContentPanel cards;
 	private final CardLayout cardLayout;
 	private final List<TabComponent> tabs;
 	private int selectedIndex = -1;
+	private boolean paintContentBackground = true;
 	private transient java.beans.PropertyChangeListener themeListener;
 
 	public TabBar() {
@@ -34,7 +31,7 @@ public final class TabBar extends JPanel {
 		setOpaque(false);
 		setBorder(BorderFactory.createEmptyBorder());
 
-		tabsStrip = new JPanel();
+		tabsStrip = new TabStripPanel();
 		tabsStrip.setOpaque(false);
 		tabsStrip.setBorder(BorderFactory.createEmptyBorder());
 		tabsLayout = new TabsStripLayout();
@@ -106,13 +103,19 @@ public final class TabBar extends JPanel {
 		}
 		TabComponent selected = tabs.get(index);
 		selected.setSelected(true);
-		// In Swing, Z-order index 0 is painted last (topmost). Ensure the selected (active) tab is on top
-		// so its borders are not clipped by the overlapped neighbours.
-		tabsStrip.setComponentZOrder(selected, 0);
+		tabsStrip.setSelectedComponent(selected);
 
 		cardLayout.show(cards, "tab-" + index);
 
 		repaint();
+	}
+
+	public void setPaintContentBackground(boolean paintContentBackground) {
+		if (this.paintContentBackground == paintContentBackground) {
+			return;
+		}
+		this.paintContentBackground = paintContentBackground;
+		cards.refreshThemeBackground();
 	}
 
 	public void setTitleAt(int index, String title) {
@@ -140,7 +143,16 @@ public final class TabBar extends JPanel {
 	}
 
 	private void refreshThemeMetrics() {
-		tabsLayout.setOverlapPx(computeInterTabOverlapPx(ThemeManager.getTheme()));
+		int overlapPx = 0;
+		try {
+			Theme theme = ThemeManager.getTheme();
+			if (theme != null) {
+				overlapPx = theme.getTabInterTabOverlapPx();
+			}
+		} catch (RuntimeException ignored) {
+			overlapPx = 0;
+		}
+		tabsLayout.setOverlapPx(overlapPx);
 		cards.refreshThemeBackground();
 		for (TabComponent tab : tabs) {
 			tab.refreshThemeMetrics();
@@ -165,99 +177,8 @@ public final class TabBar extends JPanel {
 		themeListener = null;
 	}
 
-	private static int computeInterTabOverlapPx(Theme theme) {
-		if (theme == null) {
-			return 0;
-		}
-
-		BufferedImage inactive = loadTabImage(theme, "4.png");
-		BufferedImage active = loadTabImage(theme, "5.png");
-		if (inactive == null && active == null) {
-			return 0;
-		}
-
-		// Tabs are slanted: there may be no fully-transparent columns, but still a diagonal gap per scanline.
-		// Compute the maximum transparent margin sum (left + right) across all rows; that overlap removes seams.
-		// Be conservative: an overlap that works for the "most transparent" tab can slice into the visible
-		// border of a less-transparent variant (e.g. active tabs with a gold outline). Since the selected tab
-		// is also drawn on top, prefer the smallest computed overlap to preserve borders.
-		int overlap = Integer.MAX_VALUE;
-		int maxOverlap = 0;
-		if (inactive != null) {
-			overlap = Math.min(overlap, computeMaxRowTransparentMarginSum(inactive));
-			maxOverlap = Math.max(maxOverlap, inactive.getWidth() - 1);
-		}
-		if (active != null) {
-			overlap = Math.min(overlap, computeMaxRowTransparentMarginSum(active));
-			maxOverlap = Math.max(maxOverlap, active.getWidth() - 1);
-		}
-		if (overlap == Integer.MAX_VALUE) {
-			return 0;
-		}
-		return Math.max(0, Math.min(maxOverlap, overlap));
-	}
-
-	private static BufferedImage loadTabImage(Theme theme, String fileName) {
-		if (theme == null || fileName == null || fileName.isBlank()) {
-			return null;
-		}
-		String themeName = theme.getName();
-		if (themeName == null || themeName.isBlank()) {
-			return null;
-		}
-		String path = "/ui/" + themeName + "/tabs/" + fileName;
-		try (InputStream input = theme.getClass().getResourceAsStream(path)) {
-			if (input == null) {
-				return null;
-			}
-			return ImageIO.read(input);
-		} catch (IOException ignored) {
-			return null;
-		}
-	}
-
-	private static int computeMaxRowTransparentMarginSum(BufferedImage image) {
-		int w = image.getWidth();
-		int h = image.getHeight();
-		int max = 0;
-
-		for (int y = 0; y < h; y++) {
-			int leftMost = -1;
-			int rightMost = -1;
-
-			for (int x = 0; x < w; x++) {
-				int a = (image.getRGB(x, y) >>> 24) & 0xFF;
-				if (a == 0) {
-					continue;
-				}
-				leftMost = x;
-				break;
-			}
-			if (leftMost < 0) {
-				continue;
-			}
-			for (int x = w - 1; x >= 0; x--) {
-				int a = (image.getRGB(x, y) >>> 24) & 0xFF;
-				if (a == 0) {
-					continue;
-				}
-				rightMost = x;
-				break;
-			}
-			if (rightMost < 0) {
-				continue;
-			}
-
-			int leftTransparent = leftMost;
-			int rightTransparent = (w - 1) - rightMost;
-			max = Math.max(max, leftTransparent + rightTransparent);
-		}
-
-		return max;
-	}
-
-	private static final class TabContentPanel extends JPanel {
-		private String lastThemeName;
+	private final class TabContentPanel extends JPanel {
+		private Theme lastTheme;
 		private BufferedImage backgroundImage;
 
 		private TabContentPanel(LayoutManager layout) {
@@ -267,12 +188,17 @@ public final class TabBar extends JPanel {
 		}
 
 		private void refreshThemeBackground() {
-			Theme theme = ThemeManager.getTheme();
-			String themeName = theme != null ? theme.getName() : null;
-			if (Objects.equals(lastThemeName, themeName) && backgroundImage != null) {
+			if (!TabBar.this.paintContentBackground) {
+				lastTheme = null;
+				backgroundImage = null;
+				repaint();
 				return;
 			}
-			lastThemeName = themeName;
+			Theme theme = ThemeManager.getTheme();
+			if (lastTheme == theme && backgroundImage != null) {
+				return;
+			}
+			lastTheme = theme;
 			backgroundImage = loadBackgroundImage(theme);
 			repaint();
 		}
@@ -282,19 +208,13 @@ public final class TabBar extends JPanel {
 				return null;
 			}
 
-			String themeName = theme.getName();
-			if (themeName != null && !themeName.isBlank()) {
-				String resourcePath = "/ui/" + themeName + TAB_CONTENT_BACKGROUND_SUFFIX;
-				try (InputStream input = theme.getClass().getResourceAsStream(resourcePath)) {
-					if (input != null) {
-						BufferedImage loaded = ImageIO.read(input);
-						if (loaded != null) {
-							return loaded;
-						}
-					}
-				} catch (IOException ignored) {
-					// Fall back to the theme default.
+			try {
+				BufferedImage loaded = theme.getTabContentBackgroundImage();
+				if (loaded != null) {
+					return loaded;
 				}
+			} catch (RuntimeException ignored) {
+				// Fall back to the theme default.
 			}
 
 			try {
@@ -307,6 +227,9 @@ public final class TabBar extends JPanel {
 		@Override
 		protected void paintComponent(Graphics graphics) {
 			super.paintComponent(graphics);
+			if (!TabBar.this.paintContentBackground) {
+				return;
+			}
 			if (backgroundImage == null) {
 				return;
 			}
@@ -341,6 +264,47 @@ public final class TabBar extends JPanel {
 	 * Lays out tabs with no visible gaps by slightly overlapping adjacent tabs.
 	 * This avoids seams caused by transparent pixels at the edges of the tab artwork.
 	 */
+	private static final class TabStripPanel extends JPanel {
+		private Component selected;
+
+		void setSelectedComponent(Component selected) {
+			this.selected = selected;
+			repaint();
+		}
+
+		@Override
+		protected void paintChildren(Graphics g) {
+			synchronized (getTreeLock()) {
+				for (Component child : getComponents()) {
+					if (child == selected) {
+						continue;
+					}
+					paintChild(g, child);
+				}
+				if (selected != null) {
+					paintChild(g, selected);
+				}
+			}
+		}
+
+		@Override
+		public boolean isOptimizedDrawingEnabled() {
+			return false;
+		}
+
+		private void paintChild(Graphics g, Component child) {
+			if (child == null || !child.isVisible()) {
+				return;
+			}
+			Graphics childGraphics = g.create(child.getX(), child.getY(), child.getWidth(), child.getHeight());
+			try {
+				child.paint(childGraphics);
+			} finally {
+				childGraphics.dispose();
+			}
+		}
+	}
+
 	private static final class TabsStripLayout implements LayoutManager {
 		private int overlapPx = 0;
 
