@@ -42,4 +42,12 @@ public interface Theme {
 	NineSliceSpec getTabSpec();
 
 	int getTabInterTabOverlapPx();
+
+	default BufferedImage getTabOpenedMarkerImage() {
+		return null;
+	}
+
+	default int getTabOpenedMarkerAnchorFromBottomPx() {
+		return 0;
+	}
 }

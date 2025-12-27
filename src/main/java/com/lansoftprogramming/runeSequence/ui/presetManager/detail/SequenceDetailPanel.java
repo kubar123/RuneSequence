@@ -5,6 +5,7 @@ import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
+import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
@@ -14,15 +15,12 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.event.AWTEventListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionAdapter;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
@@ -49,10 +47,7 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	private final NotificationService notifications;
 	private final Timer dirtyStateTimer;
 	private Boolean lastDirtyState;
-	private transient AWTEventListener textCursorListener;
-	private transient Boolean lastCursorOverText;
-	private transient long lastCursorLogAtMs;
-	private transient Window cursorWindow;
+	private transient TextCursorSupport.WindowTextCursorResolver textCursorResolver;
 
 	public SequenceDetailPanel(SequenceDetailService detailService,
 	                           AbilityOverridesService overridesService,
@@ -63,9 +58,9 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		this.notifications = notifications;
 
 		sequenceNameField = new JTextField();
-		installTextCursor(sequenceNameField);
+		TextCursorSupport.installTextCursor(sequenceNameField);
 		sequenceNamePanel = ThemedTextBoxes.wrap(sequenceNameField);
-		installTextCursor(sequenceNamePanel);
+		TextCursorSupport.installTextCursor(sequenceNamePanel);
 		insertIcon = loadScaledIconOrFallback(ICON_INSERT_CLIPBOARD_DARK, 18, 18, this::createInsertIcon);
 		tooltipIcon = loadScaledIconOrFallback(ICON_TEXT_ADD_DARK, 18, 18, this::createTooltipIcon);
 		insertButton = createInsertButton();
@@ -89,8 +84,8 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	public void addNotify() {
 		super.addNotify();
 		// Ensure look-and-feel/UI updates don't override the text cursor.
-		installTextCursor(sequenceNameField);
-		installTextCursor(sequenceNamePanel);
+		TextCursorSupport.installTextCursor(sequenceNameField);
+		TextCursorSupport.installTextCursor(sequenceNamePanel);
 		installTextCursorResolver();
 		dirtyStateTimer.start();
 	}
@@ -239,110 +234,19 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		return new Color(r, g, bl);
 	}
 
-	private static void installTextCursor(JComponent component) {
-		if (component == null) {
-			return;
-		}
-		Cursor textCursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR);
-		component.setCursor(textCursor);
-		component.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mouseEntered(MouseEvent e) {
-				component.setCursor(textCursor);
-			}
-		});
-		component.addMouseMotionListener(new MouseMotionAdapter() {
-			@Override
-			public void mouseMoved(MouseEvent e) {
-				component.setCursor(textCursor);
-			}
-		});
-	}
-
 	private void installTextCursorResolver() {
-		if (textCursorListener != null) {
+		if (textCursorResolver != null) {
 			return;
 		}
-		Cursor textCursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR);
-		Cursor defaultCursor = Cursor.getDefaultCursor();
-		cursorWindow = SwingUtilities.getWindowAncestor(this);
-
-		textCursorListener = event -> {
-			if (!(event instanceof MouseEvent mouseEvent)) {
-				return;
-			}
-			int id = mouseEvent.getID();
-			if (id != MouseEvent.MOUSE_MOVED && id != MouseEvent.MOUSE_DRAGGED && id != MouseEvent.MOUSE_EXITED) {
-				return;
-			}
-			Object src = mouseEvent.getSource();
-			if (!(src instanceof Component sourceComponent)) {
-				return;
-			}
-			if (!SwingUtilities.isDescendingFrom(sourceComponent, this)) {
-				return;
-			}
-
-			Point panelPoint = SwingUtilities.convertPoint(sourceComponent, mouseEvent.getPoint(), this);
-			Component deepest = SwingUtilities.getDeepestComponentAt(this, panelPoint.x, panelPoint.y);
-			boolean overText = deepest instanceof JTextComponent;
-			// Set the cursor at the Window level; this wins even if another container overlays the field.
-			Window owner = cursorWindow != null ? cursorWindow : SwingUtilities.getWindowAncestor(this);
-			if (owner != null) {
-				owner.setCursor(overText ? textCursor : defaultCursor);
-			} else {
-				setCursor(overText ? textCursor : defaultCursor);
-			}
-
-			// Debug logging: emit on state changes (or at most ~2x/sec while inside the panel).
-			long now = System.currentTimeMillis();
-			boolean shouldLog = lastCursorOverText == null
-					|| lastCursorOverText != overText
-					|| (now - lastCursorLogAtMs) > 500;
-			if (shouldLog && logger.isDebugEnabled()) {
-				lastCursorOverText = overText;
-				lastCursorLogAtMs = now;
-				String srcName = sourceComponent.getName();
-				String deepestName = deepest != null ? deepest.getName() : null;
-				String deepestClass = deepest != null ? deepest.getClass().getName() : "null";
-				Cursor deepestCursor = deepest != null ? deepest.getCursor() : null;
-				boolean deepestEnabled = deepest == null || deepest.isEnabled();
-				boolean deepestEditable = !(deepest instanceof JTextComponent tc) || tc.isEditable();
-				Cursor ownerCursor = owner != null ? owner.getCursor() : null;
-				logger.debug(
-						"Cursor debug: overText={}, eventId={}, src={}, srcName={}, panelPoint=({},{}), deepest={}, deepestName={}, deepestEnabled={}, deepestEditable={}, deepestCursor={}, owner={}, ownerCursor={}",
-						overText,
-						id,
-						sourceComponent.getClass().getName(),
-						srcName,
-						panelPoint.x,
-						panelPoint.y,
-						deepestClass,
-						deepestName,
-						deepestEnabled,
-						deepestEditable,
-						deepestCursor,
-						owner != null ? owner.getClass().getName() : "null",
-						ownerCursor
-				);
-			}
-		};
-
-		Toolkit.getDefaultToolkit().addAWTEventListener(
-				textCursorListener,
-				AWTEvent.MOUSE_MOTION_EVENT_MASK
-		);
+		textCursorResolver = TextCursorSupport.installWindowTextCursorResolver(this, logger);
 	}
 
 	private void uninstallTextCursorResolver() {
-		if (textCursorListener == null) {
+		if (textCursorResolver == null) {
 			return;
 		}
-		Toolkit.getDefaultToolkit().removeAWTEventListener(textCursorListener);
-		textCursorListener = null;
-		lastCursorOverText = null;
-		lastCursorLogAtMs = 0L;
-		cursorWindow = null;
+		textCursorResolver.uninstall();
+		textCursorResolver = null;
 	}
 
 	private void applyButtonStyles() {

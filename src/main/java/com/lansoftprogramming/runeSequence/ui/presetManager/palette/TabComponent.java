@@ -8,14 +8,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.image.BufferedImage;
-import java.util.Arrays;
-import java.util.EnumMap;
-import java.util.Objects;
+import java.util.*;
 
 final class TabComponent extends JComponent {
 	private static final int MIN_TEXT_WIDTH_PX = 24;
 	private static final ButtonStyle TAB_STYLE = ButtonStyle.DEFAULT;
-	private static final float ACTIVE_LIGHTEN_ALPHA_FLOOR = 0.08f;
+	private static final float ACTIVE_DARKEN_ALPHA_FLOOR = 0.08f;
+	private static final float ACTIVE_DARKEN_ALPHA_CEIL = 0.22f;
 
 	private final TabBar owner;
 	private final int index;
@@ -37,6 +36,12 @@ final class TabComponent extends JComponent {
 	private float inferredPressedAlpha = 0.14f;
 	private float inferredDisabledAlpha = 0.55f;
 
+	private record InferredButtonTreatment(float hoverAlpha, float pressedAlpha, float disabledAlpha) {
+	}
+
+	private static final Map<Theme, InferredButtonTreatment> TREATMENT_CACHE =
+			Collections.synchronizedMap(new WeakHashMap<>());
+
 	TabComponent(TabBar owner, String title, int index) {
 		this.owner = Objects.requireNonNull(owner, "owner");
 		this.title = Objects.requireNonNull(title, "title");
@@ -50,7 +55,7 @@ final class TabComponent extends JComponent {
 		setOpaque(false);
 		setBorder(javax.swing.BorderFactory.createEmptyBorder());
 		setFocusable(false);
-		setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+		updateCursor();
 
 		refreshThemeMetrics();
 		installMouseHandlers();
@@ -71,6 +76,9 @@ final class TabComponent extends JComponent {
 			return;
 		}
 		this.selected = selected;
+		pressed = false;
+		hovered = false;
+		updateCursor();
 		repaint();
 	}
 
@@ -210,11 +218,11 @@ final class TabComponent extends JComponent {
 		if (!isEnabled()) {
 			return TabVisualState.DISABLED;
 		}
-		if (pressed) {
-			return TabVisualState.PRESSED;
-		}
 		if (selected) {
 			return TabVisualState.ACTIVE;
+		}
+		if (pressed) {
+			return TabVisualState.PRESSED;
 		}
 		if (hovered) {
 			return TabVisualState.HOVER;
@@ -366,11 +374,9 @@ final class TabComponent extends JComponent {
 	}
 
 	private BufferedImage applyActiveTreatment(BufferedImage source) {
-		if (tabActiveFromAsset) {
-			return source;
-		}
-		float alpha = Math.max(ACTIVE_LIGHTEN_ALPHA_FLOOR, inferredHoverAlpha);
-		return ThemeRenderers.applyOverlay(source, UiColorPalette.BASE_WHITE, alpha);
+		float alpha = Math.max(ACTIVE_DARKEN_ALPHA_FLOOR, inferredPressedAlpha * 0.9f);
+		alpha = Math.min(ACTIVE_DARKEN_ALPHA_CEIL, alpha);
+		return ThemeRenderers.applyOverlay(source, UiColorPalette.BASE_BLACK, alpha);
 	}
 
 	private int computeMinimumTabWidth() {
@@ -387,6 +393,45 @@ final class TabComponent extends JComponent {
 			return;
 		}
 
+		InferredButtonTreatment cached = TREATMENT_CACHE.get(theme);
+		if (cached != null) {
+			applyInferredTreatment(cached);
+			return;
+		}
+
+		InferredButtonTreatment inferred = inferButtonTreatment(theme);
+		if (inferred == null) {
+			return;
+		}
+		TREATMENT_CACHE.put(theme, inferred);
+		applyInferredTreatment(inferred);
+	}
+
+	private void applyInferredTreatment(InferredButtonTreatment treatment) {
+		if (treatment == null) {
+			return;
+		}
+		boolean changed = false;
+
+		if (Float.compare(inferredHoverAlpha, treatment.hoverAlpha()) != 0) {
+			inferredHoverAlpha = treatment.hoverAlpha();
+			changed = true;
+		}
+		if (Float.compare(inferredPressedAlpha, treatment.pressedAlpha()) != 0) {
+			inferredPressedAlpha = treatment.pressedAlpha();
+			changed = true;
+		}
+		if (Float.compare(inferredDisabledAlpha, treatment.disabledAlpha()) != 0) {
+			inferredDisabledAlpha = treatment.disabledAlpha();
+			changed = true;
+		}
+
+		if (changed) {
+			stateBaseCache.clear();
+		}
+	}
+
+	private static InferredButtonTreatment inferButtonTreatment(Theme theme) {
 		// Infer overlay alphas from the themed button states so tab overlays match the active theme conventions.
 		BufferedImage buttonBase;
 		BufferedImage buttonHover;
@@ -398,33 +443,37 @@ final class TabComponent extends JComponent {
 			buttonPressed = theme.getButtonImage(TAB_STYLE, ButtonVisualState.PRESSED);
 			buttonDisabled = theme.getButtonImage(TAB_STYLE, ButtonVisualState.DISABLED);
 		} catch (RuntimeException ignored) {
-			return;
+			return null;
 		}
 
 		if (buttonBase == null) {
-			return;
+			return null;
 		}
+
+		float hoverAlpha = 0.08f;
+		float pressedAlpha = 0.14f;
+		float disabledAlpha = 0.55f;
+
 		if (buttonHover != null && sameDimensions(buttonBase, buttonHover)) {
 			Float alpha = inferOverlayAlpha(buttonBase, buttonHover, UiColorPalette.BASE_WHITE);
 			if (alpha != null) {
-				inferredHoverAlpha = alpha;
+				hoverAlpha = alpha;
 			}
 		}
 		if (buttonPressed != null && sameDimensions(buttonBase, buttonPressed)) {
 			Float alpha = inferOverlayAlpha(buttonBase, buttonPressed, UiColorPalette.BASE_BLACK);
 			if (alpha != null) {
-				inferredPressedAlpha = alpha;
+				pressedAlpha = alpha;
 			}
 		}
 		if (buttonDisabled != null && sameDimensions(buttonBase, buttonDisabled)) {
 			Float alpha = inferDisabledAlpha(buttonBase, buttonDisabled);
 			if (alpha != null) {
-				inferredDisabledAlpha = alpha;
+				disabledAlpha = alpha;
 			}
 		}
 
-		// If the treatment changed, invalidate derived base images.
-		stateBaseCache.clear();
+		return new InferredButtonTreatment(hoverAlpha, pressedAlpha, disabledAlpha);
 	}
 
 	private static boolean sameDimensions(BufferedImage a, BufferedImage b) {
@@ -578,7 +627,7 @@ final class TabComponent extends JComponent {
 		addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseEntered(MouseEvent e) {
-				if (!isEnabled()) {
+				if (!isEnabled() || selected) {
 					return;
 				}
 				hovered = true;
@@ -594,7 +643,7 @@ final class TabComponent extends JComponent {
 
 			@Override
 			public void mousePressed(MouseEvent e) {
-				if (!isEnabled()) {
+				if (!isEnabled() || selected) {
 					return;
 				}
 				if (e.getButton() != MouseEvent.BUTTON1) {
@@ -612,7 +661,7 @@ final class TabComponent extends JComponent {
 					return;
 				}
 
-				boolean shouldSelect = isEnabled() && pressed && contains(e.getPoint()) && !selected;
+				boolean shouldSelect = isEnabled() && !selected && pressed && contains(e.getPoint());
 				pressed = false;
 				repaint();
 
@@ -624,9 +673,15 @@ final class TabComponent extends JComponent {
 		addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
 			public void mouseMoved(MouseEvent e) {
-				setCursor(isEnabled() ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+				updateCursor();
 			}
 		});
+	}
+
+	private void updateCursor() {
+		setCursor(isEnabled() && !selected
+				? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+				: Cursor.getDefaultCursor());
 	}
 
 	private static final class SizeCache {

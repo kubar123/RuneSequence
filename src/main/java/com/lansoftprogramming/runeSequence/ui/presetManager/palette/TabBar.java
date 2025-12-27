@@ -1,9 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.palette;
 
-import com.lansoftprogramming.runeSequence.ui.theme.BackgroundFillPainter;
-import com.lansoftprogramming.runeSequence.ui.theme.PanelStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.Theme;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemeManager;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -24,12 +21,17 @@ public final class TabBar extends JPanel {
 	private final List<TabComponent> tabs;
 	private int selectedIndex = -1;
 	private boolean paintContentBackground = true;
+	private int tabsContentOverlapPx = 1;
 	private transient java.beans.PropertyChangeListener themeListener;
 
 	public TabBar() {
-		super(new BorderLayout());
+		super();
 		setOpaque(false);
 		setBorder(BorderFactory.createEmptyBorder());
+		setLayout(new TabBarLayout());
+
+		cardLayout = new CardLayout();
+		cards = new TabContentPanel(cardLayout);
 
 		tabsStrip = new TabStripPanel();
 		tabsStrip.setOpaque(false);
@@ -37,13 +39,13 @@ public final class TabBar extends JPanel {
 		tabsLayout = new TabsStripLayout();
 		tabsStrip.setLayout(tabsLayout);
 
-		cardLayout = new CardLayout();
-		cards = new TabContentPanel(cardLayout);
-
 		tabs = new ArrayList<>();
 
-		add(tabsStrip, BorderLayout.NORTH);
-		add(cards, BorderLayout.CENTER);
+		add(cards);
+		add(tabsStrip);
+		// Ensure tabs are painted on top when bounds overlap.
+		setComponentZOrder(tabsStrip, 0);
+		setComponentZOrder(cards, 1);
 	}
 
 	@Override
@@ -57,6 +59,11 @@ public final class TabBar extends JPanel {
 	public void removeNotify() {
 		uninstallThemeListener();
 		super.removeNotify();
+	}
+
+	@Override
+	public boolean isOptimizedDrawingEnabled() {
+		return false;
 	}
 
 	public void addTab(String title, JComponent content) {
@@ -115,7 +122,84 @@ public final class TabBar extends JPanel {
 			return;
 		}
 		this.paintContentBackground = paintContentBackground;
-		cards.refreshThemeBackground();
+		cards.setPaintThemedBackground(paintContentBackground);
+	}
+
+	public void setTabsContentOverlapPx(int overlapPx) {
+		int clamped = Math.max(0, overlapPx);
+		if (tabsContentOverlapPx == clamped) {
+			return;
+		}
+		tabsContentOverlapPx = clamped;
+		revalidate();
+		repaint();
+	}
+
+	@Override
+	protected void paintChildren(Graphics g) {
+		super.paintChildren(g);
+		Graphics2D g2 = g instanceof Graphics2D ? (Graphics2D) g.create() : null;
+		if (g2 == null) {
+			return;
+		}
+		try {
+			// Ensure the marker draws on top of all children (including tab text) without inheriting a child clip.
+			g2.setClip(0, 0, getWidth(), getHeight());
+			paintOpenedMarker(g2);
+		} finally {
+			g2.dispose();
+		}
+	}
+
+	private void paintOpenedMarker(Graphics2D g) {
+		if (g == null) {
+			return;
+		}
+		if (selectedIndex < 0 || selectedIndex >= tabs.size()) {
+			return;
+		}
+		TabComponent selected = tabs.get(selectedIndex);
+		if (selected == null || !selected.isVisible()) {
+			return;
+		}
+
+		Theme theme = ThemeManager.getTheme();
+		if (theme == null) {
+			return;
+		}
+
+		BufferedImage marker;
+		int anchorFromBottomPx;
+		try {
+			marker = theme.getTabOpenedMarkerImage();
+			anchorFromBottomPx = theme.getTabOpenedMarkerAnchorFromBottomPx();
+		} catch (RuntimeException ignored) {
+			return;
+		}
+		if (marker == null) {
+			return;
+		}
+
+		int markerWidth = marker.getWidth();
+		int markerHeight = marker.getHeight();
+		if (markerWidth <= 0 || markerHeight <= 0) {
+			return;
+		}
+
+		Point tabLocation = SwingUtilities.convertPoint(tabsStrip, selected.getX(), selected.getY(), this);
+		int tabX = tabLocation.x;
+		int tabY = tabLocation.y;
+		int tabWidth = selected.getWidth();
+		int tabHeight = selected.getHeight();
+		if (tabWidth <= 0 || tabHeight <= 0) {
+			return;
+		}
+
+		int markerX = tabX + (tabWidth - markerWidth) / 2;
+		int anchor = Math.max(0, Math.min(markerHeight, anchorFromBottomPx));
+		int markerY = tabY + (tabHeight - 1) - (markerHeight - anchor);
+
+		g.drawImage(marker, markerX, markerY, null);
 	}
 
 	public void setTitleAt(int index, String title) {
@@ -153,7 +237,9 @@ public final class TabBar extends JPanel {
 			overlapPx = 0;
 		}
 		tabsLayout.setOverlapPx(overlapPx);
-		cards.refreshThemeBackground();
+		cards.setPaintThemedBackground(paintContentBackground);
+		cards.revalidate();
+		cards.repaint();
 		for (TabComponent tab : tabs) {
 			tab.refreshThemeMetrics();
 		}
@@ -178,65 +264,51 @@ public final class TabBar extends JPanel {
 	}
 
 	private final class TabContentPanel extends JPanel {
-		private Theme lastTheme;
-		private BufferedImage backgroundImage;
+		private boolean paintThemedBackground;
 
 		private TabContentPanel(LayoutManager layout) {
 			super(layout);
 			setOpaque(false);
-			setBorder(BorderFactory.createEmptyBorder());
+			setPaintThemedBackground(true);
 		}
 
-		private void refreshThemeBackground() {
-			if (!TabBar.this.paintContentBackground) {
-				lastTheme = null;
-				backgroundImage = null;
-				repaint();
+		private void setPaintThemedBackground(boolean paintThemedBackground) {
+			if (this.paintThemedBackground == paintThemedBackground) {
 				return;
 			}
-			Theme theme = ThemeManager.getTheme();
-			if (lastTheme == theme && backgroundImage != null) {
-				return;
-			}
-			lastTheme = theme;
-			backgroundImage = loadBackgroundImage(theme);
+			this.paintThemedBackground = paintThemedBackground;
+			setBorder(paintThemedBackground
+					? new ThemedPanelBorder(PanelStyle.TAB_CONTENT)
+					: BorderFactory.createEmptyBorder());
+			revalidate();
 			repaint();
-		}
-
-		private BufferedImage loadBackgroundImage(Theme theme) {
-			if (theme == null) {
-				return null;
-			}
-
-			try {
-				BufferedImage loaded = theme.getTabContentBackgroundImage();
-				if (loaded != null) {
-					return loaded;
-				}
-			} catch (RuntimeException ignored) {
-				// Fall back to the theme default.
-			}
-
-			try {
-				return theme.getPanelBackgroundImage(PanelStyle.DETAIL);
-			} catch (RuntimeException ignored) {
-				return null;
-			}
 		}
 
 		@Override
 		protected void paintComponent(Graphics graphics) {
 			super.paintComponent(graphics);
-			if (!TabBar.this.paintContentBackground) {
-				return;
-			}
-			if (backgroundImage == null) {
+			if (!paintThemedBackground) {
 				return;
 			}
 
 			int width = getWidth();
 			int height = getHeight();
 			if (width <= 0 || height <= 0) {
+				return;
+			}
+
+			Theme theme = ThemeManager.getTheme();
+			if (theme == null) {
+				return;
+			}
+
+			BufferedImage backgroundImage;
+			try {
+				backgroundImage = theme.getPanelBackgroundImage(PanelStyle.TAB_CONTENT);
+			} catch (RuntimeException ignored) {
+				return;
+			}
+			if (backgroundImage == null) {
 				return;
 			}
 
@@ -264,6 +336,62 @@ public final class TabBar extends JPanel {
 	 * Lays out tabs with no visible gaps by slightly overlapping adjacent tabs.
 	 * This avoids seams caused by transparent pixels at the edges of the tab artwork.
 	 */
+	private final class TabBarLayout implements LayoutManager {
+		@Override
+		public void addLayoutComponent(String name, Component comp) {
+		}
+
+		@Override
+		public void removeLayoutComponent(Component comp) {
+		}
+
+		@Override
+		public Dimension preferredLayoutSize(Container parent) {
+			synchronized (parent.getTreeLock()) {
+				Insets insets = parent.getInsets();
+				Dimension tabsPref = tabsStrip.getPreferredSize();
+				Dimension cardsPref = cards.getPreferredSize();
+				int overlap = Math.min(tabsContentOverlapPx, tabsPref.height);
+				int width = Math.max(tabsPref.width, cardsPref.width) + insets.left + insets.right;
+				int height = tabsPref.height + cardsPref.height - overlap + insets.top + insets.bottom;
+				return new Dimension(Math.max(0, width), Math.max(0, height));
+			}
+		}
+
+		@Override
+		public Dimension minimumLayoutSize(Container parent) {
+			synchronized (parent.getTreeLock()) {
+				Insets insets = parent.getInsets();
+				Dimension tabsMin = tabsStrip.getMinimumSize();
+				Dimension cardsMin = cards.getMinimumSize();
+				int overlap = Math.min(tabsContentOverlapPx, tabsMin.height);
+				// Allow horizontal shrinking; content can clip or reflow.
+				int width = insets.left + insets.right;
+				int height = tabsMin.height + cardsMin.height - overlap + insets.top + insets.bottom;
+				return new Dimension(Math.max(0, width), Math.max(0, height));
+			}
+		}
+
+		@Override
+		public void layoutContainer(Container parent) {
+			synchronized (parent.getTreeLock()) {
+				Insets insets = parent.getInsets();
+				int width = Math.max(0, parent.getWidth() - insets.left - insets.right);
+				int height = Math.max(0, parent.getHeight() - insets.top - insets.bottom);
+
+				Dimension tabsPref = tabsStrip.getPreferredSize();
+				int tabsHeight = Math.min(height, Math.max(0, tabsPref.height));
+				int overlap = Math.min(tabsContentOverlapPx, tabsHeight);
+
+				tabsStrip.setBounds(insets.left, insets.top, width, tabsHeight);
+
+				int cardsY = insets.top + tabsHeight - overlap;
+				int cardsHeight = Math.max(0, insets.top + height - cardsY);
+				cards.setBounds(insets.left, cardsY, width, cardsHeight);
+			}
+		}
+	}
+
 	private static final class TabStripPanel extends JPanel {
 		private Component selected;
 
@@ -347,7 +475,21 @@ public final class TabBar extends JPanel {
 
 		@Override
 		public Dimension minimumLayoutSize(Container parent) {
-			return preferredLayoutSize(parent);
+			synchronized (parent.getTreeLock()) {
+				int count = parent.getComponentCount();
+				int height = 0;
+				for (int i = 0; i < count; i++) {
+					Component c = parent.getComponent(i);
+					if (!c.isVisible()) {
+						continue;
+					}
+					Dimension d = c.getMinimumSize();
+					height = Math.max(height, d.height);
+				}
+				Insets insets = parent.getInsets();
+				// Allow horizontal shrinking (tabs can clip); preserve height.
+				return new Dimension(insets.left + insets.right, height + insets.top + insets.bottom);
+			}
 		}
 
 		@Override

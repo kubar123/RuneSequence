@@ -37,8 +37,14 @@ public final class MetalTheme implements Theme {
 
 	private static final String TAB_BASE_IMAGE = "/ui/metal/tabs/4.png";
 	private static final String TAB_ACTIVE_IMAGE = "/ui/metal/tabs/5.png";
-	private static final String TAB_CONTENT_BACKGROUND_IMAGE = "/ui/metal/tabs/Tab_Panel.png";
+	private static final String TAB_OPENED_MARKER_IMAGE = "/ui/metal/tabs/Tab_Opened_Marker.png";
 	private static final NineSliceSpec TAB_SPEC = new NineSliceSpec(45, 11, 2, 2);
+	private static final int TAB_OPENED_MARKER_ANCHOR_FROM_BOTTOM_PX = 11;
+
+	private static final String PANEL_TAB_CONTENT_BORDER_IMAGE = "/ui/metal/tabs/Tab_Panel_Border.png";
+	private static final String PANEL_TAB_CONTENT_BACKGROUND_IMAGE = "/ui/metal/tabs/Tab_Panel.png";
+	private static final NineSliceSpec PANEL_TAB_CONTENT_SPEC = new NineSliceSpec(1, 1, 1, 1);
+	private static final Insets PANEL_TAB_CONTENT_PADDING = new Insets(1, 1, 1, 1);
 
 	private static final ButtonStateTreatment BUTTON_TREATMENT = new ButtonStateTreatment(
 			UiColorPalette.BASE_WHITE, 0.08f,
@@ -56,7 +62,7 @@ public final class MetalTheme implements Theme {
 	private Font dialogTitleBaseFont;
 	private BufferedImage tabBaseImage;
 	private BufferedImage tabActiveImage;
-	private BufferedImage tabContentBackgroundImage;
+	private BufferedImage tabOpenedMarkerImage;
 	private Integer tabOverlapPx;
 
 	@Override
@@ -123,6 +129,7 @@ public final class MetalTheme implements Theme {
 		return switch (style) {
 			case DETAIL -> PANEL_DETAIL_SPEC;
 			case DETAIL_HEADER -> PANEL_DETAIL_HEADER_SPEC;
+			case TAB_CONTENT -> PANEL_TAB_CONTENT_SPEC;
 			case DIALOG -> PANEL_DIALOG_SPEC;
 		};
 	}
@@ -133,6 +140,7 @@ public final class MetalTheme implements Theme {
 		Insets padding = switch (style) {
 			case DETAIL -> PANEL_DETAIL_PADDING;
 			case DETAIL_HEADER -> PANEL_DETAIL_HEADER_PADDING;
+			case TAB_CONTENT -> PANEL_TAB_CONTENT_PADDING;
 			case DIALOG -> PANEL_DIALOG_PADDING;
 		};
 		return new Insets(padding.top, padding.left, padding.bottom, padding.right);
@@ -184,10 +192,7 @@ public final class MetalTheme implements Theme {
 
 	@Override
 	public BufferedImage getTabContentBackgroundImage() {
-		if (tabContentBackgroundImage == null) {
-			tabContentBackgroundImage = imageLoader.loadImage(TAB_CONTENT_BACKGROUND_IMAGE);
-		}
-		return tabContentBackgroundImage;
+		return getPanelBackgroundImage(PanelStyle.TAB_CONTENT);
 	}
 
 	@Override
@@ -201,6 +206,19 @@ public final class MetalTheme implements Theme {
 			tabOverlapPx = computeInterTabOverlapPx(getTabBaseImage(), getTabActiveImage());
 		}
 		return tabOverlapPx;
+	}
+
+	@Override
+	public BufferedImage getTabOpenedMarkerImage() {
+		if (tabOpenedMarkerImage == null) {
+			tabOpenedMarkerImage = imageLoader.loadImage(TAB_OPENED_MARKER_IMAGE);
+		}
+		return tabOpenedMarkerImage;
+	}
+
+	@Override
+	public int getTabOpenedMarkerAnchorFromBottomPx() {
+		return TAB_OPENED_MARKER_ANCHOR_FROM_BOTTOM_PX;
 	}
 
 	private ButtonImageSet getButtonImageSet(ButtonStyle style) {
@@ -224,6 +242,7 @@ public final class MetalTheme implements Theme {
 		return switch (style) {
 			case DETAIL -> imageLoader.loadImage(PANEL_DETAIL_BORDER_IMAGE);
 			case DETAIL_HEADER -> null;
+			case TAB_CONTENT -> imageLoader.loadImage(PANEL_TAB_CONTENT_BORDER_IMAGE);
 			case DIALOG -> imageLoader.loadImage(PANEL_DIALOG_BORDER_IMAGE);
 		};
 	}
@@ -232,6 +251,7 @@ public final class MetalTheme implements Theme {
 		return switch (style) {
 			case DETAIL -> imageLoader.loadImage(PANEL_DETAIL_BACKGROUND_IMAGE);
 			case DETAIL_HEADER -> imageLoader.loadImage(PANEL_DETAIL_HEADER_BACKGROUND_IMAGE);
+			case TAB_CONTENT -> imageLoader.loadImage(PANEL_TAB_CONTENT_BACKGROUND_IMAGE);
 			case DIALOG -> imageLoader.loadImage(PANEL_DIALOG_BACKGROUND_IMAGE);
 		};
 	}
