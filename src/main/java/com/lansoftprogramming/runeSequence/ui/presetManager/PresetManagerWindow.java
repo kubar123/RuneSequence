@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
+import com.formdev.flatlaf.FlatLaf;
 import com.lansoftprogramming.runeSequence.Main;
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder;
@@ -23,6 +24,10 @@ import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorActio
 import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
+import com.lansoftprogramming.runeSequence.ui.theme.PanelStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.Theme;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemeManager;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedPanel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,10 +39,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class PresetManagerWindow extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(PresetManagerWindow.class);
@@ -58,6 +60,10 @@ public class PresetManagerWindow extends JFrame {
     private JSplitPane horizontalSplit;
     private ToastManager toastManager;
     private NotificationService notifications;
+    private JPanel topBar;
+    private com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction settingsAction;
+    private com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction regionSelectorAction;
+    private transient java.beans.PropertyChangeListener themeListener;
     private boolean suppressSelectionUpdate;
     private String currentSelectionId;
     private boolean autoSaveInProgress;
@@ -98,11 +104,13 @@ public class PresetManagerWindow extends JFrame {
     public void addNotify() {
         super.addNotify();
         installCursorResolver();
+        installThemeListener();
     }
 
     @Override
     public void removeNotify() {
         uninstallCursorResolver();
+        uninstallThemeListener();
         super.removeNotify();
     }
 
@@ -188,6 +196,51 @@ public class PresetManagerWindow extends JFrame {
                 Main.requestShutdown();
             }
         });
+
+        applyThemedTitleBar();
+    }
+
+    private void applyThemedTitleBar() {
+        if (!(UIManager.getLookAndFeel() instanceof FlatLaf)) {
+            return;
+        }
+
+        Theme theme = ThemeManager.getTheme();
+        if (theme == null) {
+            return;
+        }
+
+        JRootPane root = getRootPane();
+        if (root == null) {
+            return;
+        }
+
+        // Use property keys directly to stay compatible across FlatLaf versions.
+        String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        boolean isMac = osName.contains("mac");
+        if (!isMac) {
+            root.putClientProperty("JRootPane.useWindowDecorations", Boolean.TRUE);
+        }
+        root.putClientProperty("JRootPane.titleBarBackground", theme.getWindowTitleBarBackground());
+        root.putClientProperty("JRootPane.titleBarForeground", theme.getWindowTitleBarForeground());
+        root.putClientProperty("JRootPane.titleBarInactiveBackground", theme.getWindowTitleBarInactiveBackground());
+        root.putClientProperty("JRootPane.titleBarInactiveForeground", theme.getWindowTitleBarInactiveForeground());
+    }
+
+    private void installThemeListener() {
+        if (themeListener != null) {
+            return;
+        }
+        themeListener = evt -> applyThemedTitleBar();
+        ThemeManager.addThemeChangeListener(themeListener);
+    }
+
+    private void uninstallThemeListener() {
+        if (themeListener == null) {
+            return;
+        }
+        ThemeManager.removeThemeChangeListener(themeListener);
+        themeListener = null;
     }
 
     private boolean initializeComponents() {
@@ -199,10 +252,9 @@ public class PresetManagerWindow extends JFrame {
                 configManager.getAbilityCategories(),
                 iconLoader
             );
-			palettePanel.setMainAppActions(
-					new SettingsAction(configManager),
-					new RegionSelectorAction(configManager)
-			);
+            settingsAction = new SettingsAction(configManager);
+            regionSelectorAction = new RegionSelectorAction(configManager);
+            palettePanel.setMainAppActions(settingsAction, regionSelectorAction);
 
             masterPanel.setNotificationService(notifications);
 
@@ -217,6 +269,8 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void layoutComponents() {
+        topBar = buildTopBar();
+
         horizontalSplit = new JSplitPane(
                 JSplitPane.HORIZONTAL_SPLIT,
                 masterPanel,
@@ -233,7 +287,28 @@ public class PresetManagerWindow extends JFrame {
         verticalSplit.setResizeWeight(0.5);
         verticalSplit.setDividerLocation(350);
 
-        add(verticalSplit);
+        setLayout(new BorderLayout());
+        add(topBar, BorderLayout.NORTH);
+        add(verticalSplit, BorderLayout.CENTER);
+    }
+
+    private JPanel buildTopBar() {
+        ThemedPanel bar = new ThemedPanel(PanelStyle.DETAIL_HEADER, new BorderLayout(10, 0));
+        bar.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+
+        JComponent runControls = masterPanel.getRunControlPanel();
+        JPanel runControlsContainer = new JPanel(new BorderLayout());
+        runControlsContainer.setOpaque(false);
+        runControlsContainer.add(runControls, BorderLayout.CENTER);
+
+        JComponent appControls = palettePanel.getMainAppControlsPanel();
+        JPanel appControlsContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        appControlsContainer.setOpaque(false);
+        appControlsContainer.add(appControls);
+
+        bar.add(runControlsContainer, BorderLayout.WEST);
+        bar.add(appControlsContainer, BorderLayout.EAST);
+        return bar;
     }
 
     private void wireEventHandlers() {

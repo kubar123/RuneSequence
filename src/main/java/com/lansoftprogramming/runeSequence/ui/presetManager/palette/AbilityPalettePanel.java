@@ -48,6 +48,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 	private SequenceDetailPanel detailPanel;
 	private JButton settingsButton;
 	private JButton selectRegionButton;
+	private JComponent mainAppControlsPanel;
 	private MenuAction settingsAction;
 	private MenuAction regionSelectorAction;
 	private transient TextCursorSupport.WindowTextCursorResolver textCursorResolver;
@@ -94,6 +95,23 @@ public class AbilityPalettePanel extends ThemedPanel {
 		if (selectRegionButton != null) {
 			selectRegionButton.setEnabled(regionSelectorAction != null);
 		}
+	}
+
+	public JComponent getMainAppControlsPanel() {
+		if (mainAppControlsPanel != null) {
+			return mainAppControlsPanel;
+		}
+
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+		panel.setOpaque(false);
+
+		panel.add(selectRegionButton);
+		panel.add(Box.createHorizontalStrut(6));
+		panel.add(settingsButton);
+
+		mainAppControlsPanel = panel;
+		return panel;
 	}
 
 	private void initializeComponents() {
@@ -148,12 +166,6 @@ public class AbilityPalettePanel extends ThemedPanel {
 	}
 
 	private void layoutComponents() {
-		JPanel headerPanel = new JPanel(new BorderLayout());
-		headerPanel.setOpaque(false);
-		headerPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
-		headerPanel.add(createMainAppSettingsPanel(), BorderLayout.EAST);
-		contentPanel.add(headerPanel, BorderLayout.NORTH);
-
 		searchInputPanel = new ThemedTextBoxPanel(TextBoxStyle.DEFAULT, new BorderLayout(0, 0));
 		TextCursorSupport.installTextCursor(searchInputPanel);
 		searchField.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
@@ -201,15 +213,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 	}
 
 	private JComponent createMainAppSettingsPanel() {
-		JPanel panel = new JPanel();
-		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
-		panel.setOpaque(false);
-
-		panel.add(selectRegionButton);
-		panel.add(Box.createHorizontalStrut(6));
-		panel.add(settingsButton);
-
-		return panel;
+		return getMainAppControlsPanel();
 	}
 
 	private static JComponent createVerticalSeparator(JComponent heightReference) {

@@ -65,6 +65,40 @@ public final class MetalTheme implements Theme {
 	private BufferedImage tabOpenedMarkerImage;
 	private Integer tabOverlapPx;
 
+	private static Color blend(Color a, Color b, float bWeight) {
+		if (a == null && b == null) {
+			return null;
+		}
+		if (a == null) {
+			return b;
+		}
+		if (b == null) {
+			return a;
+		}
+
+		float clamped = Math.max(0f, Math.min(1f, bWeight));
+		float aWeight = 1f - clamped;
+
+		int r = Math.round(a.getRed() * aWeight + b.getRed() * clamped);
+		int g = Math.round(a.getGreen() * aWeight + b.getGreen() * clamped);
+		int bCh = Math.round(a.getBlue() * aWeight + b.getBlue() * clamped);
+		int alpha = Math.round(a.getAlpha() * aWeight + b.getAlpha() * clamped);
+		return new Color(
+				Math.max(0, Math.min(255, r)),
+				Math.max(0, Math.min(255, g)),
+				Math.max(0, Math.min(255, bCh)),
+				Math.max(0, Math.min(255, alpha))
+		);
+	}
+
+	private static Color withAlpha(Color color, int alpha) {
+		if (color == null) {
+			return null;
+		}
+		int clamped = Math.max(0, Math.min(255, alpha));
+		return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
+	}
+
 	@Override
 	public String getName() {
 		return NAME;
@@ -219,6 +253,51 @@ public final class MetalTheme implements Theme {
 	@Override
 	public int getTabOpenedMarkerAnchorFromBottomPx() {
 		return TAB_OPENED_MARKER_ANCHOR_FROM_BOTTOM_PX;
+	}
+
+	@Override
+	public Color getTextPrimaryColor() {
+		return UiColorPalette.UI_TEXT_COLOR;
+	}
+
+	@Override
+	public Color getTextMutedColor() {
+		return UiColorPalette.DIALOG_MESSAGE_TEXT;
+	}
+
+	@Override
+	public Color getAccentPrimaryColor() {
+		return UiColorPalette.TOAST_INFO_ACCENT;
+	}
+
+	@Override
+	public Color getAccentHoverColor() {
+		return blend(getAccentPrimaryColor(), UiColorPalette.BASE_WHITE, 0.18f);
+	}
+
+	@Override
+	public Color getInsetBorderColor() {
+		return withAlpha(UiColorPalette.BASE_BLACK, 150);
+	}
+
+	@Override
+	public Color getWindowTitleBarBackground() {
+		return UiColorPalette.UI_CARD_BACKGROUND;
+	}
+
+	@Override
+	public Color getWindowTitleBarForeground() {
+		return getTextPrimaryColor();
+	}
+
+	@Override
+	public Color getWindowTitleBarInactiveBackground() {
+		return blend(UiColorPalette.UI_CARD_BACKGROUND, UiColorPalette.BASE_BLACK, 0.22f);
+	}
+
+	@Override
+	public Color getWindowTitleBarInactiveForeground() {
+		return getTextMutedColor();
 	}
 
 	private ButtonImageSet getButtonImageSet(ButtonStyle style) {

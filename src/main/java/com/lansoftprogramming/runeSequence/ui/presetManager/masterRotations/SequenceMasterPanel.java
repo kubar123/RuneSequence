@@ -5,8 +5,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOv
 import com.lansoftprogramming.runeSequence.core.sequence.parser.RotationDslCodec;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -19,6 +18,10 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -32,7 +35,9 @@ import java.util.function.Predicate;
  * This acts as the "master" view in a master-detail interface, where selecting an item
  * in this panel can update a "detail" view elsewhere.
  */
-public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.SequenceRunView {
+public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPresenter.SequenceRunView {
+	private static final String HOVER_INDEX_KEY = SequenceMasterPanel.class.getName() + ".hoverIndex";
+
 	private final SequenceListModel sequenceListModel;
 	private final AbilityOverridesService overridesService;
 	private final JList<SequenceListModel.SequenceEntry> sequenceList;
@@ -55,6 +60,7 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	private final List<Consumer<String>> importListeners;
 	private Predicate<String> expressionValidator = s -> false;
 	private NotificationService notificationService;
+	private transient PropertyChangeListener themeListener;
 
 	/**
 	 * Constructs the master panel for sequence management.
@@ -64,6 +70,7 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	                           AbilityOverridesService overridesService,
 	                           SelectedSequenceIndicator selectedSequenceIndicator,
 	                           SequenceRunService sequenceRunService) {
+		super(PanelStyle.DETAIL, new BorderLayout());
 		this.sequenceListModel = Objects.requireNonNull(sequenceListModel, "sequenceListModel cannot be null");
 		this.overridesService = Objects.requireNonNull(overridesService, "overridesService cannot be null");
 		this.selectedSequenceIndicator = Objects.requireNonNull(selectedSequenceIndicator, "selectedSequenceIndicator cannot be null");
@@ -73,14 +80,14 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 		this.deleteListeners = new ArrayList<>();
 		this.importListeners = new ArrayList<>();
 
-		setLayout(new BorderLayout());
-		setBorder(new EmptyBorder(10, 10, 10, 10));
 		setMinimumSize(new Dimension(0, 0));
 
 		sequenceList = new JList<>(sequenceListModel);
 		sequenceList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		sequenceList.setCellRenderer(new SequenceListCellRenderer(this.selectedSequenceIndicator));
 		sequenceList.addListSelectionListener(new SequenceSelectionHandler());
+		sequenceList.setOpaque(false);
+		installHoverTracking(sequenceList);
 
 		addButton = new JButton("+");
 		ThemedButtons.apply(addButton, ButtonStyle.DEFAULT);
@@ -148,32 +155,49 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 		layoutComponents();
 	}
 
+	@Override
+	public void addNotify() {
+		super.addNotify();
+		applyThemeToComponents();
+		installThemeListener();
+	}
+
+	@Override
+	public void removeNotify() {
+		uninstallThemeListener();
+		super.removeNotify();
+	}
+
 	/**
 	 * Arranges the control buttons and the sequence list within the panel.
 	 */
 	private void layoutComponents() {
-		JPanel runPanel = runControlPanel;
 		JPanel controlsPanel = createCrudPanel();
 
-		JPanel topPanel = new JPanel();
-		topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
-		runPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-		controlsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-		topPanel.add(runPanel);
-		topPanel.add(Box.createVerticalStrut(8));
-		topPanel.add(controlsPanel);
+		controlsPanel.setOpaque(false);
 
 		JScrollPane listScrollPane = new JScrollPane(sequenceList);
 		listScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 		listScrollPane.getVerticalScrollBar().setUnitIncrement(5);
+		listScrollPane.setBorder(BorderFactory.createEmptyBorder());
+		listScrollPane.setOpaque(false);
+		listScrollPane.getViewport().setOpaque(false);
 
-		add(topPanel, BorderLayout.NORTH);
-		add(listScrollPane, BorderLayout.CENTER);
+		JPanel listContainer = new InsetContainerPanel(new BorderLayout(), new Insets(5, 6, 5, 6));
+		listContainer.add(listScrollPane, BorderLayout.CENTER);
+
+		add(controlsPanel, BorderLayout.NORTH);
+		add(listContainer, BorderLayout.CENTER);
+	}
+
+	public JComponent getRunControlPanel() {
+		return runControlPanel;
 	}
 
 	private JPanel createCrudPanel() {
 		JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
 		controlsPanel.setMinimumSize(new Dimension(0, 0));
+		controlsPanel.setBorder(new EmptyBorder(0, 0, 8, 0));
 		controlsPanel.add(addButton);
 		controlsPanel.add(createRowSeparator(addButton));
 		controlsPanel.add(deleteButton);
@@ -185,10 +209,85 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	}
 
 	private static JComponent createRowSeparator(JComponent heightReference) {
-		JSeparator separator = new JSeparator(SwingConstants.VERTICAL);
 		int height = heightReference.getPreferredSize().height;
-		separator.setPreferredSize(new Dimension(1, height));
-		return separator;
+		return new ThemedVerticalSeparator(height);
+	}
+
+	private void applyThemeToComponents() {
+		Theme theme = ThemeManager.getTheme();
+		Color textColor = theme != null ? theme.getTextPrimaryColor() : null;
+		if (textColor != null) {
+			sequenceList.setForeground(textColor);
+			sequenceList.setSelectionForeground(textColor);
+		}
+		repaint();
+	}
+
+	private void installThemeListener() {
+		if (themeListener != null) {
+			return;
+		}
+		themeListener = evt -> applyThemeToComponents();
+		ThemeManager.addThemeChangeListener(themeListener);
+	}
+
+	private void uninstallThemeListener() {
+		if (themeListener == null) {
+			return;
+		}
+		ThemeManager.removeThemeChangeListener(themeListener);
+		themeListener = null;
+	}
+
+	private static void installHoverTracking(JList<?> list) {
+		if (list == null) {
+			return;
+		}
+
+		list.putClientProperty(HOVER_INDEX_KEY, -1);
+
+		list.addMouseMotionListener(new MouseMotionAdapter() {
+			@Override
+			public void mouseMoved(MouseEvent e) {
+				int next = list.locationToIndex(e.getPoint());
+				if (next >= 0) {
+					Rectangle bounds = list.getCellBounds(next, next);
+					if (bounds != null && !bounds.contains(e.getPoint())) {
+						next = -1;
+					}
+				}
+				setHoverIndex(list, next);
+			}
+		});
+
+		list.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseExited(MouseEvent e) {
+				setHoverIndex(list, -1);
+			}
+		});
+	}
+
+	private static void setHoverIndex(JList<?> list, int nextIndex) {
+		Object current = list.getClientProperty(HOVER_INDEX_KEY);
+		int currentIndex = current instanceof Integer i ? i : -1;
+		if (currentIndex == nextIndex) {
+			return;
+		}
+
+		list.putClientProperty(HOVER_INDEX_KEY, nextIndex);
+		repaintListCell(list, currentIndex);
+		repaintListCell(list, nextIndex);
+	}
+
+	private static void repaintListCell(JList<?> list, int index) {
+		if (index < 0) {
+			return;
+		}
+		Rectangle bounds = list.getCellBounds(index, index);
+		if (bounds != null) {
+			list.repaint(bounds);
+		}
 	}
 
 	public void addSelectionListener(Consumer<SequenceListModel.SequenceEntry> listener) {
@@ -421,17 +520,28 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 	 * Custom renderer to control the appearance of each item in the sequence list.
 	 */
 	private static class SequenceListCellRenderer extends JPanel implements ListCellRenderer<SequenceListModel.SequenceEntry> {
+		private static final int HOVER_ALPHA = 28;
+		private static final int SELECTED_ALPHA = 64;
+		private static final int SELECTED_GLOW_ALPHA = 140;
+		private static final int FOCUS_ALPHA = 110;
+
 		private final JLabel textLabel = new JLabel();
 		private final JLabel iconLabel = new JLabel();
 		private final SelectedSequenceIndicator selectedIndicator;
 		private final EmptyBorder padding = new EmptyBorder(5, 10, 5, 10);
-		private final Border focusBorder = UIManager.getBorder("List.focusCellHighlightBorder");
-		private final Border noFocusBorder = new EmptyBorder(1, 1, 1, 1);
+		private final Border outerPadding = new EmptyBorder(1, 1, 1, 1);
+		private boolean hovered;
+		private boolean selected;
+		private boolean focused;
+		private Color hoverOverlay;
+		private Color selectedOverlay;
+		private Color selectedGlow;
+		private Color focusRing;
 
 		private SequenceListCellRenderer(SelectedSequenceIndicator selectedIndicator) {
 			super(new BorderLayout());
 			this.selectedIndicator = selectedIndicator;
-			setOpaque(true);
+			setOpaque(false);
 
 			textLabel.setOpaque(false);
 			iconLabel.setOpaque(false);
@@ -453,7 +563,10 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 			String name = value != null ? value.getPresetData().getName() : "";
 			textLabel.setText(name != null ? name : "");
 			textLabel.setFont(list.getFont());
-			textLabel.setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
+
+			Theme theme = ThemeManager.getTheme();
+			Color textColor = theme != null ? theme.getTextPrimaryColor() : list.getForeground();
+			textLabel.setForeground(textColor != null ? textColor : list.getForeground());
 
 			Icon selectedIcon = value != null ? selectedIndicator.iconFor(value.getId()) : null;
 			iconLabel.setIcon(selectedIcon);
@@ -462,17 +575,165 @@ public class SequenceMasterPanel extends JPanel implements SequenceRunPresenter.
 			iconLabel.setPreferredSize(new Dimension(reservedWidth,
 					list.getFixedCellHeight() > 0 ? list.getFixedCellHeight() : textLabel.getPreferredSize().height));
 
-			setBackground(isSelected ? list.getSelectionBackground() : list.getBackground());
-			setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
+			Color accentHover = theme != null ? theme.getAccentHoverColor() : null;
+			Color accentPrimary = theme != null ? theme.getAccentPrimaryColor() : null;
+			hoverOverlay = withAlpha(accentHover != null ? accentHover : list.getForeground(), HOVER_ALPHA);
+			selectedOverlay = withAlpha(accentPrimary != null ? accentPrimary : list.getForeground(), SELECTED_ALPHA);
+			selectedGlow = withAlpha(accentPrimary != null ? accentPrimary : list.getForeground(), SELECTED_GLOW_ALPHA);
+			focusRing = withAlpha(accentHover != null ? accentHover : list.getForeground(), FOCUS_ALPHA);
 
-			Border outer = cellHasFocus && focusBorder != null ? focusBorder : noFocusBorder;
-			setBorder(new CompoundBorder(outer, padding));
+			Object hoverIndex = list.getClientProperty(HOVER_INDEX_KEY);
+			hovered = (hoverIndex instanceof Integer i) && i == index && !isSelected;
+			selected = isSelected;
+			focused = cellHasFocus;
+
+			setBorder(new CompoundBorder(outerPadding, padding));
 
 			setToolTipText(value != null && selectedIndicator.isSelected(value.getId())
 					? "Currently selected rotation"
 					: null);
 
 			return this;
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			super.paintComponent(graphics);
+
+			int width = getWidth();
+			int height = getHeight();
+			if (width <= 0 || height <= 0) {
+				return;
+			}
+
+			if (!hovered && !selected && !focused) {
+				return;
+			}
+
+			Graphics2D g2 = graphics instanceof Graphics2D ? (Graphics2D) graphics.create() : null;
+			if (g2 == null) {
+				return;
+			}
+
+			try {
+				g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+				if (selected && selectedOverlay != null) {
+					g2.setColor(selectedOverlay);
+					g2.fillRect(0, 0, width, height);
+					if (selectedGlow != null) {
+						g2.setColor(selectedGlow);
+						g2.drawRect(0, 0, width - 1, height - 1);
+					}
+				} else if (hovered && hoverOverlay != null) {
+					g2.setColor(hoverOverlay);
+					g2.fillRect(0, 0, width, height);
+				}
+
+				if (focused && focusRing != null) {
+					g2.setColor(focusRing);
+					g2.drawRect(1, 1, width - 3, height - 3);
+				}
+			} finally {
+				g2.dispose();
+			}
+		}
+
+		private static Color withAlpha(Color color, int alpha) {
+			if (color == null) {
+				return null;
+			}
+			int clamped = Math.max(0, Math.min(255, alpha));
+			return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
+		}
+	}
+
+	private static final class ThemedVerticalSeparator extends JComponent {
+		private final int height;
+
+		private ThemedVerticalSeparator(int height) {
+			this.height = Math.max(0, height);
+			setOpaque(false);
+			setPreferredSize(new Dimension(1, this.height));
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			super.paintComponent(graphics);
+			int h = getHeight();
+			if (h <= 0) {
+				return;
+			}
+
+			Theme theme = ThemeManager.getTheme();
+			Color line = theme != null ? theme.getInsetBorderColor() : null;
+			if (line == null) {
+				return;
+			}
+
+			Graphics2D g2 = graphics instanceof Graphics2D ? (Graphics2D) graphics.create() : null;
+			if (g2 == null) {
+				return;
+			}
+			try {
+				g2.setColor(line);
+				g2.drawLine(0, 0, 0, h - 1);
+			} finally {
+				g2.dispose();
+			}
+		}
+	}
+
+	private static final class InsetContainerPanel extends JPanel {
+		private InsetContainerPanel(LayoutManager layout, Insets contentPadding) {
+			super(layout);
+			setOpaque(false);
+			Insets padding = contentPadding != null ? contentPadding : new Insets(0, 0, 0, 0);
+			setBorder(new EmptyBorder(
+					1 + padding.top,
+					1 + padding.left,
+					1 + padding.bottom,
+					1 + padding.right
+			));
+		}
+
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			super.paintComponent(graphics);
+
+			int width = getWidth();
+			int height = getHeight();
+			if (width <= 0 || height <= 0) {
+				return;
+			}
+
+			Theme theme = ThemeManager.getTheme();
+			if (theme == null) {
+				return;
+			}
+
+			java.awt.image.BufferedImage background = theme.getPanelBackgroundImage(PanelStyle.TAB_CONTENT);
+			Color insetBorder = theme.getInsetBorderColor();
+
+			Graphics2D g2 = graphics instanceof Graphics2D ? (Graphics2D) graphics.create() : null;
+			if (g2 == null) {
+				return;
+			}
+
+			try {
+				g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+				if (background != null) {
+					Rectangle target = new Rectangle(0, 0, width, height);
+					com.lansoftprogramming.runeSequence.ui.theme.BackgroundFillPainter.paintTopLeftCropScale(g2, background, target);
+				}
+
+				if (insetBorder != null) {
+					g2.setColor(insetBorder);
+					g2.drawRect(0, 0, width - 1, height - 1);
+				}
+			} finally {
+				g2.dispose();
+			}
 		}
 	}
 }

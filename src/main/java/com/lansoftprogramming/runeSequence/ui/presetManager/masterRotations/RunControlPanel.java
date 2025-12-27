@@ -37,14 +37,14 @@ class RunControlPanel extends JPanel {
 	private boolean pauseHighlighted;
 
 	RunControlPanel() {
-		setOpaque(true);
-		setLayout(new BorderLayout(5, 2));
+		setOpaque(false);
+		setLayout(new BorderLayout());
 
 		startButton = new JButton("Arm");
 		pauseButton = new JButton("Pause");
 		restartButton = new JButton("Restart");
 		statusLabel = new JLabel("Status: Ready");
-		operationalHeader = new JPanel(new BorderLayout());
+		operationalHeader = new JPanel(new BorderLayout(10, 0));
 
 		defaultStartBg = startButton.getBackground();
 		defaultPauseBg = pauseButton.getBackground();
@@ -60,7 +60,7 @@ class RunControlPanel extends JPanel {
 		headerPausedBg = UiColorPalette.RUN_HEADER_PAUSED_BACKGROUND;
 		operationalHeaderBorder = new CompoundBorder(
 				BorderFactory.createMatteBorder(1, 0, 0, 0, UiColorPalette.UI_CARD_BORDER_SUBTLE),
-				new EmptyBorder(4, 4, 4, 4)
+				new EmptyBorder(3, 4, 3, 4)
 		);
 
 		JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
@@ -71,15 +71,14 @@ class RunControlPanel extends JPanel {
 		operationalHeader.setOpaque(true);
 		operationalHeader.setBorder(operationalHeaderBorder);
 		buttonRow.setOpaque(false);
+		statusLabel.setOpaque(false);
+		statusLabel.setBorder(new EmptyBorder(0, 2, 0, 0));
+		statusLabel.setFont(statusLabel.getFont().deriveFont(Font.BOLD));
+		statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
 		operationalHeader.add(buttonRow, BorderLayout.WEST);
+		operationalHeader.add(statusLabel, BorderLayout.CENTER);
 		updateOperationalHeaderBackground();
 
-		JPanel statusRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-		statusRow.setOpaque(true);
-		statusRow.setBackground(getBackground());
-		statusRow.add(statusLabel);
-
-		add(statusRow, BorderLayout.NORTH);
 		add(operationalHeader, BorderLayout.CENTER);
 	}
 
@@ -129,13 +128,6 @@ class RunControlPanel extends JPanel {
 		repaint();
 	}
 
-	@Override
-	protected void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		g.setColor(getBackground());
-		g.fillRect(0, 0, getWidth(), getHeight());
-	}
-
 	private void updateOperationalHeaderBackground() {
 		Color nextBackground;
 		if (pauseHighlighted) {
@@ -151,6 +143,11 @@ class RunControlPanel extends JPanel {
 		if (!nextBackground.equals(operationalHeader.getBackground())) {
 			operationalHeader.setBackground(nextBackground);
 			operationalHeader.repaint();
+		}
+
+		Color labelColor = computeReadableForeground(nextBackground);
+		if (labelColor != null) {
+			statusLabel.setForeground(labelColor);
 		}
 	}
 
@@ -180,5 +177,17 @@ class RunControlPanel extends JPanel {
 			button.setBackground(defaultBg);
 			button.setForeground(defaultFg);
 		}
+	}
+
+	private static Color computeReadableForeground(Color background) {
+		if (background == null) {
+			return null;
+		}
+		// Perceived luminance; pick black/white for contrast (portable across LAFs/OSes).
+		double r = background.getRed() / 255.0;
+		double g = background.getGreen() / 255.0;
+		double b = background.getBlue() / 255.0;
+		double luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		return luminance > 0.56 ? Color.BLACK : Color.WHITE;
 	}
 }

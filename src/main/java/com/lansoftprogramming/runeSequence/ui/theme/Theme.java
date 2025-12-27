@@ -50,4 +50,51 @@ public interface Theme {
 	default int getTabOpenedMarkerAnchorFromBottomPx() {
 		return 0;
 	}
+
+	/**
+	 * Theme-provided colors for custom-painted widgets (lists, overlays, accents).
+	 * Prefer these over hard-coded colors in UI components.
+	 */
+	default Color getTextPrimaryColor() {
+		return UiColorPalette.UI_TEXT_COLOR;
+	}
+
+	default Color getTextMutedColor() {
+		return UiColorPalette.DIALOG_MESSAGE_TEXT;
+	}
+
+	default Color getAccentPrimaryColor() {
+		return UiColorPalette.TOAST_INFO_ACCENT;
+	}
+
+	default Color getAccentHoverColor() {
+		return getAccentPrimaryColor();
+	}
+
+	/**
+	 * Single-pixel inset line color for list/field containers.
+	 */
+	default Color getInsetBorderColor() {
+		return UiColorPalette.UI_DIVIDER_FAINT;
+	}
+
+	/**
+	 * Window title bar colors (used with FlatLaf custom window decorations).
+	 * These are best-effort and may be ignored by the platform/LAF.
+	 */
+	default Color getWindowTitleBarBackground() {
+		return UiColorPalette.UI_CARD_BACKGROUND;
+	}
+
+	default Color getWindowTitleBarForeground() {
+		return getTextPrimaryColor();
+	}
+
+	default Color getWindowTitleBarInactiveBackground() {
+		return UiColorPalette.UI_CARD_BACKGROUND.darker();
+	}
+
+	default Color getWindowTitleBarInactiveForeground() {
+		return getTextMutedColor();
+	}
 }
