@@ -103,6 +103,8 @@ public class AbilityPalettePanel extends ThemedPanel {
 		add(contentPanel, BorderLayout.CENTER);
 
 		searchField = new JTextField();
+		searchField.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+		searchField.setColumns(14);
 		TextCursorSupport.installTextCursor(searchField);
 		searchField.setToolTipText("Search abilities (fuzzy matching supported)...");
 
@@ -112,7 +114,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 		clearSearchButton.setBorderPainted(false);
 		clearSearchButton.setContentAreaFilled(false);
 		clearSearchButton.setOpaque(false);
-		clearSearchButton.setFont(UiColorPalette.boldSans(13));
+		clearSearchButton.setFont(UiColorPalette.boldSans(12));
 		clearSearchButton.setMargin(new Insets(0, 8, 0, 8));
 		clearSearchButton.setForeground(clearSearchEnabledColor);
 		int searchFieldHeight = searchField.getPreferredSize().height;
@@ -146,20 +148,21 @@ public class AbilityPalettePanel extends ThemedPanel {
 	}
 
 	private void layoutComponents() {
-		JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
-		searchPanel.setOpaque(false);
-		searchPanel.add(new JLabel("Search:"), BorderLayout.WEST);
+		JPanel headerPanel = new JPanel(new BorderLayout());
+		headerPanel.setOpaque(false);
+		headerPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
+		headerPanel.add(createMainAppSettingsPanel(), BorderLayout.EAST);
+		contentPanel.add(headerPanel, BorderLayout.NORTH);
+
 		searchInputPanel = new ThemedTextBoxPanel(TextBoxStyle.DEFAULT, new BorderLayout(0, 0));
 		TextCursorSupport.installTextCursor(searchInputPanel);
 		searchField.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 		searchField.setOpaque(false);
 		searchInputPanel.add(searchField, BorderLayout.CENTER);
 		searchInputPanel.add(clearSearchButton, BorderLayout.EAST);
-		searchPanel.add(searchInputPanel, BorderLayout.CENTER);
-		searchPanel.add(createMainAppSettingsPanel(), BorderLayout.EAST);
-		searchPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
 
-		contentPanel.add(searchPanel, BorderLayout.NORTH);
+		categoryTabs.setTabsTrailingGapPx(8);
+		categoryTabs.setTrailingComponent(createTabStripAccessoryPanel());
 		contentPanel.add(categoryTabs, BorderLayout.CENTER);
 	}
 
@@ -193,13 +196,15 @@ public class AbilityPalettePanel extends ThemedPanel {
 		textCursorResolver = null;
 	}
 
+	private JComponent createTabStripAccessoryPanel() {
+		return searchInputPanel;
+	}
+
 	private JComponent createMainAppSettingsPanel() {
 		JPanel panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
+		panel.setOpaque(false);
 
-		panel.add(Box.createHorizontalStrut(10));
-		panel.add(createVerticalSeparator(searchField));
-		panel.add(Box.createHorizontalStrut(10));
 		panel.add(selectRegionButton);
 		panel.add(Box.createHorizontalStrut(6));
 		panel.add(settingsButton);

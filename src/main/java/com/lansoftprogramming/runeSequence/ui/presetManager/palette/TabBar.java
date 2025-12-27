@@ -19,9 +19,11 @@ public final class TabBar extends JPanel {
 	private final TabContentPanel cards;
 	private final CardLayout cardLayout;
 	private final List<TabComponent> tabs;
+	private JComponent trailingComponent;
 	private int selectedIndex = -1;
 	private boolean paintContentBackground = true;
 	private int tabsContentOverlapPx = 1;
+	private int tabsTrailingGapPx = 10;
 	private transient java.beans.PropertyChangeListener themeListener;
 
 	public TabBar() {
@@ -82,6 +84,38 @@ public final class TabBar extends JPanel {
 			setSelectedIndex(0);
 		}
 
+		revalidate();
+		repaint();
+	}
+
+	public void setTrailingComponent(JComponent component) {
+		if (trailingComponent == component) {
+			return;
+		}
+		if (trailingComponent != null) {
+			remove(trailingComponent);
+		}
+		trailingComponent = component;
+		if (trailingComponent != null) {
+			add(trailingComponent);
+			// Ensure trailing component stays visible if bounds overlap.
+			setComponentZOrder(trailingComponent, 0);
+			setComponentZOrder(tabsStrip, 1);
+			setComponentZOrder(cards, 2);
+		} else {
+			setComponentZOrder(tabsStrip, 0);
+			setComponentZOrder(cards, 1);
+		}
+		revalidate();
+		repaint();
+	}
+
+	public void setTabsTrailingGapPx(int gapPx) {
+		int clamped = Math.max(0, gapPx);
+		if (tabsTrailingGapPx == clamped) {
+			return;
+		}
+		tabsTrailingGapPx = clamped;
 		revalidate();
 		repaint();
 	}
@@ -350,9 +384,11 @@ public final class TabBar extends JPanel {
 			synchronized (parent.getTreeLock()) {
 				Insets insets = parent.getInsets();
 				Dimension tabsPref = tabsStrip.getPreferredSize();
+				Dimension trailingPref = trailingComponent != null ? trailingComponent.getPreferredSize() : new Dimension(0, 0);
 				Dimension cardsPref = cards.getPreferredSize();
 				int overlap = Math.min(tabsContentOverlapPx, tabsPref.height);
-				int width = Math.max(tabsPref.width, cardsPref.width) + insets.left + insets.right;
+				int trailingWidth = trailingPref.width > 0 ? trailingPref.width + tabsTrailingGapPx : 0;
+				int width = Math.max(tabsPref.width + trailingWidth, cardsPref.width) + insets.left + insets.right;
 				int height = tabsPref.height + cardsPref.height - overlap + insets.top + insets.bottom;
 				return new Dimension(Math.max(0, width), Math.max(0, height));
 			}
@@ -363,11 +399,12 @@ public final class TabBar extends JPanel {
 			synchronized (parent.getTreeLock()) {
 				Insets insets = parent.getInsets();
 				Dimension tabsMin = tabsStrip.getMinimumSize();
+				Dimension trailingMin = trailingComponent != null ? trailingComponent.getMinimumSize() : new Dimension(0, 0);
 				Dimension cardsMin = cards.getMinimumSize();
 				int overlap = Math.min(tabsContentOverlapPx, tabsMin.height);
 				// Allow horizontal shrinking; content can clip or reflow.
 				int width = insets.left + insets.right;
-				int height = tabsMin.height + cardsMin.height - overlap + insets.top + insets.bottom;
+				int height = Math.max(tabsMin.height, trailingMin.height) + cardsMin.height - overlap + insets.top + insets.bottom;
 				return new Dimension(Math.max(0, width), Math.max(0, height));
 			}
 		}
@@ -380,10 +417,22 @@ public final class TabBar extends JPanel {
 				int height = Math.max(0, parent.getHeight() - insets.top - insets.bottom);
 
 				Dimension tabsPref = tabsStrip.getPreferredSize();
+				Dimension trailingPref = trailingComponent != null ? trailingComponent.getPreferredSize() : new Dimension(0, 0);
 				int tabsHeight = Math.min(height, Math.max(0, tabsPref.height));
 				int overlap = Math.min(tabsContentOverlapPx, tabsHeight);
 
-				tabsStrip.setBounds(insets.left, insets.top, width, tabsHeight);
+				int trailingWidth = trailingComponent != null ? Math.max(0, trailingPref.width) : 0;
+				int gap = trailingComponent != null && trailingWidth > 0 ? tabsTrailingGapPx : 0;
+				int tabsWidth = Math.max(0, width - trailingWidth - gap);
+
+				tabsStrip.setBounds(insets.left, insets.top, tabsWidth, tabsHeight);
+
+				if (trailingComponent != null && trailingWidth > 0) {
+					int trailingX = insets.left + width - trailingWidth;
+					int trailingHeight = Math.min(tabsHeight, Math.max(0, trailingPref.height));
+					int trailingY = insets.top + Math.max(0, (tabsHeight - trailingHeight) / 2);
+					trailingComponent.setBounds(trailingX, trailingY, trailingWidth, trailingHeight);
+				}
 
 				int cardsY = insets.top + tabsHeight - overlap;
 				int cardsHeight = Math.max(0, insets.top + height - cardsY);
