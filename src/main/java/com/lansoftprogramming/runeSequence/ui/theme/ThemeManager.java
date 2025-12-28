@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.theme;
 
+import com.lansoftprogramming.runeSequence.ui.theme.themes.metal.MetalTheme;
+
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.Objects;
@@ -43,4 +45,3 @@ public final class ThemeManager {
 		changeSupport.firePropertyChange(PROPERTY_THEME, oldTheme, newTheme);
 	}
 }
-

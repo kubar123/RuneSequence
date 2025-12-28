@@ -5,7 +5,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 
-final class ButtonImageSet {
+public final class ButtonImageSet {
 
 	private final Map<ButtonVisualState, BufferedImage> images;
 
@@ -13,7 +13,7 @@ final class ButtonImageSet {
 		this.images = images;
 	}
 
-	static ButtonImageSet fromBase(BufferedImage base, ButtonStateTreatment treatment) {
+	public static ButtonImageSet fromBase(BufferedImage base, ButtonStateTreatment treatment) {
 		Objects.requireNonNull(base, "base");
 		Objects.requireNonNull(treatment, "treatment");
 
@@ -25,8 +25,7 @@ final class ButtonImageSet {
 		return new ButtonImageSet(out);
 	}
 
-	BufferedImage get(ButtonVisualState state) {
+	public BufferedImage get(ButtonVisualState state) {
 		return images.getOrDefault(state, images.get(ButtonVisualState.NORMAL));
 	}
 }
-

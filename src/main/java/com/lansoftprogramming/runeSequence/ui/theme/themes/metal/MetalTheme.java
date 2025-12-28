@@ -1,4 +1,6 @@
-package com.lansoftprogramming.runeSequence.ui.theme;
+package com.lansoftprogramming.runeSequence.ui.theme.themes.metal;
+
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
