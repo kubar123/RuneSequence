@@ -5,17 +5,22 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class Tokenizer {
 	private static final Logger logger = LoggerFactory.getLogger(Tokenizer.class);
 	private static final char TOOLTIP_MARKER = '\uE000';
+	private static final Pattern SPEC_SUFFIX = Pattern.compile("(?i)\\s+spec\\b");
+	private static final Pattern EOFSPEC_SUFFIX = Pattern.compile("(?i)\\s+eofspec\\b");
+	private static final Pattern ROAR_ODE_PAIR = Pattern.compile("(?i)\\b(roarofawakening)\\s+(odetodeceit)\\b");
 
 	public List<Token> tokenize(String expression) {
 
 		logger.debug("Tokenizer: Input expression: '{}'", expression);
 
 		// Handle "spec" as a special suffix, converting "[ability] spec" to "[ability] + spec"
-		String processedExpression = expression.replaceAll("(?i)\\s+spec\\b", " + spec");
+		String processedExpression = normalizeSpecialSuffixes(expression);
+		processedExpression = normalizeGroupedItems(processedExpression);
 		// Treat tooltip markup "(message)" as non-structural and ignore it for operator decisions.
 		// We replace it with a marker that forces an ability boundary so "A (tip) B" does not become
 		// a single merged ability token "A B".
@@ -98,6 +103,21 @@ public class Tokenizer {
 		}
 
 		return tokens;
+	}
+
+	private String normalizeSpecialSuffixes(String expression) {
+		if (expression == null || expression.isEmpty()) {
+			return expression;
+		}
+		String normalized = SPEC_SUFFIX.matcher(expression).replaceAll(" + spec");
+		return EOFSPEC_SUFFIX.matcher(normalized).replaceAll(" + eofspec");
+	}
+
+	private String normalizeGroupedItems(String expression) {
+		if (expression == null || expression.isEmpty()) {
+			return expression;
+		}
+		return ROAR_ODE_PAIR.matcher(expression).replaceAll("$1 + $2");
 	}
 
 	private boolean isTooltipMarker(String part) {
@@ -272,20 +292,14 @@ public class Tokenizer {
 			return "";
 		}
 
-		StringBuilder sb = new StringBuilder(line.length());
-		for (int i = 0; i < line.length(); i++) {
-			char c = line.charAt(i);
-
+		String sanitized = ExpressionSanitizer.removeInvisibles(line);
+		StringBuilder sb = new StringBuilder(sanitized.length());
+		for (int i = 0; i < sanitized.length(); i++) {
+			char c = sanitized.charAt(i);
 			// Strip line-break characters defensively (split() should already have removed them)
 			if (c == '\n' || c == '\r') {
 				continue;
 			}
-
-			// Drop zero-width / exotic whitespace that often sneaks in from rich text
-			if (c == '\u200B' || c == '\u00A0' || c == '\u202F') {
-				continue;
-			}
-
 			sb.append(c);
 		}
 

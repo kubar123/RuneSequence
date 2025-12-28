@@ -18,6 +18,7 @@ public class TooltipMarkupParser {
 	private static final Logger logger = LoggerFactory.getLogger(TooltipMarkupParser.class);
 	private static final String PLACEHOLDER_PREFIX = "__tooltip";
 	private static final String PLACEHOLDER_SUFFIX = "__";
+	private static final String KEYWORD_DROP = "drop";
 	private final Set<String> abilityNames;
 
 	public TooltipMarkupParser() {
@@ -84,6 +85,17 @@ public class TooltipMarkupParser {
 					index = hasExtraOuterParens ? (extraCloseIndex + 1) : (candidate.endIndex() + 1);
 					continue;
 				}
+			}
+
+			KeywordTooltip keywordTooltip = readKeywordTooltip(expression, index);
+			if (keywordTooltip != null) {
+				String placeholder = PLACEHOLDER_PREFIX + tooltipTokens.size() + PLACEHOLDER_SUFFIX;
+				char nextNonWhitespace = nextNonWhitespace(expression, keywordTooltip.nextTokenStartIndex());
+				maybeInsertGap(cleanedExpression, nextNonWhitespace);
+				appendPlaceholderWithSpacing(placeholderExpression, placeholder, nextNonWhitespace);
+				tooltipTokens.add(new TooltipToken(placeholder, keywordTooltip.message()));
+				index = keywordTooltip.nextTokenStartIndex();
+				continue;
 			}
 
 			cleanedExpression.append(current);
@@ -189,6 +201,122 @@ public class TooltipMarkupParser {
 		}
 
 		return new TooltipCandidate(message, cursor);
+	}
+
+	private KeywordTooltip readKeywordTooltip(String expression, int startIndex) {
+		if (expression == null || startIndex < 0 || startIndex >= expression.length()) {
+			return null;
+		}
+
+		String message = null;
+		int keywordEnd = -1;
+
+		if (matchesWord(expression, startIndex, KEYWORD_DROP)) {
+			message = "Drop";
+			keywordEnd = startIndex + KEYWORD_DROP.length();
+		} else if (matchesTickKeyword(expression, startIndex)) {
+			int cursor = startIndex;
+			while (cursor < expression.length() && Character.isDigit(expression.charAt(cursor))) {
+				cursor++;
+			}
+			if (cursor >= expression.length()) {
+				return null;
+			}
+			message = expression.substring(startIndex, cursor + 1);
+			keywordEnd = cursor + 1;
+		} else if (matchesSingleCharKeyword(expression, startIndex, 's')) {
+			message = "s";
+			keywordEnd = startIndex + 1;
+		} else if (matchesSingleCharKeyword(expression, startIndex, 'r')) {
+			message = "r";
+			keywordEnd = startIndex + 1;
+		} else {
+			return null;
+		}
+
+		char prev = startIndex > 0 ? expression.charAt(startIndex - 1) : 0;
+		if (prev != 0 && !TooltipGrammar.isStructuralBoundary(prev)) {
+			return null;
+		}
+
+		char after = keywordEnd < expression.length() ? expression.charAt(keywordEnd) : 0;
+		if (after != 0 && !TooltipGrammar.isStructuralBoundary(after)) {
+			return null;
+		}
+
+		int cursor = keywordEnd;
+		boolean sawWhitespace = false;
+		while (cursor < expression.length() && Character.isWhitespace(expression.charAt(cursor))) {
+			sawWhitespace = true;
+			cursor++;
+		}
+		if (!sawWhitespace) {
+			return null;
+		}
+
+		char next = cursor < expression.length() ? expression.charAt(cursor) : 0;
+		if (next == 0 || TooltipGrammar.isStructuralBoundary(next)) {
+			return null;
+		}
+
+		return new KeywordTooltip(message, cursor);
+	}
+
+	private boolean matchesTickKeyword(String expression, int startIndex) {
+		if (startIndex < 0 || startIndex >= expression.length()) {
+			return false;
+		}
+		char first = expression.charAt(startIndex);
+		if (!Character.isDigit(first)) {
+			return false;
+		}
+
+		int cursor = startIndex;
+		while (cursor < expression.length() && Character.isDigit(expression.charAt(cursor))) {
+			cursor++;
+		}
+		if (cursor >= expression.length()) {
+			return false;
+		}
+		char suffix = expression.charAt(cursor);
+		if (Character.toLowerCase(suffix) != 't') {
+			return false;
+		}
+
+		char after = cursor + 1 < expression.length() ? expression.charAt(cursor + 1) : 0;
+		return after == 0 || TooltipGrammar.isStructuralBoundary(after);
+	}
+
+	private boolean matchesSingleCharKeyword(String expression, int startIndex, char keyword) {
+		if (startIndex < 0 || startIndex >= expression.length()) {
+			return false;
+		}
+		char current = expression.charAt(startIndex);
+		if (Character.toLowerCase(current) != Character.toLowerCase(keyword)) {
+			return false;
+		}
+		char after = startIndex + 1 < expression.length() ? expression.charAt(startIndex + 1) : 0;
+		return after == 0 || TooltipGrammar.isStructuralBoundary(after);
+	}
+
+	private boolean matchesWord(String expression, int startIndex, String word) {
+		if (word == null || word.isEmpty()) {
+			return false;
+		}
+		int end = startIndex + word.length();
+		if (startIndex < 0 || end > expression.length()) {
+			return false;
+		}
+
+		for (int i = 0; i < word.length(); i++) {
+			char a = Character.toLowerCase(expression.charAt(startIndex + i));
+			char b = Character.toLowerCase(word.charAt(i));
+			if (a != b) {
+				return false;
+			}
+		}
+		char after = end < expression.length() ? expression.charAt(end) : 0;
+		return after == 0 || TooltipGrammar.isStructuralBoundary(after);
 	}
 
 	private boolean looksLikeAbilitySubExpression(String text) {
@@ -315,6 +443,9 @@ public class TooltipMarkupParser {
 	}
 
 	private record TooltipCandidate(String message, int endIndex) {
+	}
+
+	private record KeywordTooltip(String message, int nextTokenStartIndex) {
 	}
 
 	private record TooltipToken(String placeholder, String message) {

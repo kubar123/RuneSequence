@@ -34,7 +34,8 @@ public final class RotationDslCodec {
 			throw new IllegalStateException("Expression cannot be null.");
 		}
 
-		String[] rawLines = input.split("\\R");
+		String normalizedInput = ExpressionSanitizer.stripSurroundingQuotes(ExpressionSanitizer.removeInvisibles(input));
+		String[] rawLines = normalizedInput.split("\\R");
 		List<String> expressionLines = new ArrayList<>();
 		List<String> settingsLines = new ArrayList<>();
 
@@ -42,7 +43,7 @@ public final class RotationDslCodec {
 			if (rawLine == null) {
 				continue;
 			}
-			String trimmed = rawLine.trim();
+			String trimmed = ExpressionSanitizer.removeInvisibles(rawLine).trim();
 			if (trimmed.isEmpty()) {
 				continue;
 			}
@@ -455,4 +456,3 @@ public final class RotationDslCodec {
 		}
 	}
 }
-
