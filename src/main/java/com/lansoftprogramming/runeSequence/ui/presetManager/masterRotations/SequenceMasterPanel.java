@@ -6,6 +6,8 @@ import com.lansoftprogramming.runeSequence.core.sequence.parser.RotationDslCodec
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -37,6 +39,7 @@ import java.util.function.Predicate;
  */
 public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPresenter.SequenceRunView {
 	private static final String HOVER_INDEX_KEY = SequenceMasterPanel.class.getName() + ".hoverIndex";
+	private static final Logger logger = LoggerFactory.getLogger(SequenceMasterPanel.class);
 
 	private final SequenceListModel sequenceListModel;
 	private final AbilityOverridesService overridesService;
@@ -119,7 +122,7 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 				trashIcon = new ImageIcon(scaledImage);
 			}
 		} catch (Exception e) {
-			e.printStackTrace(); // Log error for debugging
+			logger.debug("Failed to load trash icon resource", e);
 		}
 
 		if (trashIcon != null) {

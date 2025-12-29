@@ -52,6 +52,7 @@
     "type": "Ultimate",
     "level": 2,
     "triggers_gcd": true,
+    "detection_threshold": 0.7,
     "mask": "mask"
   },
   "smash": {
@@ -59,6 +60,7 @@
     "type": "Basic",
     "level": 20,
     "triggers_gcd": true,
+    "detection_threshold": 0.6,
     "mask": "mask"
   },
   "barge": {
@@ -73,6 +75,7 @@
     "type": "Basic",
     "level": 30,
     "triggers_gcd": true,
+    "detection_threshold": 0.99,
     "mask": "mask"
   },
   "flurry": {
@@ -96,6 +99,7 @@
     "type": "Basic",
     "level": 45,
     "triggers_gcd": true,
+    "detection_threshold": 0.95,
     "mask": "mask"
   },
   "havoc": {

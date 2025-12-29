@@ -171,4 +171,34 @@ class SequenceParserTest {
 		Alternative labeled = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
 		assertNull(labeled.getAbilitySettingsOverrides(), "Malformed #* lines should not crash or attach overrides");
 	}
+
+	@Test
+	void shouldParseSingleAbilityExpression() {
+		SequenceDefinition definition = SequenceParser.parse("Limitless");
+
+		assertEquals(1, definition.size());
+		Step step = definition.getStep(0);
+		assertEquals(1, step.getTerms().size());
+
+		Alternative alt = step.getTerms().get(0).getAlternatives().get(0);
+		assertTrue(alt.isToken());
+		assertEquals("Limitless", alt.getToken());
+	}
+
+	@Test
+	void shouldRejectInstanceLabelWithWhitespaceBeforeSuffix() {
+		assertThrows(IllegalStateException.class, () -> SequenceParser.parse("cane [*1] → tc"));
+	}
+
+	@Test
+	void shouldRejectInstanceLabelWithNonNumericLabel() {
+		assertThrows(IllegalStateException.class, () -> SequenceParser.parse("cane[*x] → tc"));
+	}
+
+	@Test
+	void shouldTreatNewlinesBetweenAbilitiesAsImplicitArrows() {
+		SequenceDefinition definition = SequenceParser.parse("A\nB");
+		assertEquals("A → B", definition.toString());
+		assertEquals(2, definition.size());
+	}
 }

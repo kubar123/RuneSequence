@@ -27,13 +27,26 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Main {
 	private static final String APP_NAME = "RuneSequence";
-	private static final Logger logger = LoggerFactory.getLogger(Main.class);
+	private static volatile Logger logger;
+
+	private static Logger logger() {
+		Logger cached = logger;
+		if (cached != null) {
+			return cached;
+		}
+		Logger created = LoggerFactory.getLogger(Main.class);
+		logger = created;
+		return created;
+	}
 
 	private static ConfigManager configManager;
 	private static TemplateCache templateCache;
@@ -48,7 +61,13 @@ public class Main {
 	private static boolean shutdownInitiated = false;
 
 	public static void main(String[] args) {
+		BootstrapPaths bootstrap = bootstrapPaths();
+		Logger logger = logger();
 		logger.info("Starting {} application...", APP_NAME);
+		logger.info("Runtime: java={} os={} {}", System.getProperty("java.version"), System.getProperty("os.name"), System.getProperty("os.version"));
+		logger.info("Config dir: {}", bootstrap.configDir);
+		logger.info("Logs dir: {}", bootstrap.logsDir);
+		logger.info("JavaCPP cache dir: {}", bootstrap.javacppCacheDir);
 
 		try {
 			// 1. Load Configurations
@@ -82,18 +101,17 @@ public class Main {
 				mouseTooltipOverlay = new MouseTooltipOverlay();
 				NotificationService notifications = createNotificationService();
 
-			// 4. Set up the Sequence Manager with our debug rotation
+			// 4. Set up the Sequence Manager
 			RotationConfig rotationConfig = configManager.getRotations();
-			if (rotationConfig == null || rotationConfig.getPresets().isEmpty()) {
-				logger.error("No rotations found in config. Exiting.");
-				return;
-			}
+			Map<String, RotationConfig.PresetData> presets = rotationConfig != null && rotationConfig.getPresets() != null
+					? rotationConfig.getPresets()
+					: Map.of();
 
 			// Parse all presets from the config file and build tooltip schedules
 			TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder(
 					configManager.getAbilities().getAbilities().keySet()
 			);
-			Map<String, TooltipScheduleBuilder.BuildResult> buildResults = rotationConfig.getPresets().entrySet().stream()
+			Map<String, TooltipScheduleBuilder.BuildResult> buildResults = presets.entrySet().stream()
 					.collect(Collectors.toMap(
 							Map.Entry::getKey,
 							entry -> scheduleBuilder.build(entry.getValue().getExpression())
@@ -125,41 +143,6 @@ public class Main {
 			SequenceController sequenceController = new SequenceController(sequenceManager);
 			sequenceManager.setSequenceController(sequenceController);
 
-			// Activate selected rotation or fall back to debug sequence
-			// --- Determine rotation to activate ---
-			String fallbackSequenceName = "debug-limitless";
-
-			String selected = configManager.getSettings().getRotation() != null
-					? configManager.getSettings().getRotation().getSelectedId()
-					: null;
-			String sequenceToActivate = fallbackSequenceName;
-
-			// --- Check for selected rotation ---
-			if (selected == null || selected.isBlank()) {
-				logger.warn("No rotation selected in settings. Falling back to '{}'.", fallbackSequenceName);
-			} else if (namedSequences.containsKey(selected)) {
-				sequenceToActivate = selected;
-				logger.info("Activating configured rotation by id '{}'.", selected);
-			} else {
-				// --- Try to match rotation by name ---
-				String matchedKey = rotationConfig.getPresets().entrySet().stream()
-						.filter(e -> e.getValue().getName() != null)
-						.filter(e -> e.getValue().getName().equalsIgnoreCase(selected))
-						.map(Map.Entry::getKey)
-						.filter(namedSequences::containsKey)
-						.findFirst()
-						.orElse(null);
-
-				if (matchedKey != null) {
-					sequenceToActivate = matchedKey;
-					logger.info("Configured rotation '{}' matched preset '{}'.",
-							selected, rotationConfig.getPresets().get(matchedKey).getName());
-				} else {
-					logger.error("Configured rotation '{}' not found by id or name. Falling back to '{}'.",
-							selected, fallbackSequenceName);
-				}
-			}
-
 			// 5. Initialize and start the detection engine
 			detectionEngine = new DetectionEngine(
 					screenCapture,
@@ -177,14 +160,6 @@ public class Main {
 					scheduleBuilder
 			);
 
-			// --- Activate selected or fallback sequence ---
-			if (sequenceRunService.switchActiveSequence(sequenceToActivate)) {
-				logger.info("Successfully activated the '{}' sequence.", sequenceToActivate);
-			} else {
-				logger.error("Failed to activate the '{}' sequence. Is it defined in rotations.json?", sequenceToActivate);
-				return;
-			}
-
 			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
 			hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
 			hotkeyManager.initialize();
@@ -195,10 +170,10 @@ public class Main {
 				}
 				AppSettings.HotkeySettings hotkeys = settings != null ? settings.getHotkeys() : null;
 				hotkeyManager.refreshBindings(bindingSource.loadBindings(hotkeys));
+				hotkeyManager.initialize();
 			});
 
-			detectionEngine.primeActiveSequence();
-			detectionEngine.start();
+			sequenceRunService.pause();
 
 			// Initialize GUI on the Event Dispatch Thread
 			SwingUtilities.invokeLater(() -> {
@@ -223,11 +198,129 @@ public class Main {
 			// Add a shutdown hook to clean up resources gracefully
 			Runtime.getRuntime().addShutdownHook(new Thread(Main::shutdownApplication));
 
-			logger.info("Application setup complete. Detection engine is running.");
+			logger.info("Application setup complete. Detection engine is ready (paused).");
 
 		} catch (Exception e) {
 			logger.error("A critical error occurred during application startup.", e);
+			showFatalStartupError(bootstrap, e);
 		}
+	}
+
+	private static void showFatalStartupError(BootstrapPaths bootstrap, Exception error) {
+		String message = buildFatalErrorMessage(bootstrap, error);
+		try {
+			Runnable showDialog = () -> com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs.showMessageDialog(
+					null,
+					"RuneSequence failed to start",
+					message
+			);
+			if (SwingUtilities.isEventDispatchThread()) {
+				showDialog.run();
+			} else {
+				SwingUtilities.invokeLater(showDialog);
+			}
+		} catch (Exception ignored) {
+			System.err.println(message);
+		}
+	}
+
+	private static String buildFatalErrorMessage(BootstrapPaths bootstrap, Exception error) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("A critical error occurred during startup.\n\n");
+		if (bootstrap != null) {
+			sb.append("Config folder:\n").append(bootstrap.configDir).append("\n\n");
+			sb.append("Logs folder:\n").append(bootstrap.logsDir).append("\n\n");
+		}
+		if (error != null) {
+			String type = error.getClass().getSimpleName();
+			String msg = error.getMessage();
+			sb.append("Error:\n").append(type);
+			if (msg != null && !msg.isBlank()) {
+				sb.append(": ").append(msg);
+			}
+			sb.append("\n");
+		}
+		return sb.toString();
+	}
+
+	private static BootstrapPaths bootstrapPaths() {
+		Path baseConfig = resolveAppDataPath();
+		Path defaultConfigDir = baseConfig.resolve(APP_NAME);
+		Path configDir = resolvePathOverride("runeSequence.config.dir", defaultConfigDir);
+		Path logsDir = resolvePathOverride("runeSequence.log.dir", configDir.resolve("logs"));
+
+		String explicitCacheDir = System.getProperty("org.bytedeco.javacpp.cachedir");
+		String envCacheDir = System.getenv("JAVACPP_CACHE");
+		Path javacppCacheDir;
+		if (explicitCacheDir != null && !explicitCacheDir.isBlank()) {
+			javacppCacheDir = Paths.get(explicitCacheDir);
+		} else if (envCacheDir != null && !envCacheDir.isBlank()) {
+			javacppCacheDir = Paths.get(envCacheDir);
+			System.setProperty("org.bytedeco.javacpp.cachedir", javacppCacheDir.toString());
+		} else {
+			javacppCacheDir = configDir.resolve("javacpp-cache");
+			System.setProperty("org.bytedeco.javacpp.cachedir", javacppCacheDir.toString());
+		}
+
+		setIfAbsent("runeSequence.config.dir", configDir.toString());
+		setIfAbsent("runeSequence.log.dir", logsDir.toString());
+
+		try {
+			Files.createDirectories(configDir);
+			Files.createDirectories(logsDir);
+			Files.createDirectories(javacppCacheDir);
+		} catch (Exception e) {
+			System.err.println("Failed to create runtime directories: " + e.getMessage());
+		}
+
+		return new BootstrapPaths(configDir, logsDir, javacppCacheDir);
+	}
+
+	private static void setIfAbsent(String key, String value) {
+		if (key == null || key.isBlank() || value == null) {
+			return;
+		}
+		String existing = System.getProperty(key);
+		if (existing != null && !existing.isBlank()) {
+			return;
+		}
+		System.setProperty(key, value);
+	}
+
+	private static Path resolvePathOverride(String propertyKey, Path fallback) {
+		if (propertyKey == null || propertyKey.isBlank()) {
+			return fallback;
+		}
+		String override = System.getProperty(propertyKey);
+		if (override == null || override.isBlank()) {
+			return fallback;
+		}
+		try {
+			return Paths.get(override);
+		} catch (Exception ignored) {
+			return fallback;
+		}
+	}
+
+	private static Path resolveAppDataPath() {
+		String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+
+		if (os.contains("win")) {
+			String appData = System.getenv("APPDATA");
+			if (appData != null && !appData.isBlank()) {
+				return Paths.get(appData);
+			}
+		} else if (os.contains("mac")) {
+			return Paths.get(System.getProperty("user.home"), "Library", "Application Support");
+		}
+
+		String xdgConfig = System.getenv("XDG_CONFIG_HOME");
+		return (xdgConfig != null && !xdgConfig.isBlank())
+				? Paths.get(xdgConfig)
+				: Paths.get(System.getProperty("user.home"), ".config");
+	}
+
+	private record BootstrapPaths(Path configDir, Path logsDir, Path javacppCacheDir) {
 	}
 
 	private static NotificationService createNotificationService() {
@@ -250,12 +343,14 @@ public class Main {
 			toastHostWindow = toastWindow;
 			return new DefaultNotificationService(toastWindow, toastManager);
 		} catch (Exception e) {
+			Logger logger = logger();
 			logger.warn("Failed to initialize toast notifications; falling back to logging.", e);
 			return new DefaultNotificationService(new JPanel(), ToastManager.loggingFallback(logger));
 		}
 	}
 
 	public static void populateTemplateCache() {
+		Logger logger = logger();
 		logger.info("Initializing TemplateCache...");
 
 		int requestedSize = 30;
@@ -273,6 +368,7 @@ public class Main {
 	}
 
 	public static void populateSettings() {
+		Logger logger = logger();
 		logger.info("Initializing ConfigManager...");
 		configManager = new ConfigManager();
 		try {
@@ -285,6 +381,7 @@ public class Main {
 	}
 
 	public static void requestShutdown() {
+		Logger logger = logger();
 		shutdownApplication();
 		try {
 			System.exit(0);
@@ -294,6 +391,7 @@ public class Main {
 	}
 
 	private static void shutdownApplication() {
+		Logger logger = logger();
 		synchronized (shutdownLock) {
 			if (shutdownInitiated) {
 				return;

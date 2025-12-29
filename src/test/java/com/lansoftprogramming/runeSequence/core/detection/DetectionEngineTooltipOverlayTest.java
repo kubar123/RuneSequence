@@ -37,16 +37,13 @@ class DetectionEngineTooltipOverlayTest {
 				50
 		);
 
-		var updateMethod = DetectionEngine.class.getDeclaredMethod("updateOverlays");
-		updateMethod.setAccessible(true);
-
 		List<SequenceTooltip> tooltips = List.of(
 				new SequenceTooltip(0, null, "First"),
 				new SequenceTooltip(0, null, "Second")
 		);
 		sequenceManager.setTooltips(tooltips);
 
-		updateMethod.invoke(engine);
+		engine.updateOverlays();
 
 		assertEquals(tooltips, tooltipOverlay.lastTooltips);
 	}

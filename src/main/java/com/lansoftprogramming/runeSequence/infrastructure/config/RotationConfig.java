@@ -16,7 +16,7 @@ public class RotationConfig {
 	}
 
 	public void setPresets(Map<String, PresetData> presets) {
-		this.presets = presets;
+		this.presets = presets != null ? presets : new HashMap<>();
 	}
 
 	public static class PresetData {

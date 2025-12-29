@@ -6,21 +6,32 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.Step;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.LongSupplier;
 
 
 /**
  * Manages GCD / step cooldowns
  */
 public class StepTimer {
+	private final LongSupplier nowMs;
 	private long stepStartTimeMs;
 	private long stepDurationMs;
 	private long pausedAtMs = 0;
 	private long totalPausedTimeMs = 0;
 	private boolean isPaused = false;
 
+	public StepTimer() {
+		this(System::currentTimeMillis);
+	}
+
+	StepTimer(LongSupplier nowMs) {
+		this.nowMs = Objects.requireNonNull(nowMs, "nowMs");
+	}
+
 	public void startStep(Step step, AbilityConfig abilityConfig) {
 		stepDurationMs = calculateStepDuration(step, abilityConfig);
-		restartAt(System.currentTimeMillis());
+		restartAt(nowMs.getAsLong());
 	}
 
 	public void restartAt(long startTimeMs) {
@@ -32,14 +43,14 @@ public class StepTimer {
 
 	public void pause() {
 		if (!isPaused) {
-			pausedAtMs = System.currentTimeMillis();
+			pausedAtMs = nowMs.getAsLong();
 			isPaused = true;
 		}
 	}
 
 	public void resume() {
 		if (isPaused) {
-			totalPausedTimeMs += System.currentTimeMillis() - pausedAtMs;
+			totalPausedTimeMs += nowMs.getAsLong() - pausedAtMs;
 			isPaused = false;
 		}
 	}
@@ -49,7 +60,7 @@ public class StepTimer {
 			return false; // Never satisfied while paused
 		}
 
-		long now = System.currentTimeMillis();
+		long now = nowMs.getAsLong();
 		long effectiveElapsed = (now - stepStartTimeMs) - totalPausedTimeMs;
 		return effectiveElapsed >= stepDurationMs;
 	}

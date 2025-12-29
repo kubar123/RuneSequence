@@ -12,6 +12,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -59,17 +61,38 @@ public class ConfigManager {
 	}
 
 	private void checkOrCreateAbilities() {
-		if(!Files.exists(abilityImagePath)) {
-			logger.info("Abilities directory not found. Extracting defaults...");
+		if (!needsAbilityImagesExtraction()) {
+			return;
+		}
+
+		logger.info("Abilities directory is missing or empty. Extracting defaults...");
 			try {
 				AssetExtractor.extractSubfolder("/defaults/Abilities", abilityImagePath);
 				logger.info("Extracted default abilities to: {}", abilityImagePath);
-			}catch (IOException e) {
+			} catch (IOException e) {
 				logger.error("Failed to extract default abilities", e);
+				return;
 			}
 
-			// Process images with OpenCV if processor is available
-			processAbilityImages(abilityImagePath);
+		// Process images with OpenCV if processor is available
+		processAbilityImages(abilityImagePath);
+	}
+
+	private boolean needsAbilityImagesExtraction() {
+		if (!Files.isDirectory(abilityImagePath)) {
+			return true;
+		}
+
+		// If the folder exists but contains no images (common after a failed extraction),
+		// re-extract so the app can start cleanly.
+		try (var stream = Files.walk(abilityImagePath, 2)) {
+			return stream
+					.filter(Files::isRegularFile)
+					.map(path -> path.getFileName().toString().toLowerCase())
+					.noneMatch(name -> name.endsWith(".png") || name.endsWith(".gif"));
+		} catch (IOException e) {
+			logger.warn("Unable to inspect abilities directory; will attempt extraction.", e);
+			return true;
 		}
 	}
 
@@ -79,6 +102,10 @@ public class ConfigManager {
 			var processor = new OpenCvImageProcessor();
 			processor.processImages(abilitiesDir, sizes, abilities);
 			logger.info("Processed ability images for sizes: {}", java.util.Arrays.toString(sizes));
+		} catch (UnsatisfiedLinkError e) {
+			// OpenCV native libraries require platform-specific dependencies (e.g., runtime redistributables on Windows).
+			// Image processing is a non-critical optimization, so we should not block startup if native loading fails.
+			logger.warn("OpenCV native libraries failed to load; skipping ability image processing. Detection may not work until native dependencies are installed.", e);
 		} catch (Exception e) {
 			logger.warn("Failed to process ability images: {}", e.getMessage());
 		}
@@ -93,34 +120,59 @@ public class ConfigManager {
 
 	private void loadOrCreateSettings() throws IOException {
 		if (Files.exists(settingsPath)) {
-			settings = objectMapper.readValue(settingsPath.toFile(), AppSettings.class);
-			logger.info("Loaded existing settings");
+			try {
+				settings = objectMapper.readValue(settingsPath.toFile(), AppSettings.class);
+				logger.info("Loaded existing settings");
+				return;
+			} catch (Exception e) {
+				logger.warn("Settings file could not be read; backing up and regenerating from defaults: {}", settingsPath, e);
+			}
 		} else {
-			settings = loadDefaultSettings();
-			saveSettings();
-			logger.info("Created default settings");
+			logger.info("Settings file not found. Creating defaults.");
 		}
+
+		backupIfExists(settingsPath, "settings.json");
+		settings = loadDefaultSettings();
+		saveSettings();
+		logger.info("Created default settings");
 	}
 
 	private void loadOrCreateRotations() throws IOException {
 		if (Files.exists(rotationsPath)) {
-			rotations = objectMapper.readValue(rotationsPath.toFile(), RotationConfig.class);
-			logger.info("Loaded existing rotations");
+			try {
+				rotations = objectMapper.readValue(rotationsPath.toFile(), RotationConfig.class);
+				logger.info("Loaded existing rotations");
+				return;
+			} catch (Exception e) {
+				logger.warn("Rotations file could not be read; backing up and regenerating from defaults: {}", rotationsPath, e);
+			}
 		} else {
-			rotations = loadDefaultRotations();
-			saveRotations();
-			logger.info("Created default rotations");
+			logger.info("Rotations file not found. Creating defaults.");
 		}
+
+		backupIfExists(rotationsPath, "rotations.json");
+		rotations = loadDefaultRotations();
+		saveRotations();
+		logger.info("Created default rotations");
 	}
 
 	private void loadOrCreateAbilities() throws IOException {
 		if (Files.exists(abilitiesPath)) {
-			abilities = objectMapper.readValue(abilitiesPath.toFile(), AbilityConfig.class);
+			try {
+				abilities = objectMapper.readValue(abilitiesPath.toFile(), AbilityConfig.class);
+			} catch (Exception e) {
+				logger.warn("Abilities file could not be read; backing up and regenerating from defaults: {}", abilitiesPath, e);
+				backupIfExists(abilitiesPath, "abilities.json");
+				abilities = loadDefaultAbilities();
+				saveAbilities();
+				logger.info("Created default abilities");
+				return;
+			}
 
 			// Check if abilities need migration (missing new fields)
 			if (needsAbilitiesMigration()) {
 				logger.warn("Abilities file is missing new fields. Backing up and regenerating from defaults.");
-				backupAndRegenerate(abilitiesPath, "abilities.json.backup");
+				backupIfExists(abilitiesPath, "abilities.json");
 				abilities = loadDefaultAbilities();
 				saveAbilities();
 				logger.info("Regenerated abilities with updated schema");
@@ -149,24 +201,40 @@ public class ConfigManager {
 				.anyMatch(data -> data.getCommonName() == null && data.getType() == null && data.getLevel() == null);
 	}
 
-	/**
-	 * Backs up an existing file and prepares for regeneration.
-	 */
-	private void backupAndRegenerate(Path filePath, String backupName) throws IOException {
-		Path backupPath = filePath.getParent().resolve(backupName);
-		Files.copy(filePath, backupPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-		logger.info("Backed up {} to {}", filePath.getFileName(), backupName);
+	private void backupIfExists(Path filePath, String logicalName) {
+		if (filePath == null || !Files.exists(filePath)) {
+			return;
+		}
+		try {
+			String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+					.withZone(ZoneId.systemDefault())
+					.format(Instant.now());
+			String backupName = logicalName + ".bak-" + timestamp;
+			Path backupPath = filePath.getParent().resolve(backupName);
+			Files.copy(filePath, backupPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			logger.warn("Backed up {} to {}", filePath.getFileName(), backupName);
+		} catch (Exception e) {
+			logger.warn("Failed to back up {}", filePath.getFileName(), e);
+		}
 	}
 
 	private void loadOrCreateAbilityCategories() throws IOException {
 		if (Files.exists(abilityCategoriesPath)) {
-			abilityCategories = objectMapper.readValue(abilityCategoriesPath.toFile(), AbilityCategoryConfig.class);
-			logger.info("Loaded existing ability categories");
+			try {
+				abilityCategories = objectMapper.readValue(abilityCategoriesPath.toFile(), AbilityCategoryConfig.class);
+				logger.info("Loaded existing ability categories");
+				return;
+			} catch (Exception e) {
+				logger.warn("Ability categories file could not be read; backing up and regenerating from defaults: {}", abilityCategoriesPath, e);
+			}
 		} else {
-			abilityCategories = loadDefaultAbilityCategories();
-			saveAbilityCategories();
-			logger.info("Created default ability categories");
+			logger.info("Ability categories file not found. Creating defaults.");
 		}
+
+		backupIfExists(abilityCategoriesPath, "ability_categories.json");
+		abilityCategories = loadDefaultAbilityCategories();
+		saveAbilityCategories();
+		logger.info("Created default ability categories");
 	}
 
 	public void saveSettings() throws IOException {
@@ -246,7 +314,7 @@ public class ConfigManager {
 		}
 
 		Path exact = abilityImagePath.resolve(String.valueOf(iconSize));
-		if (Files.isDirectory(exact)) {
+		if (Files.isDirectory(exact) && folderContainsImages(exact)) {
 			return exact;
 		}
 
@@ -259,10 +327,26 @@ public class ConfigManager {
 					.sorted(Comparator.comparingInt(size -> Math.abs(size - iconSize)))
 					.findFirst()
 					.map(size -> abilityImagePath.resolve(String.valueOf(size)))
+					.filter(this::folderContainsImages)
 					.orElse(null);
 		} catch (IOException e) {
 			logger.debug("Unable to resolve ability icon folder for size {}", iconSize, e);
 			return null;
+		}
+	}
+
+	private boolean folderContainsImages(Path folder) {
+		if (folder == null || !Files.isDirectory(folder)) {
+			return false;
+		}
+		try (var stream = Files.list(folder)) {
+			return stream
+					.filter(Files::isRegularFile)
+					.map(path -> path.getFileName().toString().toLowerCase())
+					.anyMatch(name -> name.endsWith(".png") || name.endsWith(".gif") || name.endsWith(".jpg") || name.endsWith(".jpeg"));
+		} catch (IOException e) {
+			logger.debug("Unable to inspect ability icon folder {}", folder, e);
+			return false;
 		}
 	}
 

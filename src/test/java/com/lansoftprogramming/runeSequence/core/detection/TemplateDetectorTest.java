@@ -5,7 +5,6 @@ import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,13 +31,18 @@ class TemplateDetectorTest {
 
 		TemplateDetector detector = new TemplateDetector(cache, abilityConfig);
 
-		Method method = TemplateDetector.class.getDeclaredMethod("getThresholdForTemplate", String.class, Double.class);
-		method.setAccessible(true);
-
-		double clamped = (double) method.invoke(detector, "a", 2.0d);
+		double clamped = detector.getThresholdForTemplate("a", 2.0d);
 		assertEquals(1.0d, clamped);
 
-		double fromConfig = (double) method.invoke(detector, "a", Double.NaN);
+		double fromConfig = detector.getThresholdForTemplate("a", Double.NaN);
 		assertEquals(0.7d, fromConfig);
+	}
+
+	@Test
+	void getThresholdForTemplate_shouldUseDefaultWhenNoOverrideOrConfig(@TempDir Path tempDir) {
+		TemplateCache cache = new TemplateCache(tempDir);
+		TemplateDetector detector = new TemplateDetector(cache, new AbilityConfig());
+
+		assertEquals(0.99d, detector.getThresholdForTemplate("missing", null));
 	}
 }

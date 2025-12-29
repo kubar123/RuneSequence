@@ -280,7 +280,7 @@ public class TemplateDetector {
 		return new Rectangle(x, y, w, h);
 	}
 
-	private double getThresholdForTemplate(String templateName, Double overrideThreshold) {
+	double getThresholdForTemplate(String templateName, Double overrideThreshold) {
 		Double override = AbilityValueSanitizers.sanitizeDetectionThreshold(overrideThreshold);
 		if (override != null) {
 			return override;
@@ -391,12 +391,7 @@ public class TemplateDetector {
 			}
 
 		} catch (Exception e) {
-
-			System.err.println("TemplateDetector.findBestMatch ERROR for " + templateName + ": " + e.getMessage());
-
-			e.printStackTrace();
-
-			logger.error("Template matching failed for {}", templateName, e);
+			logger.error("TemplateDetector.findBestMatch failed for {}", templateName, e);
 
 			return DetectionResult.notFound(templateName);
 		} finally {

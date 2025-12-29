@@ -94,178 +94,178 @@ class TooltipMarkupParserTest {
 	}
 
 	@Test
-		void shouldNotTreatOperatorParensAsTooltips() {
-			String expression = "A→(B+C)→D";
-			List<SequenceElement> elements = visualService.parseToVisualElements(expression);
+	void shouldNotTreatOperatorParensAsTooltips() {
+		String expression = "A→(B+C)→D";
+		List<SequenceElement> elements = visualService.parseToVisualElements(expression);
 
-			long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
-			assertEquals(0, tooltipCount);
+		long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
+		assertEquals(0, tooltipCount);
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			assertEquals("A→B+C→D", rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		assertEquals("A→B+C→D", rebuilt);
+	}
 
-		@Test
-		void shouldHandlePartiallyEscapedTooltipParensGracefully() {
-			String expression = "A→(Use \\(macro)B";
+	@Test
+	void shouldHandlePartiallyEscapedTooltipParensGracefully() {
+		String expression = "A→(Use \\(macro)B";
 
-			List<SequenceElement> elements = visualService.parseToVisualElements(expression);
+		List<SequenceElement> elements = visualService.parseToVisualElements(expression);
 
-			SequenceElement tooltip = elements.stream()
-					.filter(SequenceElement::isTooltip)
-					.findFirst()
-					.orElseThrow();
-			assertEquals("Use (macro", tooltip.getValue());
+		SequenceElement tooltip = elements.stream()
+				.filter(SequenceElement::isTooltip)
+				.findFirst()
+				.orElseThrow();
+		assertEquals("Use (macro", tooltip.getValue());
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			assertEquals("A→(Use \\(macro)B", rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		assertEquals("A→(Use \\(macro)B", rebuilt);
+	}
 
-		@Test
-		void shouldTreatNestedGroupedExpressionsAsNonTooltips() {
-			String expression = "(A + (B/C)) → D";
-			List<SequenceElement> elements = visualService.parseToVisualElements(expression);
+	@Test
+	void shouldTreatNestedGroupedExpressionsAsNonTooltips() {
+		String expression = "(A + (B/C)) → D";
+		List<SequenceElement> elements = visualService.parseToVisualElements(expression);
 
-			long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
-			assertEquals(0, tooltipCount);
-			assertTrue(elements.stream().anyMatch(SequenceElement::isAbility));
+		long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
+		assertEquals(0, tooltipCount);
+		assertTrue(elements.stream().anyMatch(SequenceElement::isAbility));
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			SequenceParser.parse(rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		SequenceParser.parse(rebuilt);
+	}
 
-		@Test
-		void shouldParseTooltipsInMultiLineExpressions() {
-			String expression = "A→(First)\nB + C (Second) → D";
+	@Test
+	void shouldParseTooltipsInMultiLineExpressions() {
+		String expression = "A→(First)\nB + C (Second) → D";
 
-			List<SequenceElement> elements = visualService.parseToVisualElements(expression);
+		List<SequenceElement> elements = visualService.parseToVisualElements(expression);
 
-			List<String> tooltipMessages = elements.stream()
-					.filter(SequenceElement::isTooltip)
-					.map(SequenceElement::getValue)
-					.toList();
+		List<String> tooltipMessages = elements.stream()
+				.filter(SequenceElement::isTooltip)
+				.map(SequenceElement::getValue)
+				.toList();
 
-			assertEquals(List.of("First", "Second"), tooltipMessages);
+		assertEquals(List.of("First", "Second"), tooltipMessages);
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			assertTrue(rebuilt.contains("(First)"));
-			assertTrue(rebuilt.contains("(Second)"));
-			assertTrue(rebuilt.indexOf('\n') < 0);
-			SequenceParser.parse(rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		assertTrue(rebuilt.contains("(First)"));
+		assertTrue(rebuilt.contains("(Second)"));
+		assertTrue(rebuilt.indexOf('\n') < 0);
+		SequenceParser.parse(rebuilt);
+	}
 
 	@Test
 	void shouldFallbackToPlainParsingWhenTooltipParsingFails() {
-			SequenceVisualService service = new SequenceVisualService(new TooltipMarkupParser() {
-				@Override
-				public TooltipMarkupParser.ParseResult parse(String expression) {
-					throw new RuntimeException("boom");
-				}
-			});
+		SequenceVisualService service = new SequenceVisualService(new TooltipMarkupParser() {
+			@Override
+			public TooltipMarkupParser.ParseResult parse(String expression) {
+				throw new RuntimeException("boom");
+			}
+		});
 
-			String expression = "A→B+C";
-			List<SequenceElement> elements = service.parseToVisualElements(expression);
+		String expression = "A→B+C";
+		List<SequenceElement> elements = service.parseToVisualElements(expression);
 
-			long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
-			assertEquals(0, tooltipCount);
-			assertTrue(elements.stream().anyMatch(SequenceElement::isAbility));
-		}
+		long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
+		assertEquals(0, tooltipCount);
+		assertTrue(elements.stream().anyMatch(SequenceElement::isAbility));
+	}
 
-		@Test
-		void shouldTreatAbilityParensAsGroupingAndRoundTrip() {
-			Set<String> abilityNames = Set.of("A", "B");
-			SequenceVisualService service = new SequenceVisualService(abilityNames);
+	@Test
+	void shouldTreatAbilityParensAsGroupingAndRoundTrip() {
+		Set<String> abilityNames = Set.of("A", "B");
+		SequenceVisualService service = new SequenceVisualService(abilityNames);
 
-			List<SequenceElement> leftElements = service.parseToVisualElements("(A) → B");
-			long leftTooltipCount = leftElements.stream().filter(SequenceElement::isTooltip).count();
-			assertEquals(0, leftTooltipCount);
+		List<SequenceElement> leftElements = service.parseToVisualElements("(A) → B");
+		long leftTooltipCount = leftElements.stream().filter(SequenceElement::isTooltip).count();
+		assertEquals(0, leftTooltipCount);
 
-			String leftRebuilt = expressionBuilder.buildExpression(leftElements);
-			assertEquals("A→B", leftRebuilt);
-			SequenceParser.parse(leftRebuilt);
+		String leftRebuilt = expressionBuilder.buildExpression(leftElements);
+		assertEquals("A→B", leftRebuilt);
+		SequenceParser.parse(leftRebuilt);
 
-			List<SequenceElement> rightElements = service.parseToVisualElements("A → (B)");
-			long rightTooltipCount = rightElements.stream().filter(SequenceElement::isTooltip).count();
-			assertEquals(0, rightTooltipCount);
+		List<SequenceElement> rightElements = service.parseToVisualElements("A → (B)");
+		long rightTooltipCount = rightElements.stream().filter(SequenceElement::isTooltip).count();
+		assertEquals(0, rightTooltipCount);
 
-			String rightRebuilt = expressionBuilder.buildExpression(rightElements);
-			assertEquals("A→B", rightRebuilt);
-			SequenceParser.parse(rightRebuilt);
-		}
+		String rightRebuilt = expressionBuilder.buildExpression(rightElements);
+		assertEquals("A→B", rightRebuilt);
+		SequenceParser.parse(rightRebuilt);
+	}
 
-		@Test
-		void shouldTreatKnownAbilityKeyParensAsGrouping() {
-			Set<String> abilityNames = Set.of("trueNorth", "trickAttack");
-			SequenceVisualService service = new SequenceVisualService(abilityNames);
+	@Test
+	void shouldTreatKnownAbilityKeyParensAsGrouping() {
+		Set<String> abilityNames = Set.of("trueNorth", "trickAttack");
+		SequenceVisualService service = new SequenceVisualService(abilityNames);
 
-			String expression = "(trueNorth) → trickAttack";
-			List<SequenceElement> elements = service.parseToVisualElements(expression);
+		String expression = "(trueNorth) → trickAttack";
+		List<SequenceElement> elements = service.parseToVisualElements(expression);
 
-			long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
-			assertEquals(0, tooltipCount);
+		long tooltipCount = elements.stream().filter(SequenceElement::isTooltip).count();
+		assertEquals(0, tooltipCount);
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			assertEquals("trueNorth→trickAttack", rebuilt);
-			SequenceParser.parse(rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		assertEquals("trueNorth→trickAttack", rebuilt);
+		SequenceParser.parse(rebuilt);
+	}
 
-		@Test
-		void shouldKeepTooltipInsideExtraGroupingParens() {
-			String expression = "((Stand here)) B";
-			List<SequenceElement> elements = visualService.parseToVisualElements(expression);
+	@Test
+	void shouldKeepTooltipInsideExtraGroupingParens() {
+		String expression = "((Stand here)) B";
+		List<SequenceElement> elements = visualService.parseToVisualElements(expression);
 
-			List<String> tooltipMessages = elements.stream()
-					.filter(SequenceElement::isTooltip)
-					.map(SequenceElement::getValue)
-					.toList();
-			assertEquals(List.of("Stand here"), tooltipMessages);
+		List<String> tooltipMessages = elements.stream()
+				.filter(SequenceElement::isTooltip)
+				.map(SequenceElement::getValue)
+				.toList();
+		assertEquals(List.of("Stand here"), tooltipMessages);
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			assertTrue(rebuilt.contains("(Stand here)"));
-			assertTrue(rebuilt.contains("B"));
-			assertTrue(rebuilt.indexOf('\n') < 0);
-			SequenceParser.parse(rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		assertTrue(rebuilt.contains("(Stand here)"));
+		assertTrue(rebuilt.contains("B"));
+		assertTrue(rebuilt.indexOf('\n') < 0);
+		SequenceParser.parse(rebuilt);
+	}
 
-		@Test
-		void shouldHandleTooltipsWithBlankLinesAndNewlines() {
-			String expression = "A (First)\n\n(Second) B";
+	@Test
+	void shouldHandleTooltipsWithBlankLinesAndNewlines() {
+		String expression = "A (First)\n\n(Second) B";
 
-			List<SequenceElement> elements = visualService.parseToVisualElements(expression);
+		List<SequenceElement> elements = visualService.parseToVisualElements(expression);
 
-			List<String> tooltipMessages = elements.stream()
-					.filter(SequenceElement::isTooltip)
-					.map(SequenceElement::getValue)
-					.toList();
+		List<String> tooltipMessages = elements.stream()
+				.filter(SequenceElement::isTooltip)
+				.map(SequenceElement::getValue)
+				.toList();
 
-			assertEquals(List.of("First", "Second"), tooltipMessages);
+		assertEquals(List.of("First", "Second"), tooltipMessages);
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			assertTrue(rebuilt.contains("(First)"));
-			assertTrue(rebuilt.contains("(Second)"));
-			assertTrue(rebuilt.indexOf('\n') < 0);
-			SequenceParser.parse(rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		assertTrue(rebuilt.contains("(First)"));
+		assertTrue(rebuilt.contains("(Second)"));
+		assertTrue(rebuilt.indexOf('\n') < 0);
+		SequenceParser.parse(rebuilt);
+	}
 
-		@Test
-		void shouldHandleTooltipsAcrossLinesWithAbilitiesAndArrows() {
-			String expression = "A\n(First) B → (Second)\nC";
+	@Test
+	void shouldHandleTooltipsAcrossLinesWithAbilitiesAndArrows() {
+		String expression = "A\n(First) B → (Second)\nC";
 
-			List<SequenceElement> elements = visualService.parseToVisualElements(expression);
+		List<SequenceElement> elements = visualService.parseToVisualElements(expression);
 
-			List<String> tooltipMessages = elements.stream()
-					.filter(SequenceElement::isTooltip)
-					.map(SequenceElement::getValue)
-					.toList();
+		List<String> tooltipMessages = elements.stream()
+				.filter(SequenceElement::isTooltip)
+				.map(SequenceElement::getValue)
+				.toList();
 
-			assertEquals(List.of("First", "Second"), tooltipMessages);
+		assertEquals(List.of("First", "Second"), tooltipMessages);
 
-			String rebuilt = expressionBuilder.buildExpression(elements);
-			assertTrue(rebuilt.contains("(First)"));
-			assertTrue(rebuilt.contains("(Second)"));
-			assertTrue(rebuilt.indexOf('\n') < 0);
-			SequenceParser.parse(rebuilt);
-		}
+		String rebuilt = expressionBuilder.buildExpression(elements);
+		assertTrue(rebuilt.contains("(First)"));
+		assertTrue(rebuilt.contains("(Second)"));
+		assertTrue(rebuilt.indexOf('\n') < 0);
+		SequenceParser.parse(rebuilt);
+	}
 
 	@Test
 	void shouldValidateSharedTooltipGrammarRules() {

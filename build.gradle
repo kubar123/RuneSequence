@@ -3,6 +3,10 @@ plugins {
     id 'application'
 }
 
+version = '0.1.0'
+
+def isWindowsBuild = System.getProperty("os.name").toLowerCase().contains("win")
+
 // CI-friendly defaults -------------------------------------------------------
 // Users can override the cache directory in CI with ENV var JAVACPP_CACHE
 def javacppCacheDir = System.getenv('JAVACPP_CACHE') ?: "${System.getProperty('user.home')}/.javacpp/cache"
@@ -19,9 +23,187 @@ application {
             "-Xms512m",
             "-Xmx2048m",
             "--enable-native-access=ALL-UNNAMED",
-            "-Dorg.bytedeco.javacpp.cachedir=${javacppCacheDir}",
             "-Dorg.bytedeco.javacpp.logger=slf4j"
     ]
+}
+
+def requiredJavaMajor = 25
+
+def bundledRuntimeRoot = layout.buildDirectory.dir("bundled-runtime")
+def bundledRuntimeLauncher = javaToolchains.launcherFor {
+	languageVersion = JavaLanguageVersion.of(requiredJavaMajor)
+}
+
+tasks.register('prepareBundledRuntime', Sync) {
+	from({
+		bundledRuntimeLauncher.get().metadata.installationPath.asFile
+	}) {
+		// Bundle a runnable runtime with the distribution so testers do not need Java installed.
+		include 'bin/**'
+		include 'conf/**'
+		include 'lib/**'
+		include 'legal/**'
+		include 'release'
+	}
+	into(bundledRuntimeRoot)
+}
+
+distributions {
+	main {
+		contents {
+			// Avoid confusion on Windows: `bin/RuneSequence` (the Unix script) shadows `bin/RuneSequence.bat`
+			// when running `RuneSequence` from cmd.exe.
+			if (isWindowsBuild) {
+				def appName = application.applicationName ?: project.name
+				exclude("bin/${appName}")
+			}
+			from(bundledRuntimeRoot) {
+				into 'runtime'
+			}
+		}
+	}
+}
+
+tasks.named('distZip').configure {
+	dependsOn(tasks.named('prepareBundledRuntime'))
+}
+tasks.named('installDist').configure {
+	dependsOn(tasks.named('prepareBundledRuntime'))
+}
+
+tasks.named('startScripts').configure {
+	doLast {
+		// Patch generated scripts so older Java versions fail with a clear message
+		// (instead of crashing on unsupported JVM flags).
+			if (windowsScript != null) {
+				String text = windowsScript.getText('UTF-8')
+				// Some environments disable cmd.exe "extensions"; Gradle's generated scripts rely on them
+				// (%~dp0, %%~f, etc). Force-enable extensions for robustness on locked-down VMs.
+				text = text.replace(
+						'if "%OS%"=="Windows_NT" setlocal\r\n',
+						'if "%OS%"=="Windows_NT" setlocal EnableExtensions\r\n'
+				)
+				// Quote critical path variables to avoid odd parsing failures on some systems.
+				text = text.replace('set DIRNAME=%~dp0\r\n', 'set "DIRNAME=%~dp0"\r\n')
+				text = text.replace('set APP_HOME=%DIRNAME%..\r\n', 'set "APP_HOME=%DIRNAME%.."\r\n')
+				text = text.replace(
+						'for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi\r\n',
+						'for %%i in ("%APP_HOME%") do set "APP_HOME=%%~fi"\r\n'
+				)
+				// Windows batch files have a practical line-length limit; Gradle's generated
+				// `set CLASSPATH=...` can exceed it with JavaCV/OpenCV dependencies.
+				// Use Java's wildcard classpath to keep the launcher robust.
+				text = text.replaceAll(
+						'(?m)^set CLASSPATH=.*$',
+						java.util.regex.Matcher.quoteReplacement('set CLASSPATH=%APP_HOME%\\lib\\*')
+				)
+				if (!text.contains("@rem Prefer bundled Java runtime if present")) {
+					String marker = "@rem Find java.exe\r\n"
+						String insert =
+								"@rem Prefer bundled Java runtime if present\r\n" +
+							"set \"BUNDLED_JAVA=%APP_HOME%\\runtime\\bin\\java.exe\"\r\n" +
+							"if exist \"%BUNDLED_JAVA%\" (\r\n" +
+							"  set \"JAVA_EXE=%BUNDLED_JAVA%\"\r\n" +
+							"  goto execute\r\n" +
+							")\r\n\r\n" +
+						marker
+				if (text.contains(marker)) {
+					text = text.replace(marker, insert)
+				}
+			}
+					if (!text.contains("Validate Java version (requires Java")) {
+						String marker = ":execute\r\n"
+						int idx = text.indexOf(marker)
+							if (idx >= 0) {
+								String insert =
+										marker +
+										"@rem Validate Java version (requires Java " + requiredJavaMajor + ")\r\n" +
+										"set \"JAVA_VER_FILE=%TEMP%\\rune-sequence-java-version.txt\"\r\n" +
+										"\"%JAVA_EXE%\" -version 1> \"%JAVA_VER_FILE%\" 2>&1\r\n" +
+										"set \"JAVA_VER=\"\r\n" +
+										"for /f \"usebackq tokens=3\" %%v in (\"%JAVA_VER_FILE%\") do (\r\n" +
+										"  set \"JAVA_VER=%%v\"\r\n" +
+										"  goto rsAfterJavaVersionRead\r\n" +
+										")\r\n" +
+										":rsAfterJavaVersionRead\r\n" +
+										"del \"%JAVA_VER_FILE%\" >NUL 2>&1\r\n" +
+										"set \"JAVA_VER=%JAVA_VER:\"=%\"\r\n" +
+										"set \"JAVA_MAJOR=\"\r\n" +
+										"for /f \"tokens=1 delims=.\" %%m in (\"%JAVA_VER%\") do set \"JAVA_MAJOR=%%m\"\r\n" +
+										"if \"%JAVA_MAJOR%\"==\"1\" for /f \"tokens=2 delims=.\" %%m in (\"%JAVA_VER%\") do set \"JAVA_MAJOR=%%m\"\r\n" +
+										"if not defined JAVA_MAJOR (\r\n" +
+										"  echo.\r\n" +
+										"  echo ERROR: Unable to determine Java version from: %JAVA_VER%\r\n" +
+								"  echo.\r\n" +
+								"  goto fail\r\n" +
+								")\r\n" +
+								"set /a JAVA_MAJOR_NUM=%JAVA_MAJOR% >NUL 2>&1\r\n" +
+								"if %ERRORLEVEL% neq 0 (\r\n" +
+								"  echo.\r\n" +
+								"  echo ERROR: Unable to parse Java major version from: %JAVA_VER%\r\n" +
+								"  echo.\r\n" +
+								"  goto fail\r\n" +
+								")\r\n" +
+								"if %JAVA_MAJOR_NUM% LSS " + requiredJavaMajor + " (\r\n" +
+								"  echo.\r\n" +
+								"  echo ERROR: RuneSequence requires Java " + requiredJavaMajor + ". Detected Java %JAVA_VER%.\r\n" +
+								"  echo.\r\n" +
+								"  goto fail\r\n" +
+								")\r\n\r\n"
+						text = text.replace(marker, insert)
+					}
+				}
+			windowsScript.setText(text, 'UTF-8')
+		}
+
+				if (unixScript != null) {
+					String text = unixScript.getText('UTF-8')
+					// Same rationale as Windows: avoid massive CLASSPATH lines.
+					// Keep the wildcard quoted so Java expands it (not the shell).
+					text = text.replaceAll(
+							'(?m)^CLASSPATH=.*$',
+							java.util.regex.Matcher.quoteReplacement('CLASSPATH="$APP_HOME/lib/*"')
+					)
+					if (!text.contains("runtime/bin/java")) {
+						// Use single quotes to avoid Groovy GString interpolation of $JAVA_HOME.
+						String marker = 'if [ -n "$JAVA_HOME" ] ; then\n'
+							if (text.contains(marker)) {
+							text = text.replace(
+									marker,
+									'# Prefer bundled Java runtime if present.\n' +
+											'if [ -x "$APP_HOME/runtime/bin/java" ] ; then\n' +
+											'    JAVACMD=$APP_HOME/runtime/bin/java\n' +
+											'elif [ -n "$JAVA_HOME" ] ; then\n'
+							)
+						}
+					}
+			if (!text.contains("# Validate Java version (requires Java")) {
+				String needle = "fi\n\n# Increase the maximum file descriptors if we can.\n"
+				int idx = text.indexOf(needle)
+					if (idx >= 0) {
+						String insert =
+								'fi\n\n' +
+								'# Validate Java version (requires Java ' + requiredJavaMajor + ')\n' +
+								'java_version_line=$("$JAVACMD" -version 2>&1 | head -n 1)\n' +
+								'java_version=$(printf \'%s\\n\' "$java_version_line" | sed -n \'s/.*version "\\([^"]*\\)".*/\\1/p\')\n' +
+								'java_major=${java_version%%.*}\n' +
+								'if [ "$java_major" = "1" ]; then\n' +
+								'  java_major=$(printf \'%s\\n\' "$java_version" | cut -d. -f2)\n' +
+								'fi\n' +
+								'case $java_major in\n' +
+								'  \'\'|*[!0-9]*) die "ERROR: Unable to determine Java major version from: $java_version_line" ;;\n' +
+								'esac\n' +
+								'if [ "$java_major" -lt ' + requiredJavaMajor + ' ]; then\n' +
+								'  die "ERROR: RuneSequence requires Java ' + requiredJavaMajor + '. Detected Java $java_version."\n' +
+								'fi\n\n' +
+								'# Increase the maximum file descriptors if we can.\n'
+						text = text.replace(needle, insert)
+						unixScript.setText(text, 'UTF-8')
+					}
+				}
+			unixScript.setText(text, 'UTF-8')
+		}
+	}
 }
 
 repositories {

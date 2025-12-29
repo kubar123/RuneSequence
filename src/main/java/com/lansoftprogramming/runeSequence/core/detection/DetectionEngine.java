@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DetectionEngine {
 	private static final Logger logger = LoggerFactory.getLogger(DetectionEngine.class);
@@ -37,6 +38,7 @@ public class DetectionEngine {
 	private volatile boolean isRunning = false;
 	private long frameCounter = 0L;
 	private long overlayUpdateCounter = 0L;
+	private final AtomicBoolean fatalErrorNotified = new AtomicBoolean(false);
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
@@ -87,6 +89,7 @@ public class DetectionEngine {
 	}
 
 	private void processFrame() {
+		try {
 		long frameId = ++frameCounter;
 		long frameStartNanos = System.nanoTime();
 		if (logger.isDebugEnabled()) {
@@ -177,10 +180,31 @@ public class DetectionEngine {
 		} catch (Exception e) {
 			logger.error("Error in detection frame", e);
 		}
+		} catch (Throwable t) {
+			// ScheduledExecutorService tasks stop running if errors escape; keep things robust.
+			logger.error("Fatal error in detection engine; stopping detection.", t);
+			try {
+				stop();
+			} catch (Exception ignored) {
+				// Best-effort shutdown.
+			}
+
+			if (notificationService != null && fatalErrorNotified.compareAndSet(false, true)) {
+				String message;
+				if (t instanceof UnsatisfiedLinkError || t instanceof LinkageError) {
+					message = "Detection is unavailable because OpenCV native libraries failed to load.\n\n" +
+							"On Windows this is often fixed by installing the Microsoft Visual C++ Redistributable (x64).\n\n" +
+							"See logs for the full error details.";
+				} else {
+					message = "Detection stopped due to an unexpected error.\n\nSee logs for details.";
+				}
+				notificationService.showError(message);
+			}
+		}
 	}
 
 
-	private void updateOverlays() {
+	void updateOverlays() {
 
 		long callId = ++overlayUpdateCounter;
 

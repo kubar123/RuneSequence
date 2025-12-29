@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -132,5 +133,17 @@ class RotationDslCodecTest {
 		RotationDslCodec.ParsedRotation parsed = RotationDslCodec.parse(input);
 		assertEquals("alpha[*1]→beta", parsed.expression());
 		assertEquals(Map.of("1", AbilitySettingsOverrides.builder().cooldown((short) 10).build()), parsed.perInstanceOverrides());
+	}
+
+	@Test
+	void collectLabelsInExpressionShouldIgnoreTooltipMarkup() {
+		Set<String> labels = RotationDslCodec.collectLabelsInExpression("alpha[*1]→(Hello)beta[*2]");
+		assertEquals(Set.of("1", "2"), labels);
+	}
+
+	@Test
+	void collectLabelsInExpressionShouldStillWorkWhenTooltipTextContainsStructuralOperators() {
+		Set<String> labels = RotationDslCodec.collectLabelsInExpression("alpha[*1]→(bad→tip)beta[*2]");
+		assertEquals(Set.of("1", "2"), labels);
 	}
 }

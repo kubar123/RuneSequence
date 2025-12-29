@@ -89,7 +89,7 @@ jobs:
         with:
           max_attempts: 3
           timeout_minutes: 10
-          command: bash -lc "set -o pipefail; ./gradlew --no-daemon --info --stacktrace assemble | tee build/ci-assemble.log"
+          command: bash -lc "set -o pipefail; ./gradlew --no-daemon --info --stacktrace distZip | tee build/ci-distzip.log"
 
       - name: Upload test reports
         if: always()
@@ -101,13 +101,13 @@ jobs:
             **/build/test-results/**/*
           if-no-files-found: warn
 
-      - name: Upload build jars
+      - name: Upload distributions
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-libs
+          name: distributions-linux
           path: |
-            **/build/libs/*.jar
+            **/build/distributions/*.zip
           if-no-files-found: warn
 
       - name: Upload CI logs
@@ -117,4 +117,55 @@ jobs:
           name: ci-logs
           path: |
             build/*.log
+          if-no-files-found: warn
+
+  dist-windows:
+    runs-on: windows-latest
+    env:
+      CI: true
+      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -Djava.awt.headless=true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v2
+
+      - name: Set up Temurin JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      - name: Configure JavaCPP cache path
+        run: echo "JAVACPP_CACHE=$env:RUNNER_TEMP\\.javacpp\\cache" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Ensure JavaCPP cache dir exists
+        run: New-Item -ItemType Directory -Force -Path "$env:JAVACPP_CACHE" | Out-Null
+
+      - name: Cache JavaCPP native artifacts
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.JAVACPP_CACHE }}
+          key: javacpp-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            javacpp-${{ runner.os }}-
+
+      - name: Build Windows distribution (distZip)
+        run: .\\gradlew.bat --no-daemon --info --stacktrace clean distZip
+
+      - name: Upload distributions (Windows)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributions-windows
+          path: |
+            **/build/distributions/*.zip
           if-no-files-found: warn

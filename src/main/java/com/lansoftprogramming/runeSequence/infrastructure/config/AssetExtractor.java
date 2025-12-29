@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.infrastructure.config;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.*;
@@ -25,38 +26,65 @@ public class AssetExtractor {
 	}
 
 	private static void extractFromJar(URI jarUri, String resourceRoot, Path targetDir) throws IOException {
-		try (FileSystem fs = FileSystems.newFileSystem(jarUri, Collections.emptyMap())) {
+		FileSystem fs = null;
+		boolean shouldClose = false;
+		try {
+			try {
+				fs = FileSystems.newFileSystem(jarUri, Collections.emptyMap());
+				shouldClose = true;
+			} catch (FileSystemAlreadyExistsException e) {
+				fs = FileSystems.getFileSystem(jarUri);
+			}
+
 			Path root = fs.getPath(resourceRoot);
-			Files.walk(root).forEach(source -> {
-				try {
-					Path relativePath = root.relativize(source);
-					Path dest = targetDir.resolve(relativePath);  // Remove .toString()
-					if (Files.isDirectory(source)) {
-						Files.createDirectories(dest);
-					} else {
-						Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+			try (var stream = Files.walk(root)) {
+				stream.forEach(source -> {
+					try {
+						Path relativePath = root.relativize(source);
+						Path dest = targetDir.resolve(relativePath.toString());
+						if (Files.isDirectory(source)) {
+							Files.createDirectories(dest);
+						} else {
+							Files.createDirectories(dest.getParent());
+							Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
+						}
+					} catch (IOException e) {
+						throw new UncheckedIOException(e);
 					}
-				} catch (IOException e) {
-					throw new RuntimeException(e);
+				});
+			} catch (UncheckedIOException e) {
+				throw e.getCause();
+			}
+		} finally {
+			if (shouldClose && fs != null) {
+				try {
+					fs.close();
+				} catch (Exception ignored) {
+					// Best-effort; failing to close should not fail extraction.
 				}
-			});
+			}
 		}
 	}
 
 	private static void extractFromFileSystem(Path source, Path targetDir) throws IOException {
-		Files.walk(source).forEach(srcPath -> {
-			try {
-				Path relativePath = source.relativize(srcPath);
-				Path dest = targetDir.resolve(relativePath);  // Remove .toString()
-				if (Files.isDirectory(srcPath)) {
-					Files.createDirectories(dest);
-				} else {
-					Files.copy(srcPath, dest, StandardCopyOption.REPLACE_EXISTING);
+		try (var stream = Files.walk(source)) {
+			stream.forEach(srcPath -> {
+				try {
+					Path relativePath = source.relativize(srcPath);
+					Path dest = targetDir.resolve(relativePath.toString());
+					if (Files.isDirectory(srcPath)) {
+						Files.createDirectories(dest);
+					} else {
+						Files.createDirectories(dest.getParent());
+						Files.copy(srcPath, dest, StandardCopyOption.REPLACE_EXISTING);
+					}
+				} catch (IOException e) {
+					throw new UncheckedIOException(e);
 				}
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-		});
+			});
+		} catch (UncheckedIOException e) {
+			throw e.getCause();
+		}
 	}
 
 	public static void extractSubfolder(String resourcePath, Path targetDir) throws IOException {

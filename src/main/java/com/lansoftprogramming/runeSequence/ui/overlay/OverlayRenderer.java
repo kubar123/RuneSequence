@@ -306,7 +306,7 @@ public class OverlayRenderer {
 		}
 
 		if (result.boundingBox == null) {
-			System.err.println("OverlayRenderer: ERROR - found=true but boundingBox=null for " + result.templateName);
+			logger.warn("OverlayRenderer: found=true but boundingBox=null for {}", result.templateName);
 			return false;
 		}
 
