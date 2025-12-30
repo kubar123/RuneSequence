@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.IntConsumer;
 
-class AbilityFlowView extends HoverGlowContainerPanel {
+class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 	private final SequenceDetailService detailService;
 	private AbilityDragController dragController;
 	private AbilityCardFactory cardFactory;
@@ -47,6 +47,56 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		this.lastRenderedElements = List.of();
 		this.sequenceWideModified = false;
 		this.modifiedAbilityKeys = Set.of();
+	}
+
+	@Override
+	protected void paintComponent(Graphics g) {
+		super.paintComponent(g);
+
+		if (!shouldShowEmptyHint()) {
+			return;
+		}
+
+		Graphics2D g2 = (Graphics2D) g.create();
+		try {
+			g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			paintEmptyHint(g2);
+		} finally {
+			g2.dispose();
+		}
+	}
+
+	@Override
+	public Dimension getPreferredScrollableViewportSize() {
+		return getPreferredSize();
+	}
+
+	@Override
+	public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
+		return 5;
+	}
+
+	@Override
+	public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
+		if (visibleRect == null) {
+			return 80;
+		}
+		return Math.max(80, visibleRect.height - 20);
+	}
+
+	@Override
+	public boolean getScrollableTracksViewportWidth() {
+		return true;
+	}
+
+	@Override
+	public boolean getScrollableTracksViewportHeight() {
+		Container parent = getParent();
+		if (!(parent instanceof JViewport viewport)) {
+			return false;
+		}
+		return getPreferredSize().height <= viewport.getHeight();
 	}
 
 	void attachDragController(AbilityDragController.DragCallback callback) {
@@ -78,6 +128,7 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		highlightedCards = List.of();
 		cachedAbilityCards = null;
 		lastRenderedElements = elements != null ? new ArrayList<>(elements) : List.of();
+		elements = elements != null ? elements : List.of();
 
 		int index = 0;
 		while (index < elements.size()) {
@@ -153,6 +204,7 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		setBackground(defaultBackground);
 		setBorder(defaultBorder);
 		hideEmptyDropIndicator();
+		repaint();
 	}
 
 	private void clearPreviewHighlight(Component[] cards, DragPreviewModel previewModel) {
@@ -573,6 +625,54 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 			revalidate();
 		}
 		repaint(emptyDropIndicator.getBounds());
+	}
+
+	private boolean shouldShowEmptyHint() {
+		if (getAbilityCardArray().length != 0) {
+			return false;
+		}
+		if (emptyDropIndicator.isVisible()) {
+			return false;
+		}
+		return activePreview == null || activePreview.getDropPreview() == null || !activePreview.isValid();
+	}
+
+	private void paintEmptyHint(Graphics2D g2) {
+		String[] lines = {
+				"Drag an ability from the palette above",
+				"and drop it here to build a sequence."
+		};
+
+		Font baseFont = UIManager.getFont("Label.font");
+		if (baseFont == null) {
+			baseFont = getFont();
+		}
+		if (baseFont == null) {
+			baseFont = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
+		}
+
+		Font hintFont = baseFont.deriveFont(Font.ITALIC, Math.max(12f, baseFont.getSize2D()));
+		g2.setFont(hintFont);
+		g2.setColor(UiColorPalette.TEXT_MUTED);
+
+		FontMetrics fm = g2.getFontMetrics();
+		int lineHeight = fm.getHeight();
+		int totalHeight = lineHeight * lines.length;
+
+		int w = getWidth();
+		int h = getHeight();
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+
+		int startY = (h - totalHeight) / 2 + fm.getAscent();
+		for (int i = 0; i < lines.length; i++) {
+			String line = lines[i];
+			int textWidth = fm.stringWidth(line);
+			int x = Math.max(10, (w - textWidth) / 2);
+			int y = startY + (i * lineHeight);
+			g2.drawString(line, x, y);
+		}
 	}
 
 	private void collectAbilityCardsRecursive(Component component, List<Component> out) {
