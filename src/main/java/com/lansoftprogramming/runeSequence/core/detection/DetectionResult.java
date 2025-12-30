@@ -40,4 +40,13 @@ public class DetectionResult {
 	public static DetectionResult notFound(String templateName, boolean isAlternative) {
 		return new DetectionResult(templateName, null, 0.0, null, false, isAlternative);
 	}
+
+	/**
+	 * Create a not-found DetectionResult that still records the best-match location/bounds and confidence.
+	 * Useful for diagnostics/logging when a match exists but does not meet the required threshold.
+	 */
+	public static DetectionResult notFound(String templateName, Point bestLocation, double bestConfidence,
+	                                      Rectangle bestBoundingBox, boolean isAlternative) {
+		return new DetectionResult(templateName, bestLocation, bestConfidence, bestBoundingBox, false, isAlternative);
+	}
 }

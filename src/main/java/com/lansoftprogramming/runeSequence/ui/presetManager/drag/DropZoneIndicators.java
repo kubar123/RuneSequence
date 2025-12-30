@@ -26,6 +26,10 @@ public class DropZoneIndicators {
         bottomIndicator = createIndicator("/");
         insertionLine = createInsertionLine();
 
+        topIndicator.setName("dropZoneTopIndicator");
+        bottomIndicator.setName("dropZoneBottomIndicator");
+        insertionLine.setName("dropZoneInsertionLine");
+
         topIndicator.setVisible(false);
         bottomIndicator.setVisible(false);
         insertionLine.setVisible(false);
@@ -74,7 +78,27 @@ public class DropZoneIndicators {
             // Size the indicators
             topIndicator.setSize(topIndicator.getPreferredSize());
             bottomIndicator.setSize(bottomIndicator.getPreferredSize());
+
+            ensureIndicatorsOnTop();
         }
+    }
+
+    /**
+     * Ensures the drop indicators render above the floating drag card on the shared glass pane.
+     *
+     * Swing paints components with lower Z-order indices on top (painted last). We explicitly
+     * move indicators to the front so they remain visible during drag.
+     */
+    private void ensureIndicatorsOnTop() {
+        if (glassPane == null) {
+            return;
+        }
+
+        // Order matters: last moved becomes topmost (z=0). Keep labels above insertion line.
+        glassPane.setComponentZOrder(insertionLine, 0);
+        glassPane.setComponentZOrder(bottomIndicator, 0);
+        glassPane.setComponentZOrder(topIndicator, 0);
+        glassPane.repaint();
     }
 
     /**

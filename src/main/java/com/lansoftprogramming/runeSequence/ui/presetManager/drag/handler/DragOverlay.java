@@ -31,12 +31,15 @@ public class DragOverlay {
 		floatingIconLabel = null;
 		originalAbilityIcon = null;
 		floatingCard = createFloatingCard(originalCard);
+		floatingCard.setName("floatingDragCard");
 
 		JRootPane rootPane = SwingUtilities.getRootPane(originalCard);
 		if (rootPane != null) {
 			glassPane = (JComponent) rootPane.getGlassPane();
 			glassPane.setLayout(null); // Absolute positioning
 			glassPane.add(floatingCard);
+			// Keep the floating card behind any overlays that may also live on the glass pane.
+			glassPane.setComponentZOrder(floatingCard, glassPane.getComponentCount() - 1);
 			glassPane.setVisible(true);
 
 			Point glassPanePoint = SwingUtilities.convertPoint(originalCard, startPoint, glassPane);

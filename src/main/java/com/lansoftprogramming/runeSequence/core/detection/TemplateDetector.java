@@ -164,10 +164,12 @@ public class TemplateDetector {
 			double threshold = getThresholdForTemplate(lookupName, detectionThreshold);
 			DetectionResult result = findBestMatch(roiMat, template, templateName, threshold, isAlternative);
 
-			// Adjust coordinates back to screen space
-			if (result.found) {
+			// Adjust coordinates back to screen space (even for not-found results that still carry best-match diagnostics).
+			if (result.location != null) {
 				result.location.x += roi.x;
 				result.location.y += roi.y;
+			}
+			if (result.boundingBox != null) {
 				result.boundingBox.x += roi.x;
 				result.boundingBox.y += roi.y;
 			}
@@ -377,17 +379,18 @@ public class TemplateDetector {
 			// Found if confidence meets threshold
 			boolean found = confidence >= threshold;
 
-			if (found) {
-				Rectangle boundingBox = new Rectangle(
-						minLoc.x(), minLoc.y(),
-						workingTemplate.cols(), workingTemplate.rows()
-				);
+			Rectangle boundingBox = new Rectangle(
+					minLoc.x(), minLoc.y(),
+					workingTemplate.cols(), workingTemplate.rows()
+			);
+			java.awt.Point location = new java.awt.Point(minLoc.x(), minLoc.y());
 
+			if (found) {
 				return DetectionResult.found(templateName,
-						new java.awt.Point(minLoc.x(), minLoc.y()),
-						confidence, boundingBox,isAlternative);
+						location,
+						confidence, boundingBox, isAlternative);
 			} else {
-				return DetectionResult.notFound(templateName);
+				return DetectionResult.notFound(templateName, location, confidence, boundingBox, isAlternative);
 			}
 
 		} catch (Exception e) {

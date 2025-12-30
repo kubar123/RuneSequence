@@ -13,10 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,6 +39,7 @@ public class DetectionEngine {
 	private final AtomicBoolean fatalErrorNotified = new AtomicBoolean(false);
 	private int consecutiveCaptureFailures = 0;
 	private final AtomicBoolean captureFailureNotified = new AtomicBoolean(false);
+	private final Map<String, MissingDetectionStats> missingDetectionsByAbility = new HashMap<>();
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
@@ -177,6 +176,8 @@ public class DetectionEngine {
 								request.abilityKey(), detectionElapsedMicros, baseResult.found);
 					}
 				});
+
+					logMissingDetections(detectionRequests, detectionByAbility, captureRegion);
 
 				for (ActiveSequence.DetectionRequirement requirement : requirements) {
 					DetectionRequestKey key = new DetectionRequestKey(requirement.abilityKey(),
@@ -332,5 +333,74 @@ public class DetectionEngine {
 	}
 
 	private record DetectionRequestKey(String abilityKey, Double detectionThreshold) {
+	}
+
+	private void logMissingDetections(LinkedHashSet<DetectionRequestKey> detectionRequests,
+	                                  Map<DetectionRequestKey, DetectionResult> detectionByAbility,
+	                                  Rectangle captureRegion) {
+		if (detectionRequests == null || detectionRequests.isEmpty()) {
+			missingDetectionsByAbility.clear();
+			return;
+		}
+
+		int offsetX = captureRegion != null ? captureRegion.x : 0;
+		int offsetY = captureRegion != null ? captureRegion.y : 0;
+
+		LinkedHashSet<String> activeAbilityKeys = new LinkedHashSet<>();
+		for (DetectionRequestKey request : detectionRequests) {
+			activeAbilityKeys.add(request.abilityKey());
+
+			DetectionResult result = detectionByAbility.get(request);
+			if (result != null && result.found) {
+				MissingDetectionStats stats = missingDetectionsByAbility.get(request.abilityKey());
+				if (stats != null) {
+					stats.consecutiveMisses = 0;
+				}
+				continue;
+			}
+
+			MissingDetectionStats stats = missingDetectionsByAbility.computeIfAbsent(
+					request.abilityKey(),
+					ignored -> new MissingDetectionStats()
+			);
+			stats.consecutiveMisses++;
+
+			if (stats.consecutiveMisses == 1 || stats.consecutiveMisses % 30 == 0) {
+				String normalizedKey = TemplateDetector.normalizeAbilityKeyForLookup(request.abilityKey());
+				double requiredThreshold = detector.getThresholdForTemplate(normalizedKey, request.detectionThreshold());
+
+				String bestAt;
+				if (result != null && result.location != null) {
+					bestAt = String.format("(%d,%d)", result.location.x + offsetX, result.location.y + offsetY);
+				} else {
+					bestAt = "<unknown>";
+				}
+
+				String bestBounds;
+				if (result != null && result.boundingBox != null) {
+					Rectangle bb = result.boundingBox;
+					bestBounds = String.format("(%d,%d %dx%d)", bb.x + offsetX, bb.y + offsetY, bb.width, bb.height);
+				} else {
+					bestBounds = "<unknown>";
+				}
+
+				double bestConfidence = result != null ? result.confidence : 0.0;
+				logger.info(
+						"Ability not detected: {} (bestMatch={}, required={}, bestAt={}, bestBounds={}, consecutiveMisses={})",
+						request.abilityKey(),
+						String.format(Locale.ROOT, "%.2f%%", bestConfidence * 100.0),
+						String.format(Locale.ROOT, "%.2f%%", requiredThreshold * 100.0),
+						bestAt,
+						bestBounds,
+						stats.consecutiveMisses
+				);
+			}
+		}
+
+		missingDetectionsByAbility.keySet().retainAll(activeAbilityKeys);
+	}
+
+	private static final class MissingDetectionStats {
+		private int consecutiveMisses = 0;
 	}
 }
