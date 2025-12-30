@@ -14,6 +14,8 @@ import java.util.function.LongSupplier;
  * Manages GCD / step cooldowns
  */
 public class StepTimer {
+	public static final long TICK_MS = 600L;
+
 	private final LongSupplier nowMs;
 	private long stepStartTimeMs;
 	private long stepDurationMs;
@@ -53,6 +55,16 @@ public class StepTimer {
 			totalPausedTimeMs += nowMs.getAsLong() - pausedAtMs;
 			isPaused = false;
 		}
+	}
+
+	public boolean isPaused() {
+		return isPaused;
+	}
+
+	public long getEffectiveElapsedMs() {
+		long now = nowMs.getAsLong();
+		long end = isPaused ? pausedAtMs : now;
+		return (end - stepStartTimeMs) - totalPausedTimeMs;
 	}
 
 	public boolean isStepSatisfied(Map<String, DetectionResult> lastDetections) {
@@ -97,6 +109,6 @@ public class StepTimer {
 				maxTicks = effectiveTicks;
 			}
 		}
-		return maxTicks * 600;
+		return maxTicks * TICK_MS;
 	}
 }

@@ -546,6 +546,9 @@ public class AppSettings {
 			@JsonProperty("abilityIndicatorLoopMs")
 			private long abilityIndicatorLoopMs = 600;
 
+			@JsonProperty("channeledWaitTooltipsEnabled")
+			private boolean channeledWaitTooltipsEnabled = true;
+
 			public int getIconSize() {
 				return iconSize;
 			}
@@ -576,6 +579,14 @@ public class AppSettings {
 
 			public void setAbilityIndicatorLoopMs(long abilityIndicatorLoopMs) {
 				this.abilityIndicatorLoopMs = abilityIndicatorLoopMs;
+			}
+
+			public boolean isChanneledWaitTooltipsEnabled() {
+				return channeledWaitTooltipsEnabled;
+			}
+
+			public void setChanneledWaitTooltipsEnabled(boolean channeledWaitTooltipsEnabled) {
+				this.channeledWaitTooltipsEnabled = channeledWaitTooltipsEnabled;
 			}
 		}
 	}

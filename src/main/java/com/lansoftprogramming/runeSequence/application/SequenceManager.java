@@ -200,6 +200,19 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		return schedule.getTooltipsForStep(stepIndex);
 	}
 
+	public synchronized Optional<SequenceTooltip> getChanneledWaitTooltip() {
+		if (activeSequence == null || sequenceComplete) {
+			return Optional.empty();
+		}
+		ActiveSequence.ChannelWaitStatus status = activeSequence.getChannelWaitStatus();
+		if (status == null || status.abilityKey() == null) {
+			return Optional.empty();
+		}
+		String label = resolveAbilityLabel(status.abilityKey());
+		String message = "Wait (channeling " + label + ")";
+		return Optional.of(new SequenceTooltip(activeSequence.getCurrentStepIndex(), null, message));
+	}
+
 	public synchronized List<String> getActiveSequenceAbilityKeys() {
 		if (activeSequence == null || sequenceComplete) {
 			return List.of();

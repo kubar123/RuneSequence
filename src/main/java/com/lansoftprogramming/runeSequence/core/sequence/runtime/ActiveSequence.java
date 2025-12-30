@@ -16,6 +16,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	private final SequenceDefinition definition;
 	private final AbilityConfig abilityConfig;
 	private final List<List<AbilityInstance>> stepInstances;
+	private final List<ChannelInfo> channelInfoByStep;
 	private final Map<String, AbilityInstance> instancesById = new HashMap<>();
 	private boolean complete = false;
 
@@ -37,6 +38,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		this.definition = def;
 		this.abilityConfig = abilityConfig;
 		this.stepInstances = indexInstances(def, abilityConfig);
+		this.channelInfoByStep = computeChannelInfoByStep(stepInstances);
 		this.stepTimer = new StepTimer();
 
 		if (logger.isDebugEnabled()) {
@@ -223,6 +225,25 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 	public int getStepCount() {
 		return stepInstances.size();
+	}
+
+	public ChannelWaitStatus getChannelWaitStatus() {
+		if (complete || stepTimer.isPaused()) {
+			return null;
+		}
+		if (currentStepIndex < 0 || currentStepIndex >= channelInfoByStep.size()) {
+			return null;
+		}
+		ChannelInfo info = channelInfoByStep.get(currentStepIndex);
+		if (info == null || info.durationMs <= 0 || info.abilityKey == null) {
+			return null;
+		}
+		long elapsedMs = stepTimer.getEffectiveElapsedMs();
+		long remainingMs = info.durationMs - elapsedMs;
+		if (remainingMs <= 0) {
+			return null;
+		}
+		return new ChannelWaitStatus(info.abilityKey, remainingMs);
 	}
 
 	/**
@@ -432,5 +453,39 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		for (int i = 0; i < stepInstances.size(); i++) {
 			logger.debug("ActiveSequence.stepInstances[{}]={}", i, stepInstances.get(i));
 		}
+	}
+
+	private List<ChannelInfo> computeChannelInfoByStep(List<List<AbilityInstance>> stepInstances) {
+		if (stepInstances == null || stepInstances.isEmpty()) {
+			return List.of();
+		}
+
+		List<ChannelInfo> out = new ArrayList<>(stepInstances.size());
+		for (List<AbilityInstance> instances : stepInstances) {
+			String bestAbilityKey = null;
+			short bestCastTicks = 0;
+			if (instances != null) {
+				for (AbilityInstance instance : instances) {
+					if (instance == null || instance.effectiveAbilityConfig == null) {
+						continue;
+					}
+					short castTicks = instance.effectiveAbilityConfig.getCastDuration();
+					if (castTicks > bestCastTicks) {
+						bestCastTicks = castTicks;
+						bestAbilityKey = instance.abilityKey;
+					}
+				}
+			}
+			long durationMs = bestCastTicks > 0 ? bestCastTicks * StepTimer.TICK_MS : 0L;
+			out.add(new ChannelInfo(bestAbilityKey, durationMs));
+		}
+
+		return List.copyOf(out);
+	}
+
+	private record ChannelInfo(String abilityKey, long durationMs) {
+	}
+
+	public record ChannelWaitStatus(String abilityKey, long remainingMs) {
 	}
 }

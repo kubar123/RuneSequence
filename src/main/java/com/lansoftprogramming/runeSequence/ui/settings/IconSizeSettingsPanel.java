@@ -20,6 +20,7 @@ public class IconSizeSettingsPanel extends JPanel {
 	private final JCheckBox blinkCurrentCheck;
 	private final JCheckBox abilityIndicatorEnabledCheck;
 	private final JSpinner abilityIndicatorLoopMsSpinner;
+	private final JCheckBox channeledWaitTooltipsCheck;
 	private final JCheckBox autoSaveCheck;
 	private final JLabel statusLabel;
 
@@ -56,6 +57,9 @@ public class IconSizeSettingsPanel extends JPanel {
 		));
 		abilityIndicatorLoopMsSpinner.setEnabled(abilityIndicatorEnabledCheck.isSelected());
 		abilityIndicatorEnabledCheck.addActionListener(e -> abilityIndicatorLoopMsSpinner.setEnabled(abilityIndicatorEnabledCheck.isSelected()));
+
+		channeledWaitTooltipsCheck = new JCheckBox("Show \"wait\" tooltip at mouse while channeling");
+		channeledWaitTooltipsCheck.setSelected(resolveChanneledWaitTooltipsPreference());
 
 		autoSaveCheck = new JCheckBox("Auto-save rotations when switching presets");
 		autoSaveCheck.setSelected(resolveAutoSavePreference());
@@ -110,6 +114,11 @@ public class IconSizeSettingsPanel extends JPanel {
 		gbc.gridy++;
 		gbc.gridx = 0;
 		gbc.gridwidth = 2;
+		formPanel.add(channeledWaitTooltipsCheck, gbc);
+
+		gbc.gridy++;
+		gbc.gridx = 0;
+		gbc.gridwidth = 2;
 		formPanel.add(autoSaveCheck, gbc);
 
 		gbc.gridy++;
@@ -151,6 +160,7 @@ public class IconSizeSettingsPanel extends JPanel {
 		settings.getUi().setBlinkCurrentAbilities(blinkCurrentCheck.isSelected());
 		settings.getUi().setAbilityIndicatorEnabled(abilityIndicatorEnabledCheck.isSelected());
 		settings.getUi().setAbilityIndicatorLoopMs(((Number) abilityIndicatorLoopMsSpinner.getValue()).longValue());
+		settings.getUi().setChanneledWaitTooltipsEnabled(channeledWaitTooltipsCheck.isSelected());
 
 		if (settings.getRotation() == null) {
 			settings.setRotation(new AppSettings.RotationSettings());
@@ -167,7 +177,8 @@ public class IconSizeSettingsPanel extends JPanel {
 					+ "; auto-save rotations " + rotationStateLabel()
 					+ "; blinking current highlights " + blinkStateLabel()
 					+ "; ability indicator animation " + abilityIndicatorStateLabel()
-					+ " (" + abilityIndicatorLoopMsLabel() + "ms)";
+					+ " (" + abilityIndicatorLoopMsLabel() + "ms)"
+					+ "; channel wait tooltips " + channeledWaitTooltipsStateLabel();
 			statusLabel.setText(message);
 		} catch (IOException ex) {
 			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
@@ -222,6 +233,14 @@ public class IconSizeSettingsPanel extends JPanel {
 		return 600;
 	}
 
+	private boolean resolveChanneledWaitTooltipsPreference() {
+		AppSettings settings = configManager.getSettings();
+		if (settings != null && settings.getUi() != null) {
+			return settings.getUi().isChanneledWaitTooltipsEnabled();
+		}
+		return true;
+	}
+
 	private String rotationStateLabel() {
 		return autoSaveCheck.isSelected() ? "enabled" : "disabled";
 	}
@@ -236,5 +255,9 @@ public class IconSizeSettingsPanel extends JPanel {
 
 	private String abilityIndicatorLoopMsLabel() {
 		return String.valueOf(((Number) abilityIndicatorLoopMsSpinner.getValue()).longValue());
+	}
+
+	private String channeledWaitTooltipsStateLabel() {
+		return channeledWaitTooltipsCheck.isSelected() ? "enabled" : "disabled";
 	}
 }

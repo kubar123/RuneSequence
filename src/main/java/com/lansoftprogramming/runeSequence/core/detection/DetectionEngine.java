@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
 
 public class DetectionEngine {
 	private static final Logger logger = LoggerFactory.getLogger(DetectionEngine.class);
@@ -31,6 +32,7 @@ public class DetectionEngine {
 	private final MouseTooltipOverlay tooltipOverlay;
 	private final int detectionIntervalMs;
 	private final NotificationService notificationService;
+	private final BooleanSupplier channeledWaitTooltipsEnabled;
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
@@ -40,11 +42,13 @@ public class DetectionEngine {
 	private int consecutiveCaptureFailures = 0;
 	private final AtomicBoolean captureFailureNotified = new AtomicBoolean(false);
 	private final Map<String, MissingDetectionStats> missingDetectionsByAbility = new HashMap<>();
+	private boolean lastUpdateHadChanneledWaitTooltip = false;
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
 	                       MouseTooltipOverlay tooltipOverlay,
-	                       NotificationService notificationService, int detectionIntervalMs) {
+	                       NotificationService notificationService, int detectionIntervalMs,
+	                       BooleanSupplier channeledWaitTooltipsEnabled) {
 		this.screenCapture = screenCapture;
 		this.detector = detector;
 		this.sequenceManager = sequenceManager;
@@ -52,6 +56,9 @@ public class DetectionEngine {
 		this.tooltipOverlay = tooltipOverlay;
 		this.notificationService = notificationService;
 		this.detectionIntervalMs = detectionIntervalMs;
+		this.channeledWaitTooltipsEnabled = channeledWaitTooltipsEnabled != null
+				? channeledWaitTooltipsEnabled
+				: () -> true;
 	}
 
 	public void start() {
@@ -251,7 +258,30 @@ public class DetectionEngine {
 
 		overlay.updateOverlays(currentAbilities, nextAbilities);
 		if (tooltipOverlay != null) {
-			tooltipOverlay.showTooltips(currentTooltips);
+			List<SequenceTooltip> merged = currentTooltips;
+			boolean hasWaitTooltip = false;
+			if (channeledWaitTooltipsEnabled.getAsBoolean()) {
+				Optional<SequenceTooltip> wait = sequenceManager.getChanneledWaitTooltip();
+				if (wait.isPresent()) {
+					hasWaitTooltip = true;
+					ArrayList<SequenceTooltip> tooltips = new ArrayList<>();
+					tooltips.add(wait.get());
+					if (currentTooltips != null && !currentTooltips.isEmpty()) {
+						tooltips.addAll(currentTooltips);
+					}
+					merged = List.copyOf(tooltips);
+				}
+			}
+
+			boolean hasNonWaitTooltips = merged != null && !merged.isEmpty() && (!hasWaitTooltip || merged.size() > 1);
+			if (lastUpdateHadChanneledWaitTooltip && !hasWaitTooltip && !hasNonWaitTooltips) {
+				// Channel ended and no other tooltips remain; clear immediately so the "Wait (channeling ...)"
+				// message never lingers due to overlay hide grace.
+				tooltipOverlay.clear();
+			} else {
+				tooltipOverlay.showTooltips(merged);
+			}
+			lastUpdateHadChanneledWaitTooltip = hasWaitTooltip;
 		}
 	}
 

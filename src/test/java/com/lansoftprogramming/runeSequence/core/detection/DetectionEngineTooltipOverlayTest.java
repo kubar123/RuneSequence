@@ -15,8 +15,10 @@ import java.awt.*;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DetectionEngineTooltipOverlayTest {
 
@@ -34,7 +36,8 @@ class DetectionEngineTooltipOverlayTest {
 				overlayRenderer,
 				tooltipOverlay,
 				notifications,
-				50
+				50,
+				() -> true
 		);
 
 		List<SequenceTooltip> tooltips = List.of(
@@ -48,8 +51,40 @@ class DetectionEngineTooltipOverlayTest {
 		assertEquals(tooltips, tooltipOverlay.lastTooltips);
 	}
 
+	@Test
+	void shouldClearChanneledWaitTooltipAfterChannelEnds() throws Exception {
+		RecordingSequenceManager sequenceManager = new RecordingSequenceManager();
+		OverlayRenderer overlayRenderer = new OverlayRenderer(() -> false);
+		RecordingTooltipOverlay tooltipOverlay = new RecordingTooltipOverlay();
+		NotificationService notifications = new NoopNotificationService();
+
+		DetectionEngine engine = new DetectionEngine(
+				new TestScreenCapture(),
+				new TemplateDetector(new TestTemplateCache(), new AbilityConfig()),
+				sequenceManager,
+				overlayRenderer,
+				tooltipOverlay,
+				notifications,
+				50,
+				() -> true
+		);
+
+		sequenceManager.setChanneledWaitTooltip(Optional.of(new SequenceTooltip(0, null, "Wait (channeling Foo)")));
+		engine.updateOverlays();
+		assertEquals(1, tooltipOverlay.showCount);
+		assertEquals(0, tooltipOverlay.clearCount);
+		assertEquals(List.of(new SequenceTooltip(0, null, "Wait (channeling Foo)")), tooltipOverlay.lastTooltips);
+
+		sequenceManager.setChanneledWaitTooltip(Optional.empty());
+		sequenceManager.setTooltips(List.of());
+		engine.updateOverlays();
+
+		assertTrue(tooltipOverlay.clearCount >= 1, "Expected overlay to be cleared when channel ends");
+	}
+
 	private static final class RecordingSequenceManager extends SequenceManager {
 		private List<SequenceTooltip> tooltips = List.of();
+		private Optional<SequenceTooltip> channeledWaitTooltip = Optional.empty();
 
 		RecordingSequenceManager() {
 			super(Collections.emptyMap(), Collections.emptyMap(), new AbilityConfig(), new NoopNotificationService(),
@@ -58,6 +93,10 @@ class DetectionEngineTooltipOverlayTest {
 
 		void setTooltips(List<SequenceTooltip> tooltips) {
 			this.tooltips = tooltips != null ? List.copyOf(tooltips) : List.of();
+		}
+
+		void setChanneledWaitTooltip(Optional<SequenceTooltip> tooltip) {
+			this.channeledWaitTooltip = tooltip != null ? tooltip : Optional.empty();
 		}
 
 		@Override
@@ -76,6 +115,11 @@ class DetectionEngineTooltipOverlayTest {
 		}
 
 		@Override
+		public synchronized Optional<SequenceTooltip> getChanneledWaitTooltip() {
+			return channeledWaitTooltip;
+		}
+
+		@Override
 		public synchronized boolean shouldDetect() {
 			return true;
 		}
@@ -83,14 +127,18 @@ class DetectionEngineTooltipOverlayTest {
 
 	private static final class RecordingTooltipOverlay extends MouseTooltipOverlay {
 		private List<SequenceTooltip> lastTooltips = List.of();
+		private int showCount = 0;
+		private int clearCount = 0;
 
 		@Override
 		public void showTooltips(List<SequenceTooltip> tooltips) {
+			showCount++;
 			this.lastTooltips = tooltips != null ? List.copyOf(tooltips) : List.of();
 		}
 
 		@Override
 		public void clear() {
+			clearCount++;
 			this.lastTooltips = List.of();
 		}
 	}

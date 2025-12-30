@@ -151,7 +151,13 @@ public class Main {
 					overlayRenderer,
 					mouseTooltipOverlay,
 					notifications,
-					configManager.getDetectionInterval()
+					configManager.getDetectionInterval(),
+					() -> {
+						AppSettings settings = configManager.getSettings();
+						return settings == null
+								|| settings.getUi() == null
+								|| settings.getUi().isChanneledWaitTooltipsEnabled();
+					}
 			);
 			SequenceRunService sequenceRunService = new SequenceRunService(
 					sequenceController,
