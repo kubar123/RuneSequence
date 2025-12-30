@@ -213,6 +213,29 @@ public class AbilityDragController {
 				previewEngine::symbolForZone
 		);
 
+		DropZoneType floatingAction = null;
+		boolean floatingActionAddsToGroup = false;
+		if (previewModel != null && previewModel.isValid() && !overlay.isDragOutsidePanel()) {
+			DropPreview dropPreview = previewModel.getDropPreview();
+			if (dropPreview != null) {
+				floatingAction = dropPreview.getZoneType();
+				if (floatingAction == DropZoneType.AND || floatingAction == DropZoneType.OR) {
+					Component[] cardsSnapshot = callback.getAllCards();
+					int targetVisualIndex = dropPreview.getTargetAbilityIndex();
+					if (cardsSnapshot != null && targetVisualIndex >= 0 && targetVisualIndex < cardsSnapshot.length) {
+						Component targetCard = cardsSnapshot[targetVisualIndex];
+						if (targetCard instanceof JComponent component) {
+							Object prop = component.getClientProperty("zoneType");
+							if (prop instanceof DropZoneType targetZoneType) {
+								floatingActionAddsToGroup = targetZoneType == floatingAction;
+							}
+						}
+					}
+				}
+			}
+		}
+		overlay.setFloatingAction(floatingAction, floatingActionAddsToGroup);
+
 		if (previewModel != null) {
 			callback.onDragMove(currentDrag.getDraggedItem(), previewModel);
 		}

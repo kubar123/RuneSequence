@@ -159,4 +159,15 @@ public final class UiColorPalette {
 	public static Border lineBorder(Color color, int thickness) {
 		return BorderFactory.createLineBorder(color, thickness);
 	}
+
+	public static Color computeReadableForeground(Color background) {
+		if (background == null) {
+			return null;
+		}
+		double r = background.getRed() / 255.0;
+		double g = background.getGreen() / 255.0;
+		double b = background.getBlue() / 255.0;
+		double luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		return luminance > 0.56 ? BASE_BLACK : TEXT_INVERSE;
+	}
 }
