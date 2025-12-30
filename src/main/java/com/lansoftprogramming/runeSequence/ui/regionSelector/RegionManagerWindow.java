@@ -349,7 +349,23 @@ public class RegionManagerWindow extends JFrame {
 			previewOverlay.hideOverlay();
 		}
 
-		RegionSelectorWindow selectorWindow = RegionSelectorWindow.selectRegion();
+		boolean wasVisible = isVisible();
+		int previousState = getExtendedState();
+		boolean wasAlwaysOnTop = isAlwaysOnTop();
+
+		RegionSelectorWindow selectorWindow;
+		try {
+			setAlwaysOnTop(false);
+			setVisible(false);
+			selectorWindow = RegionSelectorWindow.selectRegion();
+		} finally {
+			if (wasVisible) {
+				setVisible(true);
+				setExtendedState(previousState);
+			}
+			setAlwaysOnTop(wasAlwaysOnTop);
+		}
+
 		if (selectorWindow == null || !selectorWindow.isSelectionMade()) {
 			if (previewOverlay != null && isShowing()) {
 				previewOverlay.showOverlay();
