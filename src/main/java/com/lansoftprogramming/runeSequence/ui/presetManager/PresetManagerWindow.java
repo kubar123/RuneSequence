@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
 import com.lansoftprogramming.runeSequence.Main;
+import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder;
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
@@ -23,10 +24,7 @@ import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorActio
 import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
-import com.lansoftprogramming.runeSequence.ui.theme.PanelStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemeManager;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedPanel;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedWindowDecorations;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,10 +36,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class PresetManagerWindow extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(PresetManagerWindow.class);
@@ -66,6 +61,8 @@ public class PresetManagerWindow extends JFrame {
     private com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction settingsAction;
     private com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction regionSelectorAction;
     private transient java.beans.PropertyChangeListener themeListener;
+    private transient SequenceController.StateChangeListener runStateListener;
+    private volatile Color topBarRunOverlay;
     private boolean suppressSelectionUpdate;
     private String currentSelectionId;
     private boolean autoSaveInProgress;
@@ -269,25 +266,93 @@ public class PresetManagerWindow extends JFrame {
         setLayout(new BorderLayout());
         add(topBar, BorderLayout.NORTH);
         add(verticalSplit, BorderLayout.CENTER);
+
+        installRunStateListener();
     }
 
     private JPanel buildTopBar() {
-        ThemedPanel bar = new ThemedPanel(PanelStyle.DETAIL_HEADER, new BorderLayout(10, 0));
+        ThemedPanel bar = new ThemedPanel(PanelStyle.DETAIL_HEADER, new BorderLayout(10, 0)) {
+            @Override
+            protected void paintComponent(Graphics graphics) {
+                super.paintComponent(graphics);
+
+                Color overlay = topBarRunOverlay;
+                if (overlay == null) {
+                    return;
+                }
+
+                int width = getWidth();
+                int height = getHeight();
+                if (width <= 0 || height <= 0) {
+                    return;
+                }
+
+                Graphics2D g2 = graphics instanceof Graphics2D ? (Graphics2D) graphics.create() : null;
+                if (g2 == null) {
+                    return;
+                }
+
+                try {
+                    g2.setColor(overlay);
+                    g2.fillRect(0, 0, width, height);
+                } finally {
+                    g2.dispose();
+                }
+            }
+        };
         bar.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
 
         JComponent runControls = masterPanel.getRunControlPanel();
-        JPanel runControlsContainer = new JPanel(new BorderLayout());
+        JPanel runControlsContainer = new JPanel(new GridBagLayout());
         runControlsContainer.setOpaque(false);
-        runControlsContainer.add(runControls, BorderLayout.CENTER);
+        runControlsContainer.add(runControls, new GridBagConstraints());
 
         JComponent appControls = palettePanel.getMainAppControlsPanel();
-        JPanel appControlsContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        JPanel appControlsContainer = new JPanel(new GridBagLayout());
         appControlsContainer.setOpaque(false);
-        appControlsContainer.add(appControls);
+        GridBagConstraints controlsGbc = new GridBagConstraints();
+        controlsGbc.anchor = GridBagConstraints.CENTER;
+        appControlsContainer.add(appControls, controlsGbc);
 
         bar.add(runControlsContainer, BorderLayout.WEST);
         bar.add(appControlsContainer, BorderLayout.EAST);
         return bar;
+    }
+
+    private void installRunStateListener() {
+        if (runStateListener != null) {
+            return;
+        }
+        if (sequenceRunService == null) {
+            updateTopBarOverlay(null);
+            return;
+        }
+
+        runStateListener = (oldState, newState) -> SwingUtilities.invokeLater(() -> updateTopBarOverlay(newState));
+        sequenceRunService.addStateChangeListener(runStateListener);
+        updateTopBarOverlay(sequenceRunService.getCurrentState());
+    }
+
+    private void updateTopBarOverlay(SequenceController.State state) {
+        Color nextOverlay;
+        if (state == null) {
+            nextOverlay = UiColorPalette.RUN_HEADER_NEUTRAL_BACKGROUND;
+        } else {
+            nextOverlay = switch (state) {
+                case PAUSED -> UiColorPalette.RUN_HEADER_PAUSED_BACKGROUND;
+                case RUNNING -> UiColorPalette.RUN_HEADER_STARTED_BACKGROUND;
+                case ARMED -> UiColorPalette.RUN_HEADER_ARMED_BACKGROUND;
+                case READY -> UiColorPalette.RUN_HEADER_NEUTRAL_BACKGROUND;
+            };
+        }
+
+        if (Objects.equals(topBarRunOverlay, nextOverlay)) {
+            return;
+        }
+        topBarRunOverlay = nextOverlay;
+        if (topBar != null) {
+            topBar.repaint();
+        }
     }
 
     private void wireEventHandlers() {

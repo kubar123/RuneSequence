@@ -27,17 +27,17 @@ public class SettingsAction implements MenuAction {
         SwingUtilities.invokeLater(() -> {
 			settingsFrame = new JFrame("Settings");
 			settingsFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-	        ThemedWindowDecorations.applyTitleBar(settingsFrame);
+			ThemedWindowDecorations.applyTitleBar(settingsFrame);
 
-	        ThemedPanel root = new ThemedPanel(PanelStyle.TAB_CONTENT, new BorderLayout());
-	        settingsFrame.setContentPane(root);
+			ThemedPanel root = new ThemedPanel(PanelStyle.TAB_CONTENT, new BorderLayout());
+			settingsFrame.setContentPane(root);
 
-			JTabbedPane tabs = new JTabbedPane();
+			JTabbedPane tabs = new ThemedSettingsTabbedPane();
 			tabs.addTab("General", new IconSizeSettingsPanel(configManager));
 			tabs.addTab("Hotkeys", new HotkeySettingsPanel(configManager));
-	        applyTabbedPaneTheme(tabs);
+			applyTabbedPaneTheme(tabs);
 
-	        root.add(tabs, BorderLayout.CENTER);
+			root.add(tabs, BorderLayout.CENTER);
 			settingsFrame.pack();
 			settingsFrame.setLocationRelativeTo(null);
 			settingsFrame.setVisible(true);
@@ -54,7 +54,7 @@ public class SettingsAction implements MenuAction {
 		Color activeForeground = theme != null ? theme.getTextPrimaryColor() : UiColorPalette.UI_TEXT_COLOR;
 		Color inactiveForeground = theme != null ? theme.getTextMutedColor() : UiColorPalette.DIALOG_MESSAGE_TEXT;
 
-		tabs.setOpaque(false);
+		tabs.setOpaque(true);
 		tabs.setBorder(UiColorPalette.CARD_BORDER);
 		tabs.setBackground(background);
 		tabs.setForeground(activeForeground);
@@ -69,5 +69,50 @@ public class SettingsAction implements MenuAction {
 
 		applyPerTabColors.run();
 		tabs.addChangeListener(e -> applyPerTabColors.run());
+	}
+
+	private static final class ThemedSettingsTabbedPane extends JTabbedPane {
+		@Override
+		protected void paintComponent(Graphics graphics) {
+			super.paintComponent(graphics);
+
+			int tabCount = getTabCount();
+			if (tabCount <= 0) {
+				return;
+			}
+
+			Rectangle lastTab = getBoundsAt(tabCount - 1);
+			if (lastTab == null) {
+				return;
+			}
+
+			int width = getWidth();
+			int height = getHeight();
+			if (width <= 0 || height <= 0) {
+				return;
+			}
+
+			int tabStripHeight = Math.max(0, lastTab.y + lastTab.height);
+			if (tabStripHeight <= 0) {
+				return;
+			}
+
+			int gapX = lastTab.x + lastTab.width;
+			if (gapX >= width) {
+				return;
+			}
+
+			Graphics2D g2 = graphics instanceof Graphics2D ? (Graphics2D) graphics.create() : null;
+			if (g2 == null) {
+				return;
+			}
+
+			try {
+				g2.setColor(getBackground());
+				g2.fillRect(gapX, 0, width - gapX, tabStripHeight);
+			} finally {
+				g2.dispose();
+			}
+		}
 	}
 }

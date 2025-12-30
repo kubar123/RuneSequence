@@ -98,10 +98,10 @@ public final class UiColorPalette {
 	// --- Run control state accents (master rotation controls) ---
 	public static final Color RUN_STATE_STARTED_ACCENT = new Color(165, 214, 167);
 	public static final Color RUN_STATE_ARMED_ACCENT = new Color(56, 142, 60);
-	public static final Color RUN_HEADER_NEUTRAL_BACKGROUND = UI_CARD_DIMMED_BACKGROUND;
-	public static final Color RUN_HEADER_STARTED_BACKGROUND = TOAST_SUCCESS_BACKGROUND;
-	public static final Color RUN_HEADER_ARMED_BACKGROUND = new Color(220, 240, 224);
-	public static final Color RUN_HEADER_PAUSED_BACKGROUND = TOAST_WARNING_BACKGROUND;
+	public static final Color RUN_HEADER_NEUTRAL_BACKGROUND = withAlpha(BASE_BLACK, 85);
+	public static final Color RUN_HEADER_STARTED_BACKGROUND = withAlpha(TOAST_SUCCESS_ACCENT, 90);
+	public static final Color RUN_HEADER_ARMED_BACKGROUND = withAlpha(RUN_STATE_ARMED_ACCENT, 90);
+	public static final Color RUN_HEADER_PAUSED_BACKGROUND = withAlpha(TOAST_WARNING_ACCENT, 90);
 
 	private UiColorPalette() {
 		// Utility class
@@ -173,5 +173,13 @@ public final class UiColorPalette {
 		double b = background.getBlue() / 255.0;
 		double luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 		return luminance > 0.56 ? BASE_BLACK : TEXT_INVERSE;
+	}
+
+	public static Color withAlpha(Color color, int alpha) {
+		if (color == null) {
+			return null;
+		}
+		int clamped = Math.max(0, Math.min(255, alpha));
+		return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
 	}
 }
