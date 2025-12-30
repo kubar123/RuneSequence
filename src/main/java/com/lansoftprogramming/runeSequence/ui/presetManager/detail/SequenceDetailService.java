@@ -69,6 +69,10 @@ public class SequenceDetailService {
 		}
 	}
 
+	public ImageIcon loadIcon(String abilityKey) {
+		return iconLoader.loadIcon(abilityKey);
+	}
+
 	public AbilityConfig.AbilityData resolveBaseAbilityData(String abilityKey) {
 		try {
 			if (abilityKey == null || abilityKey.isBlank()) {

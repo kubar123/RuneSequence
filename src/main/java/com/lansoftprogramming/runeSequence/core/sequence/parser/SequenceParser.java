@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.core.sequence.parser;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.*;
+import com.lansoftprogramming.runeSequence.core.sequence.modifier.AbilityModifierEngine;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,7 +76,7 @@ public class SequenceParser {
 		SequenceParser parser = new SequenceParser(tokens, overridesByLabel, perAbilityOverrides);
 		SequenceDefinition definition = parser.parseExpression();
 		parser.ensureFullyConsumed();
-		return definition;
+		return AbilityModifierEngine.apply(definition);
 	}
 
 	private SequenceDefinition parseExpression() {
@@ -252,22 +253,6 @@ public class SequenceParser {
 
 	private static AbilitySettingsOverrides mergeOverrides(AbilitySettingsOverrides base,
 	                                                      AbilitySettingsOverrides delta) {
-		AbilitySettingsOverrides left = base != null ? base : AbilitySettingsOverrides.empty();
-		AbilitySettingsOverrides right = delta != null ? delta : AbilitySettingsOverrides.empty();
-		if (left.isEmpty() && right.isEmpty()) {
-			return null;
-		}
-
-		AbilitySettingsOverrides.Builder builder = AbilitySettingsOverrides.builder();
-		builder.type(right.getTypeOverride().orElse(left.getTypeOverride().orElse(null)));
-		builder.level(right.getLevelOverride().orElse(left.getLevelOverride().orElse(null)));
-		builder.triggersGcd(right.getTriggersGcdOverride().orElse(left.getTriggersGcdOverride().orElse(null)));
-		builder.castDuration(right.getCastDurationOverride().orElse(left.getCastDurationOverride().orElse(null)));
-		builder.cooldown(right.getCooldownOverride().orElse(left.getCooldownOverride().orElse(null)));
-		builder.detectionThreshold(right.getDetectionThresholdOverride().orElse(left.getDetectionThresholdOverride().orElse(null)));
-		builder.mask(right.getMaskOverride().orElse(left.getMaskOverride().orElse(null)));
-
-		AbilitySettingsOverrides merged = builder.build();
-		return merged.isEmpty() ? null : merged;
+		return AbilitySettingsOverrides.merge(base, delta);
 	}
 }

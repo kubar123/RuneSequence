@@ -43,6 +43,32 @@ public class AbilitySettingsOverrides {
 		return new Builder();
 	}
 
+	/**
+	 * Merges two overrides objects into a single object where non-null fields from {@code delta}
+	 * take precedence over non-null fields from {@code base}.
+	 * <p>
+	 * Returns {@code null} when the merged result has no overrides (all fields null).
+	 */
+	public static AbilitySettingsOverrides merge(AbilitySettingsOverrides base, AbilitySettingsOverrides delta) {
+		AbilitySettingsOverrides left = base != null ? base : empty();
+		AbilitySettingsOverrides right = delta != null ? delta : empty();
+		if (left.isEmpty() && right.isEmpty()) {
+			return null;
+		}
+
+		Builder builder = builder();
+		builder.type(right.getTypeOverride().orElse(left.getTypeOverride().orElse(null)));
+		builder.level(right.getLevelOverride().orElse(left.getLevelOverride().orElse(null)));
+		builder.triggersGcd(right.getTriggersGcdOverride().orElse(left.getTriggersGcdOverride().orElse(null)));
+		builder.castDuration(right.getCastDurationOverride().orElse(left.getCastDurationOverride().orElse(null)));
+		builder.cooldown(right.getCooldownOverride().orElse(left.getCooldownOverride().orElse(null)));
+		builder.detectionThreshold(right.getDetectionThresholdOverride().orElse(left.getDetectionThresholdOverride().orElse(null)));
+		builder.mask(right.getMaskOverride().orElse(left.getMaskOverride().orElse(null)));
+
+		AbilitySettingsOverrides merged = builder.build();
+		return merged.isEmpty() ? null : merged;
+	}
+
 	public Optional<String> getTypeOverride() {
 		return Optional.ofNullable(type);
 	}

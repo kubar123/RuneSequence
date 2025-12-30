@@ -17,6 +17,19 @@ class SequenceVisualServiceTest {
 	private final SequenceVisualService service = new SequenceVisualService();
 
 	@Test
+	void shouldCollapseSpecModifierTokensIntoSingleAbilityElement() {
+		List<SequenceElement> elements = service.parseToVisualElements("gmaul eofspec");
+		assertEquals(1, elements.size(), "Modifier+target should render as a single ability card");
+		SequenceElement element = elements.get(0);
+		assertTrue(element.isAbility());
+		assertEquals("eofspec", element.getAbilityKey());
+		assertEquals(List.of("gmaul"), element.getAbilityModifiers());
+
+		String rebuilt = new ExpressionBuilder().buildExpression(elements);
+		assertEquals("gmaul+eofspec", rebuilt);
+	}
+
+	@Test
 	void shouldReturnEmptyElementsForInvalidExpression() {
 		assertTrue(service.parseToVisualElements("A -> -> B").isEmpty());
 	}

@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.core.sequence.runtime;
 import com.lansoftprogramming.runeSequence.application.SequenceController;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
 import com.lansoftprogramming.runeSequence.core.sequence.model.*;
+import com.lansoftprogramming.runeSequence.core.sequence.modifier.AbilityModifierEngine;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -375,7 +376,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		if (baseAbility == null) {
 			return null;
 		}
-		return EffectiveAbilityConfig.from(abilityKey, baseAbility, alt.getAbilitySettingsOverrides());
+		return EffectiveAbilityConfig.from(abilityKey, baseAbility, AbilityModifierEngine.effectiveOverrides(alt));
 	}
 
 	private static final class AbilityInstance {

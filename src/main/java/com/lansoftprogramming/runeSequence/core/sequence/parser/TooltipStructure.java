@@ -59,6 +59,16 @@ public final class TooltipStructure {
 
 	private static void linearizeAlternative(Alternative alt, int stepIndex, List<StructuralElement> out) {
 		if (alt.isToken()) {
+			List<String> modifiers = alt.getAbilityModifiers();
+			if (modifiers != null && !modifiers.isEmpty()) {
+				for (String modifier : modifiers) {
+					if (modifier == null || modifier.isBlank()) {
+						continue;
+					}
+					out.add(StructuralElement.ability(modifier, stepIndex));
+					out.add(StructuralElement.operator(TooltipGrammar.AND, stepIndex));
+				}
+			}
 			String token = AbilityToken.format(alt.getToken(), alt.getInstanceLabel());
 			if (token != null) {
 				out.add(StructuralElement.ability(token, stepIndex));

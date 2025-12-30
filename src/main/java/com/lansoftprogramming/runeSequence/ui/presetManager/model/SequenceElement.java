@@ -4,6 +4,8 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOv
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityToken;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 
+import java.util.List;
+
 /**
  * Represents a visual element in a sequence display.
  * Can be either an ability or a separator (arrow).
@@ -22,41 +24,51 @@ public class SequenceElement {
 	private final String value;
 	private final String instanceLabel;
 	private final AbilitySettingsOverrides abilitySettingsOverrides;
+	private final List<String> abilityModifiers;
 
 	private SequenceElement(Type type,
 	                        String value,
 	                        String instanceLabel,
-	                        AbilitySettingsOverrides abilitySettingsOverrides) {
+	                        AbilitySettingsOverrides abilitySettingsOverrides,
+	                        List<String> abilityModifiers) {
 		this.type = type;
 		this.value = value;
 		this.instanceLabel = instanceLabel;
 		this.abilitySettingsOverrides = abilitySettingsOverrides;
+		this.abilityModifiers = abilityModifiers != null ? List.copyOf(abilityModifiers) : List.of();
 	}
 
 	public static SequenceElement ability(String abilityKey) {
-		return new SequenceElement(Type.ABILITY, abilityKey, null, null);
+		return new SequenceElement(Type.ABILITY, abilityKey, null, null, List.of());
 	}
 
 	public static SequenceElement ability(String abilityKey,
 	                                      String instanceLabel,
 	                                      AbilitySettingsOverrides abilitySettingsOverrides) {
-		return new SequenceElement(Type.ABILITY, abilityKey, instanceLabel, abilitySettingsOverrides);
+		return new SequenceElement(Type.ABILITY, abilityKey, instanceLabel, abilitySettingsOverrides, List.of());
+	}
+
+	public static SequenceElement ability(String abilityKey,
+	                                      String instanceLabel,
+	                                      AbilitySettingsOverrides abilitySettingsOverrides,
+	                                      List<String> abilityModifiers) {
+		return new SequenceElement(Type.ABILITY, abilityKey, instanceLabel, abilitySettingsOverrides, abilityModifiers);
 	}
 
 	public static SequenceElement arrow() {
-		return new SequenceElement(Type.ARROW, String.valueOf(TooltipGrammar.ARROW), null, null);
+		return new SequenceElement(Type.ARROW, String.valueOf(TooltipGrammar.ARROW), null, null, List.of());
 	}
 
 	public static SequenceElement plus() {
-		return new SequenceElement(Type.PLUS, String.valueOf(TooltipGrammar.AND), null, null);
+		return new SequenceElement(Type.PLUS, String.valueOf(TooltipGrammar.AND), null, null, List.of());
 	}
 
 	public static SequenceElement slash() {
-		return new SequenceElement(Type.SLASH, String.valueOf(TooltipGrammar.OR), null, null);
+		return new SequenceElement(Type.SLASH, String.valueOf(TooltipGrammar.OR), null, null, List.of());
 	}
 
 	public static SequenceElement tooltip(String message) {
-		return new SequenceElement(Type.TOOLTIP, message, null, null);
+		return new SequenceElement(Type.TOOLTIP, message, null, null, List.of());
 	}
 
 	public Type getType() {
@@ -77,6 +89,17 @@ public class SequenceElement {
 
 	public AbilitySettingsOverrides getAbilitySettingsOverrides() {
 		return abilitySettingsOverrides;
+	}
+
+	public List<String> getAbilityModifiers() {
+		if (!isAbility()) {
+			return List.of();
+		}
+		return abilityModifiers != null ? abilityModifiers : List.of();
+	}
+
+	public boolean hasAbilityModifiers() {
+		return isAbility() && abilityModifiers != null && !abilityModifiers.isEmpty();
 	}
 
 	/**
@@ -120,21 +143,46 @@ public class SequenceElement {
 		if (type != Type.ABILITY) {
 			return this;
 		}
-		return new SequenceElement(type, value, label, abilitySettingsOverrides);
+		return new SequenceElement(type, value, label, abilitySettingsOverrides, abilityModifiers);
 	}
 
 	public SequenceElement withOverrides(AbilitySettingsOverrides overrides) {
 		if (type != Type.ABILITY) {
 			return this;
 		}
-		return new SequenceElement(type, value, instanceLabel, overrides);
+		return new SequenceElement(type, value, instanceLabel, overrides, abilityModifiers);
+	}
+
+	public SequenceElement withAbilityModifiers(List<String> modifiers) {
+		if (type != Type.ABILITY) {
+			return this;
+		}
+		return new SequenceElement(type, value, instanceLabel, abilitySettingsOverrides, modifiers);
 	}
 
 	public String formatAbilityToken() {
 		if (type != Type.ABILITY) {
 			return value;
 		}
-		return AbilityToken.format(value, instanceLabel);
+		String base = AbilityToken.format(value, instanceLabel);
+		if (abilityModifiers == null || abilityModifiers.isEmpty()) {
+			return base;
+		}
+		StringBuilder sb = new StringBuilder();
+		for (String modifier : abilityModifiers) {
+			if (modifier == null || modifier.isBlank()) {
+				continue;
+			}
+			if (sb.length() > 0) {
+				sb.append(TooltipGrammar.AND);
+			}
+			sb.append(modifier);
+		}
+		if (sb.length() > 0) {
+			sb.append(TooltipGrammar.AND);
+		}
+		sb.append(base);
+		return sb.toString();
 	}
 
 	@Override
@@ -144,6 +192,7 @@ public class SequenceElement {
 					", abilityKey='" + value + '\'' +
 					", instanceLabel='" + instanceLabel + '\'' +
 					", overrides=" + abilitySettingsOverrides +
+					", modifiers=" + abilityModifiers +
 					'}';
 		}
 		return "SequenceElement{type=" + type + ", value='" + value + "'}";

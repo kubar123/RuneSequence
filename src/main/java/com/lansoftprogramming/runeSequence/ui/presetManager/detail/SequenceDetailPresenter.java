@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityConfig;
+import com.lansoftprogramming.runeSequence.core.sequence.modifier.AbilityModifierEngine;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
@@ -19,10 +20,12 @@ import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedTextBoxPanel;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedTextBoxes;
+import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import java.awt.*;
@@ -30,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailPresenter.class);
@@ -77,6 +81,7 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 		this.flowView.attachDragController(this);
 		this.flowView.setTooltipEditHandler(this::editTooltipAt);
 		this.flowView.setAbilityPropertiesHandler(this::openAbilityPropertiesAt);
+		this.flowView.setSpecModifierHandler(this::openSpecModifierAt);
 		this.loadedSequenceName = "";
 		this.loadedExpression = "";
 		this.loadedElements = new ArrayList<>();
@@ -602,6 +607,227 @@ class SequenceDetailPresenter implements AbilityDragController.DragCallback {
 			return inputField.getText();
 		}
 		return null;
+	}
+
+	private void openSpecModifierAt(int elementIndex) {
+		if (elementIndex < 0 || elementIndex >= currentElements.size()) {
+			return;
+		}
+		SequenceElement element = currentElements.get(elementIndex);
+		if (element == null || !element.isAbility()) {
+			return;
+		}
+
+		String abilityKey = element.getResolvedAbilityKey();
+		if (!"spec".equals(abilityKey) && !"eofspec".equals(abilityKey)) {
+			return;
+		}
+
+		List<SpecModifierOption> options = buildSpecModifierOptions(abilityKey);
+		if (options.isEmpty()) {
+			return;
+		}
+
+		SpecModifierOption preselected = resolvePreselectedOption(element, options);
+
+		DefaultListModel<SpecModifierOption> model = new DefaultListModel<>();
+		for (SpecModifierOption option : options) {
+			model.addElement(option);
+		}
+
+		JList<SpecModifierOption> list = new JList<>(model);
+		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		list.setVisibleRowCount(Math.min(8, options.size()));
+		list.setCellRenderer(new SpecModifierOptionRenderer(detailService));
+		list.setBackground(UiColorPalette.UI_CARD_BACKGROUND);
+		list.setForeground(UiColorPalette.UI_TEXT_COLOR);
+		list.setSelectionBackground(UiColorPalette.SELECTION_ACTIVE_FILL);
+		list.setSelectionForeground(UiColorPalette.computeReadableForeground(UiColorPalette.SELECTION_ACTIVE_FILL));
+
+		if (preselected != null) {
+			list.setSelectedValue(preselected, true);
+		} else {
+			list.setSelectedIndex(0);
+		}
+
+		JScrollPane scrollPane = new JScrollPane(list);
+		scrollPane.setBorder(UiColorPalette.CARD_BORDER);
+		scrollPane.setOpaque(false);
+		scrollPane.getViewport().setOpaque(false);
+		scrollPane.setPreferredSize(new Dimension(420, 220));
+
+		JLabel hint = new JLabel("Select a special attack to apply to this " + abilityKey + " token.");
+		hint.setForeground(UiColorPalette.DIALOG_MESSAGE_TEXT);
+		hint.setAlignmentX(Component.CENTER_ALIGNMENT);
+		hint.setHorizontalAlignment(SwingConstants.CENTER);
+
+		JPanel content = new JPanel();
+		content.setOpaque(false);
+		content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+		content.add(hint);
+		content.add(Box.createVerticalStrut(12));
+		content.add(scrollPane);
+		content.setBorder(new EmptyBorder(0, 0, 0, 0));
+
+		AtomicReference<SpecModifierOption> chosen = new AtomicReference<>(null);
+		list.addMouseListener(new java.awt.event.MouseAdapter() {
+			@Override
+			public void mouseClicked(java.awt.event.MouseEvent e) {
+				if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+					SpecModifierOption selected = list.getSelectedValue();
+					if (selected != null) {
+						chosen.set(selected);
+						Window window = SwingUtilities.getWindowAncestor(list);
+						if (window != null) {
+							window.dispose();
+						}
+					}
+				}
+			}
+		});
+
+		ThemedDialogs.Result result = ThemedDialogs.showDialog(
+				view.asComponent(),
+				"Special Attack",
+				content,
+				new ThemedDialogs.DialogButton[]{
+						new ThemedDialogs.DialogButton("SET", ThemedDialogs.Result.OK),
+						new ThemedDialogs.DialogButton("CANCEL", ThemedDialogs.Result.CANCEL)
+				}
+		);
+
+		SpecModifierOption selected = chosen.get();
+		if (selected == null && result == ThemedDialogs.Result.OK) {
+			selected = list.getSelectedValue();
+		}
+		if (selected == null) {
+			return;
+		}
+
+		List<String> modifiers = selected.canonicalModifierKey() != null
+				? List.of(selected.canonicalModifierKey())
+				: List.of();
+
+		List<SequenceElement> updated = new ArrayList<>(currentElements);
+		updated.set(elementIndex, element.withAbilityModifiers(modifiers));
+
+		currentElements = overridesService.normalizeAbilityElements(updated);
+		previewElements = new ArrayList<>(currentElements);
+		updateExpression();
+		refreshFlowView();
+	}
+
+	private SpecModifierOption resolvePreselectedOption(SequenceElement element, List<SpecModifierOption> options) {
+		if (element == null || options == null || options.isEmpty() || !element.hasAbilityModifiers()) {
+			return null;
+		}
+		String current = element.getAbilityModifiers().get(0);
+		if (current == null || current.isBlank()) {
+			return null;
+		}
+		String normalized = current.trim().toLowerCase();
+		for (SpecModifierOption option : options) {
+			if (option != null && normalized.equals(option.canonicalModifierKey())) {
+				return option;
+			}
+		}
+		return null;
+	}
+
+	private List<SpecModifierOption> buildSpecModifierOptions(String abilityKey) {
+		List<SpecModifierOption> out = new ArrayList<>();
+		out.add(new SpecModifierOption(null, "None", "No special attack modifier"));
+
+		for (AbilityModifierEngine.ModifierDefinition definition : AbilityModifierEngine.listDefinitionsForTarget(abilityKey)) {
+			if (definition == null) {
+				continue;
+			}
+			String summary = describeSpecModifier(definition);
+			out.add(new SpecModifierOption(definition.canonicalKey(), definition.canonicalKey(), summary));
+		}
+
+		return List.copyOf(out);
+	}
+
+	private String describeSpecModifier(AbilityModifierEngine.ModifierDefinition definition) {
+		if (definition == null || definition.overrides() == null || definition.overrides().isEmpty()) {
+			return "No changes";
+		}
+
+		List<String> parts = new ArrayList<>();
+		definition.overrides().getTriggersGcdOverride().ifPresent(triggers -> parts.add("GCD " + (triggers ? "on" : "off")));
+		definition.overrides().getCastDurationOverride().ifPresent(ticks -> {
+			if (ticks != null && ticks > 0) {
+				parts.add("Channeled " + ticks + " ticks");
+			}
+		});
+		definition.overrides().getCooldownOverride().ifPresent(ticks -> {
+			if (ticks != null && ticks > 0) {
+				parts.add("Cooldown " + ticks + " ticks");
+			}
+		});
+
+		if (parts.isEmpty()) {
+			return "No changes";
+		}
+		return String.join(", ", parts);
+	}
+
+	private record SpecModifierOption(String canonicalModifierKey, String displayName, String summary) {
+	}
+
+	private static final class SpecModifierOptionRenderer extends DefaultListCellRenderer {
+		private final SequenceDetailService detailService;
+		private final java.util.Map<String, ImageIcon> scaledIconCache;
+
+		private SpecModifierOptionRenderer(SequenceDetailService detailService) {
+			this.detailService = detailService;
+			this.scaledIconCache = new java.util.HashMap<>();
+		}
+
+		@Override
+		public Component getListCellRendererComponent(JList<?> list,
+		                                              Object value,
+		                                              int index,
+		                                              boolean isSelected,
+		                                              boolean cellHasFocus) {
+			JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+			if (value instanceof SpecModifierOption option) {
+				label.setText(option.displayName() + " \u2014 " + option.summary());
+				label.setIcon(resolveIcon(option.canonicalModifierKey()));
+			} else {
+				label.setIcon(null);
+			}
+
+			label.setBorder(new EmptyBorder(6, 8, 6, 8));
+			return label;
+		}
+
+		private ImageIcon resolveIcon(String canonicalModifierKey) {
+			if (canonicalModifierKey == null || canonicalModifierKey.isBlank() || detailService == null) {
+				return null;
+			}
+			String normalized = canonicalModifierKey.trim().toLowerCase();
+			if (scaledIconCache.containsKey(normalized)) {
+				return scaledIconCache.get(normalized);
+			}
+			ImageIcon icon = detailService.loadIcon(normalized);
+			ImageIcon scaled = scaleIcon(icon, 18);
+			scaledIconCache.put(normalized, scaled);
+			return scaled;
+		}
+
+		private ImageIcon scaleIcon(ImageIcon icon, int size) {
+			if (icon == null || icon.getIconWidth() <= 0 || icon.getIconHeight() <= 0) {
+				return null;
+			}
+			Image image = icon.getImage();
+			if (image == null) {
+				return null;
+			}
+			return new ImageIcon(image.getScaledInstance(size, size, Image.SCALE_SMOOTH));
+		}
 	}
 
 	private void openAbilityPropertiesAt(int elementIndex) {

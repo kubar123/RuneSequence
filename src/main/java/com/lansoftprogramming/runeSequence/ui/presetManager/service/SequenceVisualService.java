@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
 import com.lansoftprogramming.runeSequence.core.sequence.model.*;
+import com.lansoftprogramming.runeSequence.core.sequence.modifier.AbilityModifierEngine;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipMarkupParser;
@@ -75,16 +76,18 @@ public class SequenceVisualService {
 
 			// Convert AST to visual elements
 			List<SequenceElement> baseElements = convertDefinitionToElements(definition, effectiveOverridesByLabel);
-			return tooltipMarkupParser.insertTooltips(
+			List<SequenceElement> withTooltips = tooltipMarkupParser.insertTooltips(
 					baseElements,
 					parseResult.tooltipPlacements(),
 					SequenceElement::tooltip
 			);
+			return collapseAbilityModifiers(withTooltips);
 		} catch (Exception e) {
 			logger.error("Failed to parse expression with tooltip handling: {}", expression, e);
 			try {
 				SequenceDefinition fallbackDefinition = SequenceParser.parse(expression, overridesByLabel, null);
-				return convertDefinitionToElements(fallbackDefinition, collectOverridesByLabel(fallbackDefinition));
+				List<SequenceElement> fallbackElements = convertDefinitionToElements(fallbackDefinition, collectOverridesByLabel(fallbackDefinition));
+				return collapseAbilityModifiers(fallbackElements);
 			} catch (Exception fallback) {
 				logger.error("Fallback parse without tooltip stripping also failed for expression: {}", expression, fallback);
 			}
@@ -199,5 +202,97 @@ public class SequenceVisualService {
 				.map(SequenceElement::getAbilityKey)
 				.filter(java.util.Objects::nonNull)
 				.toList();
+	}
+
+	private List<SequenceElement> collapseAbilityModifiers(List<SequenceElement> elements) {
+		if (elements == null || elements.isEmpty()) {
+			return elements != null ? elements : List.of();
+		}
+
+		List<SequenceElement> out = new ArrayList<>(elements.size());
+		int index = 0;
+		while (index < elements.size()) {
+			CollapseResult collapsed = tryCollapseModifierChain(elements, index);
+			if (collapsed != null) {
+				out.add(collapsed.element());
+				index = collapsed.nextIndex();
+				continue;
+			}
+			out.add(elements.get(index));
+			index++;
+		}
+
+		return List.copyOf(out);
+	}
+
+	private CollapseResult tryCollapseModifierChain(List<SequenceElement> elements, int startIndex) {
+		if (elements == null || startIndex < 0 || startIndex >= elements.size()) {
+			return null;
+		}
+
+		SequenceElement first = elements.get(startIndex);
+		if (first == null || !first.isAbility()) {
+			return null;
+		}
+		if (AbilityModifierEngine.resolve(first.getAbilityKey()) == null) {
+			return null;
+		}
+
+		List<String> modifiers = new ArrayList<>();
+		int cursor = startIndex;
+
+		while (true) {
+			if (cursor >= elements.size()) {
+				return null;
+			}
+
+			SequenceElement modifierElement = elements.get(cursor);
+			if (modifierElement == null || !modifierElement.isAbility()) {
+				return null;
+			}
+			AbilityModifierEngine.ModifierDefinition definition = AbilityModifierEngine.resolve(modifierElement.getAbilityKey());
+			if (definition == null) {
+				return null;
+			}
+			modifiers.add(definition.canonicalKey());
+
+			int plusIndex = cursor + 1;
+			int nextAbilityIndex = cursor + 2;
+			if (nextAbilityIndex >= elements.size()) {
+				return null;
+			}
+
+			SequenceElement plus = elements.get(plusIndex);
+			SequenceElement next = elements.get(nextAbilityIndex);
+
+			if (plus == null || !plus.isPlus() || next == null || !next.isAbility()) {
+				return null;
+			}
+
+			if (AbilityModifierEngine.resolve(next.getAbilityKey()) != null) {
+				cursor = nextAbilityIndex;
+				continue;
+			}
+
+			String targetKey = next.getResolvedAbilityKey();
+			if (targetKey == null || targetKey.isBlank()) {
+				return null;
+			}
+			String normalizedTarget = targetKey.trim().toLowerCase();
+			for (String modifierKey : modifiers) {
+				AbilityModifierEngine.ModifierDefinition modDef = AbilityModifierEngine.resolve(modifierKey);
+				if (modDef == null || !modDef.targets().contains(normalizedTarget)) {
+					return null;
+				}
+			}
+
+			List<String> combined = new ArrayList<>(next.getAbilityModifiers());
+			combined.addAll(modifiers);
+
+			return new CollapseResult(next.withAbilityModifiers(combined), nextAbilityIndex + 1);
+		}
+	}
+
+	private record CollapseResult(SequenceElement element, int nextIndex) {
 	}
 }

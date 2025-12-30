@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.core.sequence.model;
 
 import com.lansoftprogramming.runeSequence.core.detection.DetectionResult;
+import com.lansoftprogramming.runeSequence.core.sequence.modifier.AbilityModifierEngine;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +50,7 @@ public class Step {
 				String abilityKey = AbilityToken.baseAbilityKey(tokenName);
 				AbilityConfig.AbilityData data = abilityCfg.getAbility(abilityKey);
 			if (data != null) {
-				AbilitySettingsOverrides overrides = alt.getAbilitySettingsOverrides();
+				AbilitySettingsOverrides overrides = AbilityModifierEngine.effectiveOverrides(alt);
 				out.add(EffectiveAbilityConfig.from(abilityKey, data, overrides));
 				logger.trace("Added token '{}'", abilityKey);
 			} else {

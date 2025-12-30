@@ -26,6 +26,7 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 	private AbilityCardFactory cardFactory;
 	private TooltipEditHandler tooltipEditHandler;
 	private IntConsumer abilityPropertiesHandler;
+	private IntConsumer specModifierHandler;
 	private final Color defaultBackground;
 	private final Border defaultBorder;
 	private final JPanel emptyDropIndicator;
@@ -64,6 +65,10 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 
 	void setAbilityPropertiesHandler(IntConsumer handler) {
 		this.abilityPropertiesHandler = handler;
+	}
+
+	void setSpecModifierHandler(IntConsumer handler) {
+		this.specModifierHandler = handler;
 	}
 
 	void renderSequenceElements(List<SequenceElement> elements) {
@@ -261,7 +266,13 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 		String abilityKey = element.getResolvedAbilityKey();
 		AbilityItem item = detailService.createAbilityItem(abilityKey);
 		if (item != null) {
-			JPanel card = cardFactory.createAbilityCard(item, isElementModified(element));
+			List<ImageIcon> overlays = element.hasAbilityModifiers()
+					? element.getAbilityModifiers().stream()
+					.filter(key -> key != null && !key.isBlank())
+					.map(detailService::loadIcon)
+					.toList()
+					: List.of();
+			JPanel card = cardFactory.createAbilityCard(item, isElementModified(element), overlays);
 			card.putClientProperty("elementIndex", elementIndex);
 			card.putClientProperty("zoneType", zoneType);
 			attachAbilityPopup(card);
@@ -486,6 +497,17 @@ class AbilityFlowView extends HoverGlowContainerPanel {
 					JMenuItem properties = new JMenuItem("Properties\u2026");
 					properties.addActionListener(action -> abilityPropertiesHandler.accept(idx));
 					menu.add(properties);
+
+					SequenceElement element = idx >= 0 && idx < lastRenderedElements.size()
+							? lastRenderedElements.get(idx)
+							: null;
+					String key = element != null ? element.getResolvedAbilityKey() : null;
+					if (specModifierHandler != null && ("spec".equals(key) || "eofspec".equals(key))) {
+						menu.addSeparator();
+						JMenuItem special = new JMenuItem("Special Attack\u2026");
+						special.addActionListener(action -> specModifierHandler.accept(idx));
+						menu.add(special);
+					}
 					menu.show(e.getComponent(), e.getX(), e.getY());
 				}
 			}

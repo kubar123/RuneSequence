@@ -11,6 +11,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.image.BufferedImage;
+import java.util.List;
 
 class AbilityCardFactory {
 	private final AbilityDragController dragController;
@@ -26,6 +27,10 @@ class AbilityCardFactory {
 	}
 
 	JPanel createAbilityCard(AbilityItem item, boolean showModifiedIndicator) {
+		return createAbilityCard(item, showModifiedIndicator, List.of());
+	}
+
+	JPanel createAbilityCard(AbilityItem item, boolean showModifiedIndicator, List<ImageIcon> overlayIcons) {
 		JPanel card = new JPanel();
 		card.setName("abilityCard");
 		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
@@ -42,34 +47,49 @@ class AbilityCardFactory {
 		iconLabel.setPreferredSize(new Dimension(50, 50));
 		iconLabel.setMaximumSize(new Dimension(50, 50));
 
-		if (showModifiedIndicator && !(item instanceof TooltipItem)) {
-			JLabel indicator = new JLabel("*");
-			indicator.setFont(indicator.getFont().deriveFont(Font.BOLD, 13f));
-			indicator.setForeground(UiColorPalette.TEXT_INVERSE);
-			indicator.setToolTipText("Modified");
-
-			JPanel badge = new JPanel(new GridBagLayout()) {
-				@Override
-				protected void paintComponent(Graphics g) {
-					Graphics2D g2d = (Graphics2D) g.create();
-					g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-					g2d.setColor(UiColorPalette.TEXT_DANGER);
-					g2d.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
-					g2d.dispose();
-					super.paintComponent(g);
-				}
-			};
-			badge.setOpaque(false);
-			badge.setToolTipText("Modified");
-			badge.setPreferredSize(new Dimension(14, 14));
-			badge.setMinimumSize(new Dimension(14, 14));
-			badge.setMaximumSize(new Dimension(14, 14));
-			badge.add(indicator);
-
+		boolean hasOverlayIcons = overlayIcons != null && !overlayIcons.isEmpty();
+		boolean showCornerStrip = (showModifiedIndicator && !(item instanceof TooltipItem)) || hasOverlayIcons;
+		if (showCornerStrip) {
 			JPanel indicatorWrap = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
 			indicatorWrap.setOpaque(false);
 			indicatorWrap.setBorder(new EmptyBorder(2, 0, 0, 2));
-			indicatorWrap.add(badge);
+
+			if (showModifiedIndicator && !(item instanceof TooltipItem)) {
+				JLabel indicator = new JLabel("*");
+				indicator.setFont(indicator.getFont().deriveFont(Font.BOLD, 13f));
+				indicator.setForeground(UiColorPalette.TEXT_INVERSE);
+				indicator.setToolTipText("Modified");
+
+				JPanel badge = new JPanel(new GridBagLayout()) {
+					@Override
+					protected void paintComponent(Graphics g) {
+						Graphics2D g2d = (Graphics2D) g.create();
+						g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+						g2d.setColor(UiColorPalette.TEXT_DANGER);
+						g2d.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
+						g2d.dispose();
+						super.paintComponent(g);
+					}
+				};
+				badge.setOpaque(false);
+				badge.setToolTipText("Modified");
+				badge.setPreferredSize(new Dimension(14, 14));
+				badge.setMinimumSize(new Dimension(14, 14));
+				badge.setMaximumSize(new Dimension(14, 14));
+				badge.add(indicator);
+
+				indicatorWrap.add(badge);
+			}
+
+			if (hasOverlayIcons) {
+				for (ImageIcon overlay : overlayIcons) {
+					JLabel overlayLabel = createCornerIconLabel(overlay);
+					if (overlayLabel != null) {
+						indicatorWrap.add(overlayLabel);
+					}
+				}
+			}
+
 			iconLabel.add(indicatorWrap, BorderLayout.NORTH);
 		}
 
@@ -164,6 +184,24 @@ class AbilityCardFactory {
 		g2d.drawString(text, x, y);
 		g2d.dispose();
 		return new ImageIcon(image);
+	}
+
+	private JLabel createCornerIconLabel(ImageIcon icon) {
+		if (icon == null) {
+			return null;
+		}
+		int size = 16;
+		Image image = icon.getImage();
+		if (image == null) {
+			return null;
+		}
+		Image scaled = image.getScaledInstance(size, size, Image.SCALE_SMOOTH);
+		JLabel label = new JLabel(new ImageIcon(scaled));
+		label.setOpaque(false);
+		label.setPreferredSize(new Dimension(size, size));
+		label.setMinimumSize(new Dimension(size, size));
+		label.setMaximumSize(new Dimension(size, size));
+		return label;
 	}
 
 	private String escapeHtml(String text) {
