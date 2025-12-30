@@ -3,9 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.detail;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetAbilitySettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.dto.PresetRotationDefaults;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -44,8 +42,11 @@ public class RotationSettingsDialog extends JDialog {
 	}
 
 	private void initLayout(String rotationName) {
-		JPanel content = new JPanel();
-		content.setLayout(new BorderLayout(10, 10));
+		ThemedPanel root = new ThemedPanel(PanelStyle.DIALOG, new BorderLayout());
+		ThemedWindowDecorations.applyTitleBar(this);
+
+		JPanel content = new JPanel(new BorderLayout(10, 10));
+		content.setOpaque(false);
 		content.setBorder(new EmptyBorder(12, 12, 12, 12));
 
 		JLabel scopeLabel = new JLabel("These settings apply as defaults to all abilities in this rotation.");
@@ -55,7 +56,7 @@ public class RotationSettingsDialog extends JDialog {
 		JPanel formPanel = new JPanel();
 		formPanel.setLayout(new GridBagLayout());
 		formPanel.setBorder(UiColorPalette.CARD_BORDER);
-		formPanel.setBackground(UIManager.getColor("Panel.background"));
+		formPanel.setOpaque(false);
 
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.gridx = 0;
@@ -72,6 +73,7 @@ public class RotationSettingsDialog extends JDialog {
 		content.add(formPanel, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+		buttonPanel.setOpaque(false);
 		JButton resetButton = new JButton("Reset to Global Defaults");
 		JButton cancelButton = new JButton("Cancel");
 		JButton okButton = new JButton("OK");
@@ -91,7 +93,8 @@ public class RotationSettingsDialog extends JDialog {
 		buttonPanel.add(okButton);
 
 		content.add(buttonPanel, BorderLayout.SOUTH);
-		setContentPane(content);
+		root.add(content, BorderLayout.CENTER);
+		setContentPane(root);
 
 		attachOverrideHandlers(ezkOverrideCheckbox, ezkEnabledCheckbox);
 		attachOverrideHandlers(alwaysGBargeOverrideCheckbox, alwaysGBargeEnabledCheckbox);

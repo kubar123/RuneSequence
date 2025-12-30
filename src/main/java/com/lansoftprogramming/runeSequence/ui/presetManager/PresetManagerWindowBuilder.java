@@ -61,7 +61,7 @@ public class PresetManagerWindowBuilder {
 			logger.error("Failed to build PresetManagerWindow", e);
 			ThemedDialogs.showMessageDialog(
 					null,
-					"Preset Manager Error",
+					"RuneSequence - Preset Manager",
 					"Failed to open Preset Manager: " + e.getMessage()
 			);
 			return null;

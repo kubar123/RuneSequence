@@ -10,6 +10,8 @@ import com.lansoftprogramming.runeSequence.ui.theme.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
 class AbilityPropertiesDialog extends JDialog {
 
@@ -71,6 +73,7 @@ class AbilityPropertiesDialog extends JDialog {
 	private final EffectiveAbilityConfig baseAbility;
 	private final AbilitySettingsOverrides rotationWideOverrides;
 	private final MaskValidator maskValidator;
+	private final Map<JComponent, Color> defaultBackgrounds = new IdentityHashMap<>();
 
 	AbilityPropertiesDialog(Window owner,
 	                        AbilityItem item,
@@ -112,6 +115,11 @@ class AbilityPropertiesDialog extends JDialog {
 		validationLabel = new JLabel();
 		validationLabel.setForeground(UiColorPalette.TEXT_DANGER);
 
+		rememberDefaultBackground(castDurationValue);
+		rememberDefaultBackground(cooldownValue);
+		rememberDefaultBackground(thresholdValue);
+		rememberDefaultBackground(maskValue);
+
 		initLayout(item);
 		loadFromOverrides(currentOverrides);
 		pack();
@@ -129,7 +137,11 @@ class AbilityPropertiesDialog extends JDialog {
 	}
 
 	private void initLayout(AbilityItem item) {
+		ThemedPanel root = new ThemedPanel(PanelStyle.DIALOG, new BorderLayout());
+		ThemedWindowDecorations.applyTitleBar(this);
+
 		JPanel content = new JPanel(new BorderLayout(10, 10));
+		content.setOpaque(false);
 		content.setBorder(new EmptyBorder(12, 12, 12, 12));
 
 		JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
@@ -148,7 +160,7 @@ class AbilityPropertiesDialog extends JDialog {
 
 		JPanel formPanel = new JPanel(new GridBagLayout());
 		formPanel.setBorder(UiColorPalette.CARD_BORDER);
-		formPanel.setBackground(UIManager.getColor("Panel.background"));
+		formPanel.setOpaque(false);
 
 		GridBagConstraints headerGbc = new GridBagConstraints();
 		headerGbc.gridx = 0;
@@ -191,6 +203,7 @@ class AbilityPropertiesDialog extends JDialog {
 		content.add(formPanel, BorderLayout.CENTER);
 
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+		buttonPanel.setOpaque(false);
 		JButton resetAllButton = new JButton("Reset All Overrides");
 		JButton cancelButton = new JButton("Cancel");
 		JButton okButton = new JButton("OK");
@@ -214,7 +227,8 @@ class AbilityPropertiesDialog extends JDialog {
 		south.add(validationLabel);
 		south.add(buttonPanel);
 		content.add(south, BorderLayout.SOUTH);
-		setContentPane(content);
+		root.add(content, BorderLayout.CENTER);
+		setContentPane(root);
 
 		attachOverrideHandler(triggersGcdOverride, triggersGcdValue);
 		attachOverrideHandler(castDurationOverride, castDurationValue);
@@ -336,7 +350,10 @@ class AbilityPropertiesDialog extends JDialog {
 			return;
 		}
 		component.setToolTipText(null);
-		component.setBackground(UIManager.getColor("TextField.background"));
+		restoreDefaultBackground(component);
+		if (component instanceof JTextField field) {
+			field.setOpaque(false);
+		}
 	}
 
 	private void setValidationError(String message, JComponent component) {
@@ -345,6 +362,9 @@ class AbilityPropertiesDialog extends JDialog {
 		if (component != null) {
 			component.setToolTipText(message);
 			component.setBackground(UiColorPalette.INPUT_INVALID_BACKGROUND);
+			if (component instanceof JTextField field) {
+				field.setOpaque(true);
+			}
 			component.requestFocusInWindow();
 		}
 		Toolkit.getDefaultToolkit().beep();
@@ -361,6 +381,23 @@ class AbilityPropertiesDialog extends JDialog {
 	private void clearValidationMessage() {
 		validationLabel.setText("");
 		validationLabel.setToolTipText(null);
+	}
+
+	private void rememberDefaultBackground(JComponent component) {
+		if (component == null) {
+			return;
+		}
+		defaultBackgrounds.putIfAbsent(component, component.getBackground());
+	}
+
+	private void restoreDefaultBackground(JComponent component) {
+		if (component == null) {
+			return;
+		}
+		Color background = defaultBackgrounds.get(component);
+		if (background != null) {
+			component.setBackground(background);
+		}
 	}
 
 	private void loadFromOverrides(AbilitySettingsOverrides overrides) {

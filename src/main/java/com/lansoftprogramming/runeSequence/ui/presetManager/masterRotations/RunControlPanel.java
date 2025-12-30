@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations;
 
+import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -19,14 +21,6 @@ class RunControlPanel extends JPanel {
 	private final JLabel statusLabel;
 	private final JPanel operationalHeader;
 
-	private final Color defaultStartBg;
-	private final Color defaultPauseBg;
-	private final Color highlightPauseBg;
-	private final Color defaultStartFg;
-	private final Color defaultPauseFg;
-	private final Color highlightText;
-	private final Color startedAccent;
-	private final Color armedAccent;
 	private final Color headerNeutralBg;
 	private final Color headerStartedBg;
 	private final Color headerArmedBg;
@@ -43,17 +37,16 @@ class RunControlPanel extends JPanel {
 		startButton = new JButton("Arm");
 		pauseButton = new JButton("Pause");
 		restartButton = new JButton("Restart");
+		ThemedButtons.apply(startButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(pauseButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(restartButton, ButtonStyle.DEFAULT);
+		startButton.setFocusable(false);
+		pauseButton.setFocusable(false);
+		restartButton.setFocusable(false);
+
 		statusLabel = new JLabel("Status: Ready");
 		operationalHeader = new JPanel(new BorderLayout(10, 0));
 
-		defaultStartBg = startButton.getBackground();
-		defaultPauseBg = pauseButton.getBackground();
-		defaultStartFg = startButton.getForeground();
-		defaultPauseFg = pauseButton.getForeground();
-		highlightPauseBg = UiColorPalette.TOAST_WARNING_ACCENT;
-		highlightText = UiColorPalette.TEXT_INVERSE;
-		startedAccent = UiColorPalette.RUN_STATE_STARTED_ACCENT;
-		armedAccent = UiColorPalette.RUN_STATE_ARMED_ACCENT;
 		headerNeutralBg = UiColorPalette.RUN_HEADER_NEUTRAL_BACKGROUND;
 		headerStartedBg = UiColorPalette.RUN_HEADER_STARTED_BACKGROUND;
 		headerArmedBg = UiColorPalette.RUN_HEADER_ARMED_BACKGROUND;
@@ -103,7 +96,6 @@ class RunControlPanel extends JPanel {
 	void setPauseButtonState(boolean enabled, boolean highlighted) {
 		pauseHighlighted = highlighted;
 		pauseButton.setEnabled(enabled);
-		applyHighlight(pauseButton, highlighted, highlightPauseBg, defaultPauseBg, defaultPauseFg);
 		updateOperationalHeaderBackground();
 		repaint();
 	}
@@ -123,7 +115,6 @@ class RunControlPanel extends JPanel {
 		startButton.setText(label != null ? label : "");
 		startButton.setEnabled(enabled);
 		currentStartAccent = accent != null ? accent : SequenceRunPresenter.StartAccent.NEUTRAL;
-		applyAccent(startButton, currentStartAccent);
 		updateOperationalHeaderBackground();
 		repaint();
 	}
@@ -148,34 +139,6 @@ class RunControlPanel extends JPanel {
 		Color labelColor = computeReadableForeground(nextBackground);
 		if (labelColor != null) {
 			statusLabel.setForeground(labelColor);
-		}
-	}
-
-	private void applyAccent(JButton button, SequenceRunPresenter.StartAccent accent) {
-		if (accent == null || accent == SequenceRunPresenter.StartAccent.NEUTRAL) {
-			button.setOpaque(true);
-			button.setBackground(defaultStartBg);
-			button.setForeground(defaultStartFg);
-			return;
-		}
-
-		button.setOpaque(true);
-		button.setForeground(highlightText);
-		if (accent == SequenceRunPresenter.StartAccent.STARTED) {
-			button.setBackground(startedAccent);
-		} else {
-			button.setBackground(armedAccent);
-		}
-	}
-
-	private void applyHighlight(JButton button, boolean highlighted, Color highlightBg, Color defaultBg, Color defaultFg) {
-		button.setOpaque(true);
-		if (highlighted) {
-			button.setBackground(highlightBg);
-			button.setForeground(highlightText);
-		} else {
-			button.setBackground(defaultBg);
-			button.setForeground(defaultFg);
 		}
 	}
 

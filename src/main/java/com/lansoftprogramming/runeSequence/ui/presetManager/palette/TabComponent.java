@@ -194,24 +194,17 @@ final class TabComponent extends JComponent {
 	}
 
 	private Color resolveTextColor() {
-		Color uiColor = UIManager.getColor("Button.foreground");
+		Theme theme = ThemeManager.getTheme();
+		Color enabledColor = theme != null ? theme.getTextPrimaryColor() : UiColorPalette.UI_TEXT_COLOR;
+		Color disabledColor = theme != null ? theme.getTextMutedColor() : UiColorPalette.TEXT_MUTED;
 		if (!isEnabled()) {
-			Color disabled = UIManager.getColor("Button.disabledText");
-			if (disabled == null) {
-				disabled = UIManager.getColor("Label.disabledForeground");
+			Color foreground = getForeground();
+			if (foreground != null) {
+				return foreground.darker();
 			}
-			if (disabled != null) {
-				return disabled;
-			}
-			if (uiColor != null) {
-				return uiColor.darker();
-			}
-			return getForeground() != null ? getForeground().darker() : UiColorPalette.TEXT_MUTED;
+			return disabledColor;
 		}
-		if (uiColor != null) {
-			return uiColor;
-		}
-		return getForeground();
+		return getForeground() != null ? getForeground() : enabledColor;
 	}
 
 	private TabVisualState resolveState() {

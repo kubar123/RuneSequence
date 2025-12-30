@@ -140,6 +140,10 @@ public final class UiColorPalette {
 	// Fonts
 	public static final Font SYMBOL_LARGE = new Font(Font.SANS_SERIF, Font.BOLD, 18);
 
+	public static Font sans(int size) {
+		return new Font(Font.SANS_SERIF, Font.PLAIN, size);
+	}
+
 	public static Font boldSans(int size) {
 		return new Font(Font.SANS_SERIF, Font.BOLD, size);
 	}

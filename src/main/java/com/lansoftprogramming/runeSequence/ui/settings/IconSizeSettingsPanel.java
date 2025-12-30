@@ -3,17 +3,16 @@ package com.lansoftprogramming.runeSequence.ui.settings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ScalingConverter;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.IOException;
 import java.util.Arrays;
 
-public class IconSizeSettingsPanel extends JPanel {
+public class IconSizeSettingsPanel extends ThemedPanel {
 	private final ConfigManager configManager;
 	private final int[] supportedSizes;
 	private final JSpinner sizeSpinner;
@@ -25,14 +24,14 @@ public class IconSizeSettingsPanel extends JPanel {
 	private final JLabel statusLabel;
 
 	public IconSizeSettingsPanel(ConfigManager configManager) {
+		super(PanelStyle.TAB_CONTENT, new BorderLayout());
 		this.configManager = configManager;
 		this.supportedSizes = ScalingConverter.getAllSizes();
 		if (supportedSizes.length == 0) {
 			throw new IllegalStateException("No supported icon sizes configured.");
 		}
 
-		setLayout(new BorderLayout());
-		setBorder(new EmptyBorder(15, 15, 15, 15));
+		setBorder(new CompoundBorder(getBorder(), new EmptyBorder(15, 15, 15, 15)));
 
 		int currentSize = resolveNearestSize(getConfiguredIconSize());
 		sizeSpinner = new JSpinner(new SpinnerNumberModel(
@@ -44,9 +43,11 @@ public class IconSizeSettingsPanel extends JPanel {
 
 		blinkCurrentCheck = new JCheckBox("Blink current ability highlights on overlay");
 		blinkCurrentCheck.setSelected(resolveBlinkPreference());
+		blinkCurrentCheck.setOpaque(false);
 
 		abilityIndicatorEnabledCheck = new JCheckBox("Play ability indicator animation when NEXT becomes CURRENT");
 		abilityIndicatorEnabledCheck.setSelected(resolveAbilityIndicatorEnabledPreference());
+		abilityIndicatorEnabledCheck.setOpaque(false);
 
 		long loopMs = resolveAbilityIndicatorLoopMsPreference();
 		abilityIndicatorLoopMsSpinner = new JSpinner(new SpinnerNumberModel(
@@ -60,12 +61,15 @@ public class IconSizeSettingsPanel extends JPanel {
 
 		channeledWaitTooltipsCheck = new JCheckBox("Show \"wait\" tooltip at mouse while channeling");
 		channeledWaitTooltipsCheck.setSelected(resolveChanneledWaitTooltipsPreference());
+		channeledWaitTooltipsCheck.setOpaque(false);
 
 		autoSaveCheck = new JCheckBox("Auto-save rotations when switching presets");
 		autoSaveCheck.setSelected(resolveAutoSavePreference());
+		autoSaveCheck.setOpaque(false);
 
 		statusLabel = new JLabel(" ");
 		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
+		statusLabel.setOpaque(false);
 
 		add(createFormPanel(), BorderLayout.CENTER);
 		add(statusLabel, BorderLayout.SOUTH);
@@ -73,6 +77,7 @@ public class IconSizeSettingsPanel extends JPanel {
 
 	private JPanel createFormPanel() {
 		JPanel formPanel = new JPanel();
+		formPanel.setOpaque(false);
 		formPanel.setLayout(new GridBagLayout());
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.insets = new Insets(4, 4, 4, 4);

@@ -3,14 +3,12 @@ package com.lansoftprogramming.runeSequence.ui.regionSelector;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
-import com.lansoftprogramming.runeSequence.ui.theme.ButtonStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedButtons;
-import com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs;
-import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -47,15 +45,20 @@ public class RegionManagerWindow extends JFrame {
 
 		setAlwaysOnTop(true);
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		setLayout(new BorderLayout());
+		ThemedWindowDecorations.applyTitleBar(this);
 
-		JPanel topBar = new JPanel(new BorderLayout());
-		topBar.setBorder(new EmptyBorder(12, 12, 12, 12));
+		ThemedPanel root = new ThemedPanel(PanelStyle.DETAIL, new BorderLayout());
+		setContentPane(root);
+
+		ThemedPanel topBar = new ThemedPanel(PanelStyle.DETAIL_HEADER, new BorderLayout());
+		topBar.setBorder(new CompoundBorder(topBar.getBorder(), new EmptyBorder(8, 12, 8, 12)));
 		JLabel title = new JLabel("Capture Regions");
-		title.setForeground(UiColorPalette.UI_TEXT_COLOR);
+		Theme theme = ThemeManager.getTheme();
+		title.setForeground(theme != null ? theme.getTextPrimaryColor() : UiColorPalette.UI_TEXT_COLOR);
 		topBar.add(title, BorderLayout.WEST);
 
 		JPanel actions = new JPanel();
+		actions.setOpaque(false);
 		actions.setLayout(new BoxLayout(actions, BoxLayout.X_AXIS));
 		addButton = new JButton("+");
 		ThemedButtons.apply(addButton, ButtonStyle.DEFAULT);
@@ -70,15 +73,18 @@ public class RegionManagerWindow extends JFrame {
 		actions.add(removeButton);
 		topBar.add(actions, BorderLayout.EAST);
 
-		add(topBar, BorderLayout.NORTH);
+		root.add(topBar, BorderLayout.NORTH);
 
 		regionsListPanel = new JPanel();
+		regionsListPanel.setOpaque(false);
 		regionsListPanel.setLayout(new BoxLayout(regionsListPanel, BoxLayout.Y_AXIS));
 		regionsListPanel.setBorder(new EmptyBorder(12, 12, 12, 12));
 
 		JScrollPane scrollPane = new JScrollPane(regionsListPanel);
 		scrollPane.setBorder(BorderFactory.createEmptyBorder());
-		add(scrollPane, BorderLayout.CENTER);
+		scrollPane.setOpaque(false);
+		scrollPane.getViewport().setOpaque(false);
+		root.add(scrollPane, BorderLayout.CENTER);
 
 		loadFromSettings();
 		rebuildRegionPanels();

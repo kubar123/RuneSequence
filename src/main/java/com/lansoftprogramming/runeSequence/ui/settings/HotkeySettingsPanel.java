@@ -5,6 +5,7 @@ import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
+import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.InputEvent;
@@ -19,12 +20,11 @@ import java.util.stream.Collectors;
  * Allows users to view the default hotkey bindings and provide custom bindings that
  * are persisted to {@link AppSettings.HotkeySettings}.
  */
-public class HotkeySettingsPanel extends JPanel {
+public class HotkeySettingsPanel extends ThemedPanel {
 
 	private final ConfigManager configManager;
 	private final List<Row> rows = new ArrayList<>();
 	private final JLabel statusLabel = new JLabel(" ");
-	private final Color defaultFieldBackground;
 	private final KeyCapturePopup keyCapturePopup = new KeyCapturePopup();
 
 	private static final Map<String, String> ACTION_LABELS = buildActionLabels();
@@ -38,11 +38,9 @@ public class HotkeySettingsPanel extends JPanel {
 			KeyEvent.VK_ALT_GRAPH);
 
 	public HotkeySettingsPanel(ConfigManager configManager) {
+		super(PanelStyle.TAB_CONTENT, new BorderLayout());
 		this.configManager = Objects.requireNonNull(configManager, "configManager");
-		Color uiColor = UIManager.getColor("TextField.background");
-		this.defaultFieldBackground = uiColor != null ? uiColor : UiColorPalette.BASE_WHITE;
-		setLayout(new BorderLayout());
-		setBorder(new EmptyBorder(15, 15, 15, 15));
+		setBorder(new CompoundBorder(getBorder(), new EmptyBorder(15, 15, 15, 15)));
 
 		add(buildScrollableForm(), BorderLayout.CENTER);
 		add(buildFooter(), BorderLayout.SOUTH);
@@ -50,6 +48,7 @@ public class HotkeySettingsPanel extends JPanel {
 
 	private JScrollPane buildScrollableForm() {
 		JPanel formPanel = new JPanel(new GridBagLayout());
+		formPanel.setOpaque(false);
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.insets = new Insets(4, 4, 4, 4);
 		gbc.gridy = 0;
@@ -115,18 +114,23 @@ public class HotkeySettingsPanel extends JPanel {
 
 		JScrollPane scrollPane = new JScrollPane(formPanel);
 		scrollPane.setBorder(BorderFactory.createEmptyBorder());
+		scrollPane.setOpaque(false);
+		scrollPane.getViewport().setOpaque(false);
 		return scrollPane;
 	}
 
 	private JPanel buildFooter() {
 		JPanel footer = new JPanel(new BorderLayout());
+		footer.setOpaque(false);
 		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
+		statusLabel.setOpaque(false);
 		footer.add(statusLabel, BorderLayout.CENTER);
 
 		JButton saveButton = new JButton("Save hotkeys");
 		ThemedButtons.apply(saveButton, ButtonStyle.DEFAULT);
 		saveButton.addActionListener(e -> handleSave());
 		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+		buttonPanel.setOpaque(false);
 		buttonPanel.add(saveButton);
 		footer.add(buttonPanel, BorderLayout.EAST);
 		return footer;
@@ -287,7 +291,7 @@ public class HotkeySettingsPanel extends JPanel {
 	}
 
 	private void markFieldValidity(JTextField field, boolean valid) {
-		field.setBackground(valid ? defaultFieldBackground : INVALID_FIELD_BACKGROUND);
+		field.setBackground(valid ? UiColorPalette.TRANSPARENT : INVALID_FIELD_BACKGROUND);
 		field.setOpaque(!valid);
 	}
 
@@ -323,6 +327,7 @@ public class HotkeySettingsPanel extends JPanel {
 
 		private CustomBindingEditor(AppSettings.HotkeySettings.Binding binding) {
 			super(new BorderLayout(4, 0));
+			setOpaque(false);
 			this.field = new JTextField(formatBinding(binding.getUser()));
 			this.field.setColumns(20);
 			this.field.setEditable(false);
@@ -381,7 +386,8 @@ public class HotkeySettingsPanel extends JPanel {
 				setVisible(false);
 			}
 			this.completion = onComplete;
-			infoLabel.setForeground(UIManager.getColor("Label.foreground"));
+			Theme theme = ThemeManager.getTheme();
+			infoLabel.setForeground(theme != null ? theme.getTextPrimaryColor() : UiColorPalette.UI_TEXT_COLOR);
 			infoLabel.setText("Press a key combination (ESC to cancel).");
 			show(invoker, 0, invoker.getHeight());
 			KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(this);

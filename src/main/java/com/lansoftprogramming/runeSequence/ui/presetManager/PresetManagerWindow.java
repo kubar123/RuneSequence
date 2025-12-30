@@ -1,6 +1,5 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager;
 
-import com.formdev.flatlaf.FlatLaf;
 import com.lansoftprogramming.runeSequence.Main;
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder;
@@ -25,9 +24,9 @@ import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
 import com.lansoftprogramming.runeSequence.ui.theme.PanelStyle;
-import com.lansoftprogramming.runeSequence.ui.theme.Theme;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemeManager;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedPanel;
+import com.lansoftprogramming.runeSequence.ui.theme.ThemedWindowDecorations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +38,10 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public class PresetManagerWindow extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(PresetManagerWindow.class);
@@ -172,7 +174,7 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void initializeFrame() {
-        setTitle("Preset Sequence Manager");
+        setTitle("RuneSequence - Preset Manager");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 750);
         setLocationRelativeTo(null);
@@ -201,30 +203,7 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void applyThemedTitleBar() {
-        if (!(UIManager.getLookAndFeel() instanceof FlatLaf)) {
-            return;
-        }
-
-        Theme theme = ThemeManager.getTheme();
-        if (theme == null) {
-            return;
-        }
-
-        JRootPane root = getRootPane();
-        if (root == null) {
-            return;
-        }
-
-        // Use property keys directly to stay compatible across FlatLaf versions.
-        String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        boolean isMac = osName.contains("mac");
-        if (!isMac) {
-            root.putClientProperty("JRootPane.useWindowDecorations", Boolean.TRUE);
-        }
-        root.putClientProperty("JRootPane.titleBarBackground", theme.getWindowTitleBarBackground());
-        root.putClientProperty("JRootPane.titleBarForeground", theme.getWindowTitleBarForeground());
-        root.putClientProperty("JRootPane.titleBarInactiveBackground", theme.getWindowTitleBarInactiveBackground());
-        root.putClientProperty("JRootPane.titleBarInactiveForeground", theme.getWindowTitleBarInactiveForeground());
+        ThemedWindowDecorations.applyTitleBar(this);
     }
 
     private void installThemeListener() {

@@ -66,9 +66,11 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		insertButton = createInsertButton();
 		tooltipButton = createTooltipButton();
 		settingsButton = new JButton("Settings");
-		ThemedButtons.apply(settingsButton, ButtonStyle.DEFAULT);
 		saveButton = new JButton("Save");
 		discardButton = new JButton("Discard");
+		ThemedButtons.apply(settingsButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(saveButton, ButtonStyle.DEFAULT);
+		ThemedButtons.apply(discardButton, ButtonStyle.DEFAULT);
 		abilityFlowView = new AbilityFlowView(detailService);
 		presenter = new SequenceDetailPresenter(detailService, overridesService, abilityFlowView, this, notifications);
 
@@ -164,27 +166,19 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	                                        ImageIcon icon,
 	                                        String fallbackSymbol,
 	                                        String text,
-	                                        String tooltip) {
+		String tooltip) {
+		Theme theme = ThemeManager.getTheme();
+		Color baseBackground = UiColorPalette.UI_CARD_BACKGROUND;
+		Color mutedBackground = baseBackground.darker();
+		Color baseForeground = theme != null ? theme.getTextPrimaryColor() : UiColorPalette.UI_TEXT_COLOR;
+		Color mutedForeground = theme != null ? theme.getTextMutedColor() : UiColorPalette.DIALOG_MESSAGE_TEXT;
+
 		JPanel panel = new JPanel();
 		panel.setName(name);
 		panel.setLayout(new BoxLayout(panel, BoxLayout.X_AXIS));
 
-		Color baseColor = UIManager.getColor("Button.background");
-		if (baseColor == null) {
-			baseColor = UiColorPalette.UI_CARD_DIMMED_BACKGROUND;
-		}
-		Color mutedColor = blend(baseColor, UiColorPalette.TEXT_MUTED, 0.12f);
-		Color hoverColor = baseColor;
-
-		Color baseForeground = UIManager.getColor("Label.foreground");
-		if (baseForeground == null) {
-			baseForeground = UiColorPalette.TEXT_PRIMARY;
-		}
-		Color finalBaseForeground = baseForeground;
-		Color mutedForeground = blend(baseForeground, UiColorPalette.TEXT_MUTED, 0.35f);
-
 		panel.setOpaque(true);
-		panel.setBackground(mutedColor);
+		panel.setBackground(mutedBackground);
 		panel.setBorder(UiColorPalette.paddedLineBorder(UiColorPalette.UI_CARD_BORDER_STRONG, 4));
 		panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
@@ -203,35 +197,21 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 			@Override
 			public void mouseEntered(MouseEvent e) {
 				panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-				panel.setBackground(hoverColor);
-				symbolLabel.setForeground(finalBaseForeground);
-				textLabel.setForeground(finalBaseForeground);
+				panel.setBackground(baseBackground);
+				symbolLabel.setForeground(baseForeground);
+				textLabel.setForeground(baseForeground);
 			}
 
 			@Override
 			public void mouseExited(MouseEvent e) {
 				panel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-				panel.setBackground(mutedColor);
+				panel.setBackground(mutedBackground);
 				symbolLabel.setForeground(mutedForeground);
 				textLabel.setForeground(mutedForeground);
 			}
 		});
 
 		return panel;
-	}
-
-	private static Color blend(Color a, Color b, float bWeight) {
-		if (a == null) {
-			return b;
-		}
-		if (b == null) {
-			return a;
-		}
-		float clamped = Math.max(0f, Math.min(1f, bWeight));
-		int r = Math.round((a.getRed() * (1f - clamped)) + (b.getRed() * clamped));
-		int g = Math.round((a.getGreen() * (1f - clamped)) + (b.getGreen() * clamped));
-		int bl = Math.round((a.getBlue() * (1f - clamped)) + (b.getBlue() * clamped));
-		return new Color(r, g, bl);
 	}
 
 	private void installTextCursorResolver() {
@@ -251,7 +231,6 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 
 	private void applyButtonStyles() {
 		applySettingsButtonStyle();
-		applySaveDiscardButtonStyles();
 	}
 
 	private JScrollPane createContentScrollPane() {
@@ -427,18 +406,6 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		if (base != null) {
 			settingsButton.setFont(base.deriveFont(Math.max(10f, base.getSize2D() - 2f)));
 		}
-	}
-
-	private void applySaveDiscardButtonStyles() {
-		saveButton.setBackground(UiColorPalette.TOAST_SUCCESS_ACCENT);
-		saveButton.setForeground(UiColorPalette.TEXT_INVERSE);
-		saveButton.setOpaque(true);
-		saveButton.setFocusPainted(false);
-
-		discardButton.setBackground(UiColorPalette.UI_CARD_DIMMED_BACKGROUND);
-		discardButton.setForeground(UiColorPalette.TEXT_PRIMARY);
-		discardButton.setOpaque(true);
-		discardButton.setFocusPainted(false);
 	}
 
 	private void startClipboardInsertDrag(MouseEvent triggerEvent) {

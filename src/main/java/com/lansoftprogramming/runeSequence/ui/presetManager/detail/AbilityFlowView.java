@@ -643,12 +643,9 @@ class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 				"and drop it here to build a sequence."
 		};
 
-		Font baseFont = UIManager.getFont("Label.font");
+		Font baseFont = getFont();
 		if (baseFont == null) {
-			baseFont = getFont();
-		}
-		if (baseFont == null) {
-			baseFont = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
+			baseFont = UiColorPalette.sans(12);
 		}
 
 		Font hintFont = baseFont.deriveFont(Font.ITALIC, Math.max(12f, baseFont.getSize2D()));

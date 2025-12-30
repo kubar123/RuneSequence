@@ -47,6 +47,7 @@ public final class ThemedDialogs {
 		Window owner = parent != null ? SwingUtilities.getWindowAncestor(parent) : null;
 		String dialogTitle = title != null ? title : "";
 		JDialog dialog = new JDialog(owner, dialogTitle, Dialog.ModalityType.APPLICATION_MODAL);
+		ThemedWindowDecorations.applyTitleBar(dialog);
 
 		ThemedPanel root = new ThemedPanel(PanelStyle.DIALOG, new BorderLayout());
 		root.setOpaque(false);

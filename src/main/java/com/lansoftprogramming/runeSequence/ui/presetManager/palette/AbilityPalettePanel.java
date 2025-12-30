@@ -121,7 +121,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 		add(contentPanel, BorderLayout.CENTER);
 
 		searchField = new JTextField();
-		searchField.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
+		searchField.setFont(UiColorPalette.sans(12));
 		searchField.setColumns(14);
 		TextCursorSupport.installTextCursor(searchField);
 		searchField.setToolTipText("Search abilities (fuzzy matching supported)...");
