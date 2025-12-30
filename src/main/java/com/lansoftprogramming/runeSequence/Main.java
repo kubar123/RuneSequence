@@ -7,6 +7,7 @@ import com.lansoftprogramming.runeSequence.core.detection.TemplateDetector;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.TooltipSchedule;
 import com.lansoftprogramming.runeSequence.infrastructure.capture.ScreenCapture;
+import com.lansoftprogramming.runeSequence.infrastructure.config.AbilitySettingsOverridesMapper;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
@@ -111,10 +112,15 @@ public class Main {
 			TooltipScheduleBuilder scheduleBuilder = new TooltipScheduleBuilder(
 					configManager.getAbilities().getAbilities().keySet()
 			);
+			AbilitySettingsOverridesMapper overridesMapper = new AbilitySettingsOverridesMapper();
 			Map<String, TooltipScheduleBuilder.BuildResult> buildResults = presets.entrySet().stream()
 					.collect(Collectors.toMap(
 							Map.Entry::getKey,
-							entry -> scheduleBuilder.build(entry.getValue().getExpression())
+							entry -> scheduleBuilder.build(
+									entry.getValue().getExpression(),
+									overridesMapper.toDomain(entry.getValue().getAbilitySettings()),
+									overridesMapper.toDomainPerAbility(entry.getValue().getAbilitySettings())
+							)
 					));
 
 			Map<String, SequenceDefinition> namedSequences = buildResults.entrySet().stream()

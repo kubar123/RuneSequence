@@ -26,11 +26,19 @@ public class SequenceParser {
 
 	private final List<Token> tokens;
 	private final Map<String, AbilitySettingsOverrides> overridesByLabel;
+	private final Map<String, AbilitySettingsOverrides> overridesByAbility;
 	private int pos = 0;
 
 	public SequenceParser(List<Token> tokens, Map<String, AbilitySettingsOverrides> overridesByLabel) {
+		this(tokens, overridesByLabel, null);
+	}
+
+	public SequenceParser(List<Token> tokens,
+	                      Map<String, AbilitySettingsOverrides> overridesByLabel,
+	                      Map<String, AbilitySettingsOverrides> overridesByAbility) {
 		this.tokens = tokens;
 		this.overridesByLabel = overridesByLabel != null ? overridesByLabel : Map.of();
+		this.overridesByAbility = overridesByAbility != null ? overridesByAbility : Map.of();
 	}
 
 	/**
@@ -40,13 +48,31 @@ public class SequenceParser {
 	 * @return The root of the AST.
 	 */
 	public static SequenceDefinition parse(String input) {
+		return parse(input, null, null);
+	}
+
+	/**
+	 * Parses a raw expression string into a {@link SequenceDefinition}, applying any per-instance and/or per-ability
+	 * settings overrides supplied by callers (e.g., preset ability properties).
+	 * <p>
+	 * If the input contains inline {@code #*N key=value} settings lines, those are parsed and merged with the provided
+	 * per-instance map, with the provided map taking precedence for overlapping fields.
+	 *
+	 * @param input              expression string (may contain tooltip markup and/or inline {@code #*} settings lines)
+	 * @param perInstanceOverrides optional label -> overrides map (may be null)
+	 * @param perAbilityOverrides  optional abilityKey -> overrides map (may be null)
+	 * @return the parsed AST
+	 */
+	public static SequenceDefinition parse(String input,
+	                                      Map<String, AbilitySettingsOverrides> perInstanceOverrides,
+	                                      Map<String, AbilitySettingsOverrides> perAbilityOverrides) {
 		RotationDslCodec.ParsedRotation parts = RotationDslCodec.parse(input);
 		String expression = parts.expression();
-		Map<String, AbilitySettingsOverrides> overridesByLabel = parts.perInstanceOverrides();
+		Map<String, AbilitySettingsOverrides> overridesByLabel = mergeOverridesMaps(parts.perInstanceOverrides(), perInstanceOverrides);
 
 		Tokenizer tokenizer = new Tokenizer();
 		List<Token> tokens = tokenizer.tokenize(expression);
-		SequenceParser parser = new SequenceParser(tokens, overridesByLabel);
+		SequenceParser parser = new SequenceParser(tokens, overridesByLabel, perAbilityOverrides);
 		SequenceDefinition definition = parser.parseExpression();
 		parser.ensureFullyConsumed();
 		return definition;
@@ -97,9 +123,11 @@ public class SequenceParser {
 			ParsedAbility parsed = parseAbilityToken(abilityToken.name());
 			validateAbilityName(parsed.abilityName());
 
-			AbilitySettingsOverrides overrides = parsed.instanceLabel() != null
+			AbilitySettingsOverrides perAbility = overridesByAbility.get(parsed.abilityName());
+			AbilitySettingsOverrides perInstance = parsed.instanceLabel() != null
 					? overridesByLabel.get(parsed.instanceLabel())
 					: null;
+			AbilitySettingsOverrides overrides = mergeOverrides(perAbility, perInstance);
 
 			return new Alternative(parsed.abilityName(), parsed.instanceLabel(), overrides);
 		}
@@ -187,5 +215,59 @@ public class SequenceParser {
 	}
 
 	private record ParsedAbility(String abilityName, String instanceLabel) {
+	}
+
+	private static Map<String, AbilitySettingsOverrides> mergeOverridesMaps(Map<String, AbilitySettingsOverrides> base,
+	                                                                       Map<String, AbilitySettingsOverrides> delta) {
+		if ((base == null || base.isEmpty()) && (delta == null || delta.isEmpty())) {
+			return Map.of();
+		}
+
+		Map<String, AbilitySettingsOverrides> merged = new java.util.LinkedHashMap<>();
+		if (base != null && !base.isEmpty()) {
+			for (Map.Entry<String, AbilitySettingsOverrides> entry : base.entrySet()) {
+				String label = entry.getKey();
+				AbilitySettingsOverrides overrides = entry.getValue();
+				if (label == null || label.isBlank() || overrides == null || overrides.isEmpty()) {
+					continue;
+				}
+				merged.put(label, overrides);
+			}
+		}
+
+		if (delta != null && !delta.isEmpty()) {
+			for (Map.Entry<String, AbilitySettingsOverrides> entry : delta.entrySet()) {
+				String label = entry.getKey();
+				AbilitySettingsOverrides overrides = entry.getValue();
+				if (label == null || label.isBlank() || overrides == null || overrides.isEmpty()) {
+					continue;
+				}
+				AbilitySettingsOverrides existing = merged.get(label);
+				merged.put(label, mergeOverrides(existing, overrides));
+			}
+		}
+
+		return merged.isEmpty() ? Map.of() : Map.copyOf(merged);
+	}
+
+	private static AbilitySettingsOverrides mergeOverrides(AbilitySettingsOverrides base,
+	                                                      AbilitySettingsOverrides delta) {
+		AbilitySettingsOverrides left = base != null ? base : AbilitySettingsOverrides.empty();
+		AbilitySettingsOverrides right = delta != null ? delta : AbilitySettingsOverrides.empty();
+		if (left.isEmpty() && right.isEmpty()) {
+			return null;
+		}
+
+		AbilitySettingsOverrides.Builder builder = AbilitySettingsOverrides.builder();
+		builder.type(right.getTypeOverride().orElse(left.getTypeOverride().orElse(null)));
+		builder.level(right.getLevelOverride().orElse(left.getLevelOverride().orElse(null)));
+		builder.triggersGcd(right.getTriggersGcdOverride().orElse(left.getTriggersGcdOverride().orElse(null)));
+		builder.castDuration(right.getCastDurationOverride().orElse(left.getCastDurationOverride().orElse(null)));
+		builder.cooldown(right.getCooldownOverride().orElse(left.getCooldownOverride().orElse(null)));
+		builder.detectionThreshold(right.getDetectionThresholdOverride().orElse(left.getDetectionThresholdOverride().orElse(null)));
+		builder.mask(right.getMaskOverride().orElse(left.getMaskOverride().orElse(null)));
+
+		AbilitySettingsOverrides merged = builder.build();
+		return merged.isEmpty() ? null : merged;
 	}
 }

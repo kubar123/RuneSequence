@@ -361,9 +361,12 @@ public class PresetManagerWindow extends JFrame {
             sequenceListModel.upsert(result.getPresetId(), result.getPresetData());
 
             if (sequenceRunService != null) {
+                PresetAbilitySettings abilitySettings = result.getPresetData() != null ? result.getPresetData().getAbilitySettings() : null;
                 boolean refreshed = sequenceRunService.refreshSequenceFromExpression(
                         result.getPresetId(),
-                        result.getPresetData() != null ? result.getPresetData().getExpression() : ""
+                        result.getPresetData() != null ? result.getPresetData().getExpression() : "",
+                        overridesService.toDomainOverrides(abilitySettings),
+                        overridesService.toDomainPerAbilityOverrides(abilitySettings)
                 );
                 if (!refreshed) {
                     logger.warn("Saved preset '{}' could not be parsed into a runnable sequence.", result.getPresetId());

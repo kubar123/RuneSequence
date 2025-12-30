@@ -2,11 +2,13 @@ package com.lansoftprogramming.runeSequence.application;
 
 import com.lansoftprogramming.runeSequence.application.TooltipScheduleBuilder.BuildResult;
 import com.lansoftprogramming.runeSequence.core.detection.DetectionEngine;
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -34,7 +36,13 @@ public class SequenceRunService implements HotkeyListener {
 	}
 
 	public TooltipScheduleBuilder.BuildResult buildSchedule(String expression) {
-		return tooltipScheduleBuilder.build(expression != null ? expression : "");
+		return buildSchedule(expression, null, null);
+	}
+
+	public TooltipScheduleBuilder.BuildResult buildSchedule(String expression,
+	                                                       Map<String, AbilitySettingsOverrides> perInstanceOverrides,
+	                                                       Map<String, AbilitySettingsOverrides> perAbilityOverrides) {
+		return tooltipScheduleBuilder.build(expression != null ? expression : "", perInstanceOverrides, perAbilityOverrides);
 	}
 
 	public boolean canBuildSequence(String expression) {
@@ -106,12 +114,19 @@ public class SequenceRunService implements HotkeyListener {
 	 * @return true if a usable sequence definition was produced and applied
 	 */
 	public synchronized boolean refreshSequenceFromExpression(String presetId, String expression) {
+		return refreshSequenceFromExpression(presetId, expression, null, null);
+	}
+
+	public synchronized boolean refreshSequenceFromExpression(String presetId,
+	                                                          String expression,
+	                                                          Map<String, AbilitySettingsOverrides> perInstanceOverrides,
+	                                                          Map<String, AbilitySettingsOverrides> perAbilityOverrides) {
 		if (presetId == null || presetId.isBlank()) {
 			logger.warn("Ignoring sequence refresh with blank preset id.");
 			return false;
 		}
 
-		BuildResult result = buildSchedule(expression);
+		BuildResult result = buildSchedule(expression, perInstanceOverrides, perAbilityOverrides);
 		SequenceDefinition definition = result.definition();
 		if (definition == null) {
 			logger.warn("Parsed sequence for preset '{}' is unavailable; definition is null.", presetId);

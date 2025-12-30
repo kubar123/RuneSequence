@@ -1,8 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.service;
 
-import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
-import com.lansoftprogramming.runeSequence.core.sequence.model.AbilityToken;
-import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
+import com.lansoftprogramming.runeSequence.core.sequence.model.*;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipMarkupParser;
@@ -11,10 +9,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElemen
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Service for converting parsed sequence definitions into visual elements for display.
@@ -75,10 +70,11 @@ public class SequenceVisualService {
 			}
 
 			// Parse expression into AST without tooltip annotations
-			SequenceDefinition definition = SequenceParser.parse(cleanedExpression);
+			SequenceDefinition definition = SequenceParser.parse(cleanedExpression, overridesByLabel, null);
+			Map<String, AbilitySettingsOverrides> effectiveOverridesByLabel = collectOverridesByLabel(definition);
 
 			// Convert AST to visual elements
-			List<SequenceElement> baseElements = convertDefinitionToElements(definition, overridesByLabel);
+			List<SequenceElement> baseElements = convertDefinitionToElements(definition, effectiveOverridesByLabel);
 			return tooltipMarkupParser.insertTooltips(
 					baseElements,
 					parseResult.tooltipPlacements(),
@@ -87,8 +83,8 @@ public class SequenceVisualService {
 		} catch (Exception e) {
 			logger.error("Failed to parse expression with tooltip handling: {}", expression, e);
 			try {
-				SequenceDefinition fallbackDefinition = SequenceParser.parse(expression);
-				return convertDefinitionToElements(fallbackDefinition, overridesByLabel);
+				SequenceDefinition fallbackDefinition = SequenceParser.parse(expression, overridesByLabel, null);
+				return convertDefinitionToElements(fallbackDefinition, collectOverridesByLabel(fallbackDefinition));
 			} catch (Exception fallback) {
 				logger.error("Fallback parse without tooltip stripping also failed for expression: {}", expression, fallback);
 			}
@@ -134,6 +130,59 @@ public class SequenceVisualService {
 
 		logger.debug("Converted definition to {} visual elements", elements.size());
 		return elements;
+	}
+
+	private Map<String, AbilitySettingsOverrides> collectOverridesByLabel(SequenceDefinition definition) {
+		if (definition == null) {
+			return Map.of();
+		}
+
+		Map<String, AbilitySettingsOverrides> collected = new LinkedHashMap<>();
+		for (Step step : definition.getSteps()) {
+			if (step == null) {
+				continue;
+			}
+			for (Term term : step.getTerms()) {
+				if (term == null) {
+					continue;
+				}
+				for (Alternative alt : term.getAlternatives()) {
+					collectOverridesFromAlternative(alt, collected);
+				}
+			}
+		}
+
+		return collected.isEmpty() ? Map.of() : Map.copyOf(collected);
+	}
+
+	private void collectOverridesFromAlternative(Alternative alt, Map<String, AbilitySettingsOverrides> out) {
+		if (alt == null) {
+			return;
+		}
+		if (alt.isToken()) {
+			String label = alt.getInstanceLabel();
+			AbilitySettingsOverrides overrides = alt.getAbilitySettingsOverrides();
+			if (label != null && !label.isBlank() && overrides != null && !overrides.isEmpty()) {
+				out.put(label, overrides);
+			}
+			return;
+		}
+		if (!alt.isGroup() || alt.getSubgroup() == null) {
+			return;
+		}
+		for (Step step : alt.getSubgroup().getSteps()) {
+			if (step == null) {
+				continue;
+			}
+			for (Term term : step.getTerms()) {
+				if (term == null) {
+					continue;
+				}
+				for (Alternative nested : term.getAlternatives()) {
+					collectOverridesFromAlternative(nested, out);
+				}
+			}
+		}
 	}
 
 	/**

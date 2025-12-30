@@ -4,6 +4,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -142,6 +143,55 @@ class SequenceParserTest {
 
 		Alternative unlabeled = definition.getStep(1).getTerms().get(0).getAlternatives().get(0);
 		assertNull(unlabeled.getAbilitySettingsOverrides(), "Unlabeled nodes should not receive per-instance overrides");
+	}
+
+	@Test
+	void shouldApplyPerInstanceOverridesFromProvidedMap() {
+		Map<String, AbilitySettingsOverrides> perInstance = Map.of(
+				"1",
+				AbilitySettingsOverrides.builder().detectionThreshold(0.7d).build()
+		);
+
+		SequenceDefinition definition = SequenceParser.parse("vulnbomb[*1] → tc", perInstance, null);
+
+		Alternative labeled = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals("vulnbomb", labeled.getToken());
+		assertEquals("1", labeled.getInstanceLabel());
+		assertEquals(0.7d, labeled.getAbilitySettingsOverrides().getDetectionThresholdOverride().orElseThrow(), 1e-9);
+
+		Alternative unlabeled = definition.getStep(1).getTerms().get(0).getAlternatives().get(0);
+		assertNull(unlabeled.getAbilitySettingsOverrides());
+	}
+
+	@Test
+	void shouldApplyPerAbilityOverridesToUnlabeledTokens() {
+		Map<String, AbilitySettingsOverrides> perAbility = Map.of(
+				"vulnbomb",
+				AbilitySettingsOverrides.builder().detectionThreshold(0.7d).build()
+		);
+
+		SequenceDefinition definition = SequenceParser.parse("vulnbomb → tc", null, perAbility);
+
+		Alternative overridden = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals("vulnbomb", overridden.getToken());
+		assertNull(overridden.getInstanceLabel());
+		assertEquals(0.7d, overridden.getAbilitySettingsOverrides().getDetectionThresholdOverride().orElseThrow(), 1e-9);
+	}
+
+	@Test
+	void shouldPreferPerInstanceOverridesOverPerAbilityOverrides() {
+		Map<String, AbilitySettingsOverrides> perInstance = Map.of(
+				"1",
+				AbilitySettingsOverrides.builder().detectionThreshold(0.7d).build()
+		);
+		Map<String, AbilitySettingsOverrides> perAbility = Map.of(
+				"vulnbomb",
+				AbilitySettingsOverrides.builder().detectionThreshold(0.8d).build()
+		);
+
+		SequenceDefinition definition = SequenceParser.parse("vulnbomb[*1] → tc", perInstance, perAbility);
+		Alternative labeled = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals(0.7d, labeled.getAbilitySettingsOverrides().getDetectionThresholdOverride().orElseThrow(), 1e-9);
 	}
 
 	@Test

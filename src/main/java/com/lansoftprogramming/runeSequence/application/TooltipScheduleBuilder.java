@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.application;
 
+import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOverrides;
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.SequenceParser;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipMarkupParser;
@@ -45,6 +46,21 @@ public class TooltipScheduleBuilder {
 	 * @return build result holding the parsed definition and tooltip schedule
 	 */
 	public BuildResult build(String expression) {
+		return build(expression, null, null);
+	}
+
+	/**
+	 * Build a {@link SequenceDefinition} and its corresponding {@link TooltipSchedule}
+	 * from a raw rotation expression, applying any preset ability overrides.
+	 *
+	 * @param expression           raw rotation expression, potentially containing tooltip markers
+	 * @param perInstanceOverrides optional label -> overrides map (may be null)
+	 * @param perAbilityOverrides  optional abilityKey -> overrides map (may be null)
+	 * @return build result holding the parsed definition and tooltip schedule
+	 */
+	public BuildResult build(String expression,
+	                         Map<String, AbilitySettingsOverrides> perInstanceOverrides,
+	                         Map<String, AbilitySettingsOverrides> perAbilityOverrides) {
 		if (expression == null || expression.isBlank()) {
 			return new BuildResult(null, TooltipSchedule.empty());
 		}
@@ -57,14 +73,14 @@ public class TooltipScheduleBuilder {
 				return new BuildResult(null, TooltipSchedule.empty());
 			}
 
-			SequenceDefinition definition = SequenceParser.parse(cleanedExpression);
+			SequenceDefinition definition = SequenceParser.parse(cleanedExpression, perInstanceOverrides, perAbilityOverrides);
 			TooltipSchedule schedule = buildSchedule(definition, parseResult.tooltipPlacements());
 			return new BuildResult(definition, schedule);
 		} catch (Exception e) {
 			logger.warn("Failed to build tooltip schedule for expression '{}'. Falling back to raw parse without tooltips.",
 					expression, e);
 			try {
-				SequenceDefinition definition = SequenceParser.parse(expression);
+				SequenceDefinition definition = SequenceParser.parse(expression, perInstanceOverrides, perAbilityOverrides);
 				return new BuildResult(definition, TooltipSchedule.empty());
 			} catch (Exception parseError) {
 				logger.error("Failed to parse rotation expression '{}'. Sequence will be unavailable.", expression, parseError);
