@@ -59,8 +59,16 @@ public class ScreenCapture {
 	 */
 	private synchronized void initializeGrabber() throws Exception {
 		if (grabber != null) {
-			grabber.stop();
-			grabber.close();
+			try {
+				grabber.stop();
+			} catch (Exception e) {
+				logger.debug("Ignoring grabber.stop failure during reinit", e);
+			}
+			try {
+				grabber.close();
+			} catch (Exception e) {
+				logger.debug("Ignoring grabber.close failure during reinit", e);
+			}
 		}
 
 		grabber = new FFmpegFrameGrabber(getInputSource());
@@ -117,7 +125,7 @@ public class ScreenCapture {
 
 		} catch (Exception e) {
 			logger.error("Screen capture failed", e);
-			isInitialized.set(false);
+			stopCapture();
 			return new Mat();
 		}
 	}
@@ -299,16 +307,35 @@ public class ScreenCapture {
 				converter = null;
 			}
 
-			if (grabber != null) {
-				grabber.stop();
-				grabber.close();
-				grabber = null;
-			}
+			stopCapture();
 
 			logger.info("ScreenCapture shutdown completed");
 
 		} catch (Exception e) {
 			logger.error("Error during shutdown", e);
+		}
+	}
+
+	/**
+	 * Stops and releases the FFmpeg grabber but keeps the converter so capture can be restarted later.
+	 * Safe to call multiple times.
+	 */
+	public synchronized void stopCapture() {
+		isInitialized.set(false);
+		if (grabber == null) {
+			return;
+		}
+		try {
+			grabber.stop();
+		} catch (Exception e) {
+			logger.debug("Ignoring grabber.stop failure", e);
+		}
+		try {
+			grabber.close();
+		} catch (Exception e) {
+			logger.debug("Ignoring grabber.close failure", e);
+		} finally {
+			grabber = null;
 		}
 	}
 

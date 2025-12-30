@@ -397,6 +397,7 @@ public class TemplateDetector {
 		} finally {
 			// Comprehensive cleanup - close all created resources
 
+
 			if (mask != null) mask.close();
 
 			if (workingTemplate != null && workingTemplate != template) workingTemplate.close();

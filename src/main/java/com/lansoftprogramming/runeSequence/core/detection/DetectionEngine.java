@@ -39,6 +39,8 @@ public class DetectionEngine {
 	private long frameCounter = 0L;
 	private long overlayUpdateCounter = 0L;
 	private final AtomicBoolean fatalErrorNotified = new AtomicBoolean(false);
+	private int consecutiveCaptureFailures = 0;
+	private final AtomicBoolean captureFailureNotified = new AtomicBoolean(false);
 
 	public DetectionEngine(ScreenCapture screenCapture, TemplateDetector detector,
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
@@ -57,6 +59,8 @@ public class DetectionEngine {
 		if (isRunning) return;
 
 		isRunning = true;
+		consecutiveCaptureFailures = 0;
+		captureFailureNotified.set(false);
 
 		scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
 			Thread t = new Thread(r, "DetectionEngine");
@@ -80,6 +84,12 @@ public class DetectionEngine {
 		isRunning = false;
 		if (scheduler != null) {
 			scheduler.shutdown();
+		}
+		try {
+			// Avoid leaving the screen-grabber in a stale state across pause/resume cycles.
+			screenCapture.stopCapture();
+		} catch (Exception e) {
+			logger.debug("Ignoring failure stopping screen capture", e);
 		}
 		overlay.clearOverlays();
 		if (tooltipOverlay != null) {
@@ -114,17 +124,30 @@ public class DetectionEngine {
 
 		try {
 			long detectStartNanos = System.nanoTime();
-			Mat screenMat = screenCapture.captureScreen();
-			if (screenMat == null || screenMat.empty()) {
-				logger.warn("Screen capture failed; skipping frame.");
-				if (logger.isDebugEnabled()) {
-					long frameTotalMs = (System.nanoTime() - frameStartNanos) / 1_000_000;
-					logger.debug("DetectionEngine.processFrame #{} aborted after failed capture ({}ms)", frameId, frameTotalMs);
+				Mat screenMat = screenCapture.captureScreen();
+				if (screenMat == null || screenMat.empty()) {
+					consecutiveCaptureFailures++;
+					if (consecutiveCaptureFailures == 1 || consecutiveCaptureFailures % 30 == 0) {
+						logger.warn("Screen capture failed; skipping frame (consecutiveFailures={}).", consecutiveCaptureFailures);
+					}
+					if (consecutiveCaptureFailures >= 10 && captureFailureNotified.compareAndSet(false, true)) {
+						stop();
+						notificationService.showError(
+								"Screen capture failed repeatedly, so detection was paused.\n\n" +
+										"If you're on a VM/RDP: keep the session unlocked and the desktop visible, then resume detection.\n\n" +
+										"See logs for the full error details."
+						);
+					}
+					if (logger.isDebugEnabled()) {
+						long frameTotalMs = (System.nanoTime() - frameStartNanos) / 1_000_000;
+						logger.debug("DetectionEngine.processFrame #{} aborted after failed capture ({}ms)", frameId, frameTotalMs);
+					}
+					return;
 				}
-				return;
-			}
+				consecutiveCaptureFailures = 0;
+				captureFailureNotified.set(false);
 
-			try {
+				try {
 				Rectangle captureRegion = screenCapture.getRegion();
 				List<ActiveSequence.DetectionRequirement> requirements = sequenceManager.getDetectionRequirements();
 				if (logger.isDebugEnabled()) {
