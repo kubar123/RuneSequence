@@ -325,12 +325,6 @@ public final class TabBar extends JPanel {
 				return;
 			}
 
-			int width = getWidth();
-			int height = getHeight();
-			if (width <= 0 || height <= 0) {
-				return;
-			}
-
 			Theme theme = ThemeManager.getTheme();
 			if (theme == null) {
 				return;
@@ -346,23 +340,7 @@ public final class TabBar extends JPanel {
 				return;
 			}
 
-			Graphics2D g2 = graphics instanceof Graphics2D ? (Graphics2D) graphics.create() : null;
-			if (g2 == null) {
-				return;
-			}
-
-			try {
-				g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-				Insets insets = getInsets();
-				int innerX = insets.left;
-				int innerY = insets.top;
-				int innerWidth = width - insets.left - insets.right;
-				int innerHeight = height - insets.top - insets.bottom;
-				Rectangle innerRect = new Rectangle(innerX, innerY, innerWidth, innerHeight);
-				BackgroundFillPainter.paintTopLeftCropScale(g2, backgroundImage, innerRect);
-			} finally {
-				g2.dispose();
-			}
+			ThemedBackgroundPainter.paintBackground(graphics, this, backgroundImage, BackgroundFillPainter::paintTopLeftCropScale);
 		}
 	}
 

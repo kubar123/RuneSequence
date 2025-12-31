@@ -26,26 +26,12 @@ public class ThemedPanel extends AbstractThemedContainerPanel {
 	protected void paintComponent(Graphics graphics) {
 		super.paintComponent(graphics);
 
-		int width = getWidth();
-		int height = getHeight();
-		if (width <= 0 || height <= 0) {
-			return;
-		}
-
 		Theme theme = ThemeManager.getTheme();
 		BufferedImage image = theme.getPanelBackgroundImage(style);
 		if (image == null) {
 			return;
 		}
 
-		paintWithBilinearInterpolation(graphics, g2 -> {
-			Insets insets = getInsets();
-			int innerX = insets.left;
-			int innerY = insets.top;
-			int innerWidth = width - insets.left - insets.right;
-			int innerHeight = height - insets.top - insets.bottom;
-			Rectangle innerRect = new Rectangle(innerX, innerY, innerWidth, innerHeight);
-			BackgroundFillPainter.paintCenterCropScale(g2, image, innerRect);
-		});
+		ThemedBackgroundPainter.paintBackground(graphics, this, image, BackgroundFillPainter::paintCenterCropScale);
 	}
 }
