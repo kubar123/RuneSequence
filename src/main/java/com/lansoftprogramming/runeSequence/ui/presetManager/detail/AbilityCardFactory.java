@@ -4,6 +4,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler.Ability
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
+import com.lansoftprogramming.runeSequence.ui.shared.util.AbilityUiFormatters;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -93,7 +94,10 @@ class AbilityCardFactory {
 			iconLabel.add(indicatorWrap, BorderLayout.NORTH);
 		}
 
-		String displayText = truncateText(formatCardDisplayName(item.getDisplayName()), 12);
+		String displayText = AbilityUiFormatters.truncate(
+				AbilityUiFormatters.formatCardDisplayName(item.getDisplayName()),
+				12
+		);
 		JLabel nameLabel = new JLabel(displayText);
 		nameLabel.setFont(nameLabel.getFont().deriveFont(9f));
 		nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -129,36 +133,12 @@ class AbilityCardFactory {
 			}
 			return "<html>" + escapeHtml(message) + "</html>";
 		}
-		return String.format("<html><b>%s</b><br/>Type: %s<br/>Level: %d</html>",
-				item.getDisplayName(),
-				item.getType(),
-				item.getLevel());
-	}
-
-	private String formatCardDisplayName(String displayName) {
-		if (displayName == null) {
-			return "";
-		}
-		String trimmed = displayName.trim();
-		if (trimmed.equals("Greater")) {
-			return "G.";
-		}
-		if (trimmed.startsWith("Greater ")) {
-			return "G. " + trimmed.substring("Greater ".length());
-		}
-		return displayName;
-	}
-
-	private String truncateText(String text, int maxLength) {
-		if (text.length() <= maxLength) {
-			return text;
-		}
-		return text.substring(0, maxLength - 3) + "...";
+		return AbilityUiFormatters.abilityTooltipHtml(item);
 	}
 
 	JPanel createTooltipCard(String message) {
 		String normalized = message != null ? message : "";
-		String displayName = normalized.isEmpty() ? "Tooltip" : truncateText(normalized, 12);
+		String displayName = normalized.isEmpty() ? "Tooltip" : AbilityUiFormatters.truncate(normalized, 12);
 		String key = "tooltip-" + Integer.toHexString(normalized.hashCode());
 		TooltipItem item = new TooltipItem(key, displayName, normalized, tooltipIcon);
 		return createAbilityCard(item);

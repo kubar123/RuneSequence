@@ -9,6 +9,7 @@ import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityItemFactory;
+import com.lansoftprogramming.runeSequence.ui.shared.util.AbilityUiFormatters;
 import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
@@ -480,40 +481,6 @@ public class AbilityPalettePanel extends ThemedPanel {
 		logger.info("Loaded {} ability categories", categoriesWithFallback.size());
 	}
 
-	/**
-	 * Creates tooltip text for an ability item.
-	 */
-	private String createTooltipText(AbilityItem item) {
-		return String.format("<html><b>%s</b><br/>Type: %s<br/>Level: %d</html>",
-				item.getDisplayName(),
-				item.getType(),
-				item.getLevel());
-	}
-
-	/**
-	 * Truncates text to the specified length.
-	 */
-	private String truncateText(String text, int maxLength) {
-		if (text.length() <= maxLength) {
-			return text;
-		}
-		return text.substring(0, maxLength - 3) + "...";
-	}
-
-	private String formatCardDisplayName(String displayName) {
-		if (displayName == null) {
-			return "";
-		}
-		String trimmed = displayName.trim();
-		if (trimmed.equals("Greater")) {
-			return "G.";
-		}
-		if (trimmed.startsWith("Greater ")) {
-			return "G. " + trimmed.substring("Greater ".length());
-		}
-		return displayName;
-	}
-
 	public JTextField getSearchField() {
 		return searchField;
 	}
@@ -602,7 +569,10 @@ public class AbilityPalettePanel extends ThemedPanel {
 			iconLabel.setMaximumSize(new Dimension(50, 50));
 
 			// Name
-			String displayText = truncateText(formatCardDisplayName(item.getDisplayName()), 12);
+			String displayText = AbilityUiFormatters.truncate(
+					AbilityUiFormatters.formatCardDisplayName(item.getDisplayName()),
+					12
+			);
 			nameLabel = new JLabel(displayText);
 			nameLabel.setFont(nameLabel.getFont().deriveFont(9f));
 			nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -615,7 +585,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 			add(Box.createRigidArea(new Dimension(0, 2)));
 			add(nameLabel);
 
-			setToolTipText(createTooltipText(item));
+			setToolTipText(AbilityUiFormatters.abilityTooltipHtml(item));
 
 			// Drag support
 			addMouseListener(new MouseAdapter() {
