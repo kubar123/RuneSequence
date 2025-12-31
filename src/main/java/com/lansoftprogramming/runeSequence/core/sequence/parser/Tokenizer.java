@@ -135,7 +135,7 @@ public class Tokenizer {
 		while (index < input.length()) {
 			char current = input.charAt(index);
 
-			if (current == '(' && !isEscaped(input, index)) {
+			if (current == '(' && !ParserEscapes.isEscaped(input, index)) {
 				int candidateEnd = findTooltipCandidateEnd(input, index + 1);
 				if (candidateEnd != -1) {
 					char prevNonWhitespace = prevNonWhitespace(input, index - 1);
@@ -206,11 +206,11 @@ public class Tokenizer {
 				}
 			}
 
-			if (current == '(' && !isEscaped(expression, cursor)) {
+			if (current == '(' && !ParserEscapes.isEscaped(expression, cursor)) {
 				return -1; // nested paren => structural grouping, not a tooltip
 			}
 
-			if (current == ')' && !isEscaped(expression, cursor)) {
+			if (current == ')' && !ParserEscapes.isEscaped(expression, cursor)) {
 				foundClosing = true;
 				break;
 			}
@@ -230,16 +230,6 @@ public class Tokenizer {
 		}
 
 		return cursor;
-	}
-
-	private boolean isEscaped(String expression, int index) {
-		int backslashCount = 0;
-		int cursor = index - 1;
-		while (cursor >= 0 && expression.charAt(cursor) == '\\') {
-			backslashCount++;
-			cursor--;
-		}
-		return backslashCount % 2 != 0;
 	}
 
 

@@ -48,18 +48,18 @@ public class TooltipMarkupParser {
 		while (index < expression.length()) {
 			char current = expression.charAt(index);
 
-			if (current == '(' && !isEscaped(expression, index)) {
+			if (current == '(' && !ParserEscapes.isEscaped(expression, index)) {
 				TooltipCandidate candidate = readTooltipCandidate(expression, index + 1);
 				if (candidate != null) {
 					String placeholder = PLACEHOLDER_PREFIX + tooltipTokens.size() + PLACEHOLDER_SUFFIX;
 					boolean hasExtraOuterParens = false;
 
-					int extraOpenIndex = index > 0 && expression.charAt(index - 1) == '(' && !isEscaped(expression, index - 1)
+					int extraOpenIndex = index > 0 && expression.charAt(index - 1) == '(' && !ParserEscapes.isEscaped(expression, index - 1)
 							? index - 1
 							: -1;
 					int extraCloseIndex = candidate.endIndex() + 1 < expression.length()
 							&& expression.charAt(candidate.endIndex() + 1) == ')'
-							&& !isEscaped(expression, candidate.endIndex() + 1)
+							&& !ParserEscapes.isEscaped(expression, candidate.endIndex() + 1)
 							? candidate.endIndex() + 1
 							: -1;
 
@@ -151,7 +151,7 @@ public class TooltipMarkupParser {
 				}
 			}
 
-			if (current == '(' && !isEscaped(expression, cursor)) {
+			if (current == '(' && !ParserEscapes.isEscaped(expression, cursor)) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("Tooltip parser: nested '(' at {} inside candidate starting at {}, treating as structural group",
 							cursor, openIndex);
@@ -159,7 +159,7 @@ public class TooltipMarkupParser {
 				return null; // unescaped nested paren not allowed inside tooltip text
 			}
 
-			if (current == ')' && !isEscaped(expression, cursor)) {
+			if (current == ')' && !ParserEscapes.isEscaped(expression, cursor)) {
 				foundClosing = true;
 				break;
 			}
@@ -328,16 +328,6 @@ public class TooltipMarkupParser {
 			return false;
 		}
 		return abilityNames.contains(candidate);
-	}
-
-	private boolean isEscaped(String expression, int index) {
-		int backslashCount = 0;
-		int cursor = index - 1;
-		while (cursor >= 0 && expression.charAt(cursor) == '\\') {
-			backslashCount++;
-			cursor--;
-		}
-		return backslashCount % 2 != 0;
 	}
 
 	private char nextNonWhitespace(String expression, int startIndex) {
