@@ -93,14 +93,6 @@ public final class MetalTheme implements Theme {
 		);
 	}
 
-	private static Color withAlpha(Color color, int alpha) {
-		if (color == null) {
-			return null;
-		}
-		int clamped = Math.max(0, Math.min(255, alpha));
-		return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
-	}
-
 	@Override
 	public String getName() {
 		return NAME;
@@ -279,7 +271,7 @@ public final class MetalTheme implements Theme {
 
 	@Override
 	public Color getInsetBorderColor() {
-		return withAlpha(UiColorPalette.BASE_BLACK, 150);
+		return UiColorPalette.withAlpha(UiColorPalette.BASE_BLACK, 150);
 	}
 
 	@Override

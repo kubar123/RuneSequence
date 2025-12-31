@@ -560,10 +560,10 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 
 			Color accentHover = theme != null ? theme.getAccentHoverColor() : null;
 			Color accentPrimary = theme != null ? theme.getAccentPrimaryColor() : null;
-			hoverOverlay = withAlpha(accentHover != null ? accentHover : list.getForeground(), HOVER_ALPHA);
-			selectedOverlay = withAlpha(accentPrimary != null ? accentPrimary : list.getForeground(), SELECTED_ALPHA);
-			selectedGlow = withAlpha(accentPrimary != null ? accentPrimary : list.getForeground(), SELECTED_GLOW_ALPHA);
-			focusRing = withAlpha(accentHover != null ? accentHover : list.getForeground(), FOCUS_ALPHA);
+			hoverOverlay = UiColorPalette.withAlpha(accentHover != null ? accentHover : list.getForeground(), HOVER_ALPHA);
+			selectedOverlay = UiColorPalette.withAlpha(accentPrimary != null ? accentPrimary : list.getForeground(), SELECTED_ALPHA);
+			selectedGlow = UiColorPalette.withAlpha(accentPrimary != null ? accentPrimary : list.getForeground(), SELECTED_GLOW_ALPHA);
+			focusRing = UiColorPalette.withAlpha(accentHover != null ? accentHover : list.getForeground(), FOCUS_ALPHA);
 
 			Object hoverIndex = list.getClientProperty(HOVER_INDEX_KEY);
 			hovered = (hoverIndex instanceof Integer i) && i == index && !isSelected;
@@ -622,13 +622,6 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 			}
 		}
 
-		private static Color withAlpha(Color color, int alpha) {
-			if (color == null) {
-				return null;
-			}
-			int clamped = Math.max(0, Math.min(255, alpha));
-			return new Color(color.getRed(), color.getGreen(), color.getBlue(), clamped);
-		}
 	}
 
 	private static final class ThemedVerticalSeparator extends JComponent {
