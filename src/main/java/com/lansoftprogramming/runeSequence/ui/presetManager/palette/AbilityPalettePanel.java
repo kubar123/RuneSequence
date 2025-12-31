@@ -6,6 +6,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetai
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
+import com.lansoftprogramming.runeSequence.ui.shared.cursor.WindowTextCursorResolverOwner;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
@@ -53,7 +54,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 	private JComponent mainAppControlsPanel;
 	private MenuAction settingsAction;
 	private MenuAction regionSelectorAction;
-	private transient TextCursorSupport.WindowTextCursorResolver textCursorResolver;
+	private final transient WindowTextCursorResolverOwner textCursorResolverOwner = new WindowTextCursorResolverOwner();
 
 	// Cache of category panels and their ability cards
 	private final Map<String, CategoryPanel> categoryPanels;
@@ -186,28 +187,13 @@ public class AbilityPalettePanel extends ThemedPanel {
 		// Ensure look-and-feel/UI updates don't override the text cursor.
 		TextCursorSupport.installTextCursor(searchField);
 		TextCursorSupport.installTextCursor(searchInputPanel);
-		installTextCursorResolver();
+		textCursorResolverOwner.install(this, logger);
 	}
 
 	@Override
 	public void removeNotify() {
-		uninstallTextCursorResolver();
+		textCursorResolverOwner.uninstall();
 		super.removeNotify();
-	}
-
-	private void installTextCursorResolver() {
-		if (textCursorResolver != null) {
-			return;
-		}
-		textCursorResolver = TextCursorSupport.installWindowTextCursorResolver(this, logger);
-	}
-
-	private void uninstallTextCursorResolver() {
-		if (textCursorResolver == null) {
-			return;
-		}
-		textCursorResolver.uninstall();
-		textCursorResolver = null;
 	}
 
 	private JComponent createTabStripAccessoryPanel() {

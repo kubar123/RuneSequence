@@ -6,6 +6,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElemen
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
+import com.lansoftprogramming.runeSequence.ui.shared.cursor.WindowTextCursorResolverOwner;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
@@ -43,7 +44,7 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	private final NotificationService notifications;
 	private final Timer dirtyStateTimer;
 	private Boolean lastDirtyState;
-	private transient TextCursorSupport.WindowTextCursorResolver textCursorResolver;
+	private final transient WindowTextCursorResolverOwner textCursorResolverOwner = new WindowTextCursorResolverOwner();
 
 	public SequenceDetailPanel(SequenceDetailService detailService,
 	                           AbilityOverridesService overridesService,
@@ -86,14 +87,14 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		// Ensure look-and-feel/UI updates don't override the text cursor.
 		TextCursorSupport.installTextCursor(sequenceNameField);
 		TextCursorSupport.installTextCursor(sequenceNamePanel);
-		installTextCursorResolver();
+		textCursorResolverOwner.install(this, logger);
 		dirtyStateTimer.start();
 	}
 
 	@Override
 	public void removeNotify() {
 		dirtyStateTimer.stop();
-		uninstallTextCursorResolver();
+		textCursorResolverOwner.uninstall();
 		super.removeNotify();
 	}
 
@@ -210,21 +211,6 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		});
 
 		return panel;
-	}
-
-	private void installTextCursorResolver() {
-		if (textCursorResolver != null) {
-			return;
-		}
-		textCursorResolver = TextCursorSupport.installWindowTextCursorResolver(this, logger);
-	}
-
-	private void uninstallTextCursorResolver() {
-		if (textCursorResolver == null) {
-			return;
-		}
-		textCursorResolver.uninstall();
-		textCursorResolver = null;
 	}
 
 	private void applyButtonStyles() {
