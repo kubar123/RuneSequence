@@ -3,6 +3,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager.drag.logic;
 import com.lansoftprogramming.runeSequence.core.sequence.parser.TooltipGrammar;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.*;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
+import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceGrouping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -244,41 +245,11 @@ public class DropPreviewEngine {
 	                                               int targetIndex,
 	                                               DropZoneType zoneType) {
 		SequenceElement.Type separatorType = separatorForZone(zoneType);
-		if (separatorType == null || targetIndex < 0 || elements == null || targetIndex >= elements.size()) {
+		SequenceGrouping.AbilityRange range = SequenceGrouping.computeGroupAbilityRange(elements, targetIndex, separatorType);
+		if (range == null || !range.isValid()) {
 			return new GroupBoundaries(-1, -1);
 		}
-		int start = targetIndex;
-		int end = targetIndex;
-
-		int cursor = previousNonTooltipIndex(elements, targetIndex - 1);
-		while (cursor != -1) {
-			SequenceElement elem = elements.get(cursor);
-			if (elem.getType() != separatorType) {
-				break;
-			}
-			int abilityIndex = previousNonTooltipIndex(elements, cursor - 1);
-			if (abilityIndex == -1 || !elements.get(abilityIndex).isAbility()) {
-				break;
-			}
-			start = abilityIndex;
-			cursor = previousNonTooltipIndex(elements, abilityIndex - 1);
-		}
-
-		cursor = nextNonTooltipIndex(elements, targetIndex + 1);
-		while (cursor != -1) {
-			SequenceElement elem = elements.get(cursor);
-			if (elem.getType() != separatorType) {
-				break;
-			}
-			int abilityIndex = nextNonTooltipIndex(elements, cursor + 1);
-			if (abilityIndex == -1 || !elements.get(abilityIndex).isAbility()) {
-				break;
-			}
-			end = abilityIndex;
-			cursor = nextNonTooltipIndex(elements, abilityIndex + 1);
-		}
-
-		return new GroupBoundaries(start, end);
+		return new GroupBoundaries(range.start(), range.end());
 	}
 
 	private DropZoneType determineZoneType(DropZoneType existingGroupZone,

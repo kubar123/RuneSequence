@@ -5,6 +5,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DragPrevi
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropPreview;
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
 import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElement;
+import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceGrouping;
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
@@ -21,7 +22,6 @@ import java.util.Set;
 import java.util.function.IntConsumer;
 
 import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.nextNonTooltipIndex;
-import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.previousNonTooltipIndex;
 
 class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 	private final SequenceDetailService detailService;
@@ -381,10 +381,15 @@ class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 			SequenceElement.Type separator = preview.getZoneType() == DropZoneType.AND
 					? SequenceElement.Type.PLUS
 					: SequenceElement.Type.SLASH;
-			Range abilityRange = computeGroupAbilityRange(lastRenderedElements, targetElementIndex, separator);
-			if (abilityRange != null && abilityRange.isValid()) {
-				highlightStart = expandLeftTooltips(lastRenderedElements, abilityRange.start());
-				highlightEnd = expandRightTooltips(lastRenderedElements, abilityRange.end());
+			if (lastRenderedElements != null
+					&& targetElementIndex >= 0
+					&& targetElementIndex < lastRenderedElements.size()
+					&& lastRenderedElements.get(targetElementIndex).isAbility()) {
+				SequenceGrouping.AbilityRange abilityRange = SequenceGrouping.computeGroupAbilityRange(lastRenderedElements, targetElementIndex, separator);
+				if (abilityRange != null && abilityRange.isValid()) {
+					highlightStart = expandLeftTooltips(lastRenderedElements, abilityRange.start());
+					highlightEnd = expandRightTooltips(lastRenderedElements, abilityRange.end());
+				}
 			}
 		} else {
 			highlightStart = expandLeftTooltips(lastRenderedElements, targetElementIndex);
@@ -413,47 +418,6 @@ class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 			return idx;
 		}
 		return null;
-	}
-
-	private Range computeGroupAbilityRange(List<SequenceElement> elements, int targetAbilityIndex, SequenceElement.Type separatorType) {
-		if (elements == null || targetAbilityIndex < 0 || targetAbilityIndex >= elements.size()) {
-			return null;
-		}
-		if (!elements.get(targetAbilityIndex).isAbility()) {
-			return null;
-		}
-		int start = targetAbilityIndex;
-		int end = targetAbilityIndex;
-
-		int cursor = previousNonTooltipIndex(elements, targetAbilityIndex - 1);
-		while (cursor != -1) {
-			SequenceElement elem = elements.get(cursor);
-			if (elem.getType() != separatorType) {
-				break;
-			}
-			int abilityIdx = previousNonTooltipIndex(elements, cursor - 1);
-			if (abilityIdx == -1 || !elements.get(abilityIdx).isAbility()) {
-				break;
-			}
-			start = abilityIdx;
-			cursor = previousNonTooltipIndex(elements, abilityIdx - 1);
-		}
-
-		cursor = nextNonTooltipIndex(elements, targetAbilityIndex + 1);
-		while (cursor != -1) {
-			SequenceElement elem = elements.get(cursor);
-			if (elem.getType() != separatorType) {
-				break;
-			}
-			int abilityIdx = nextNonTooltipIndex(elements, cursor + 1);
-			if (abilityIdx == -1 || !elements.get(abilityIdx).isAbility()) {
-				break;
-			}
-			end = abilityIdx;
-			cursor = nextNonTooltipIndex(elements, abilityIdx + 1);
-		}
-
-		return new Range(start, end);
 	}
 
 	private int expandLeftTooltips(List<SequenceElement> elements, int index) {
@@ -690,9 +654,4 @@ class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 		return null;
 	}
 
-	private record Range(int start, int end) {
-		boolean isValid() {
-			return start >= 0 && end >= start;
-		}
-	}
 }
