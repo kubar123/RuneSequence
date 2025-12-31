@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.IntConsumer;
 
+import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.nextNonTooltipIndex;
+import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.previousNonTooltipIndex;
+
 class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 	private final SequenceDetailService detailService;
 	private AbilityDragController dragController;
@@ -353,23 +356,9 @@ class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 					}
 				}
 			});
-		}
-		parent.add(card);
-	}
-
-	private int nextNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
-		if (elements == null || elements.isEmpty()) {
-			return -1;
-		}
-		int index = Math.max(0, fromIndexInclusive);
-		while (index < elements.size()) {
-			if (!elements.get(index).isTooltip()) {
-				return index;
 			}
-			index++;
+			parent.add(card);
 		}
-		return -1;
-	}
 
 	private List<JComponent> collectPreviewHighlightCards(Component[] cards, DropPreview preview) {
 		if (cards == null || cards.length == 0 || preview == null) {
@@ -465,20 +454,6 @@ class AbilityFlowView extends HoverGlowContainerPanel implements Scrollable {
 		}
 
 		return new Range(start, end);
-	}
-
-	private int previousNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
-		if (elements == null || elements.isEmpty()) {
-			return -1;
-		}
-		int index = Math.min(fromIndexInclusive, elements.size() - 1);
-		while (index >= 0) {
-			if (!elements.get(index).isTooltip()) {
-				return index;
-			}
-			index--;
-		}
-		return -1;
 	}
 
 	private int expandLeftTooltips(List<SequenceElement> elements, int index) {

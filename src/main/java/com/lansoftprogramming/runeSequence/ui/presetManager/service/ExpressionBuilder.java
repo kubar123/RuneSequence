@@ -10,6 +10,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.nextNonTooltipIndex;
+import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.previousNonTooltipIndex;
+
 /**
  * Builds expression strings from sequence elements and handles element manipulation.
  */
@@ -565,43 +568,15 @@ public class ExpressionBuilder {
         elements.add(insertIndex, abilityElement);
 
         int nextStructural = nextNonTooltipIndex(elements, insertIndex + 1);
-        if (nextStructural != -1 && elements.get(nextStructural).isAbility()
-                && onlyTooltipsBetween(elements, insertIndex, nextStructural)) {
-            elements.add(insertIndex + 1, SequenceElement.arrow());
-        }
-    }
+	        if (nextStructural != -1 && elements.get(nextStructural).isAbility()
+	                && onlyTooltipsBetween(elements, insertIndex, nextStructural)) {
+	            elements.add(insertIndex + 1, SequenceElement.arrow());
+	        }
+	    }
 
-    private int previousNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
-        if (elements == null || elements.isEmpty()) {
-            return -1;
-        }
-        int index = Math.min(fromIndexInclusive, elements.size() - 1);
-        while (index >= 0) {
-            if (!elements.get(index).isTooltip()) {
-                return index;
-            }
-            index--;
-        }
-        return -1;
-    }
-
-    private int nextNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
-        if (elements == null || elements.isEmpty()) {
-            return -1;
-        }
-        int index = Math.max(0, fromIndexInclusive);
-        while (index < elements.size()) {
-            if (!elements.get(index).isTooltip()) {
-                return index;
-            }
-            index++;
-        }
-        return -1;
-    }
-
-    private boolean onlyTooltipsBetween(List<SequenceElement> elements, int leftIndex, int rightIndex) {
-        if (elements == null || leftIndex < 0 || rightIndex < 0) {
-            return false;
+	    private boolean onlyTooltipsBetween(List<SequenceElement> elements, int leftIndex, int rightIndex) {
+	        if (elements == null || leftIndex < 0 || rightIndex < 0) {
+	            return false;
         }
         if (rightIndex <= leftIndex + 1) {
             return true;
@@ -611,8 +586,8 @@ public class ExpressionBuilder {
                 return false;
             }
         }
-        return true;
-    }
+	        return true;
+	    }
 
     /**
      * Determines if the element represents a logical group separator.

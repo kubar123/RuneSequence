@@ -10,6 +10,9 @@ import java.awt.*;
 import java.util.List;
 import java.util.Objects;
 
+import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.nextNonTooltipIndex;
+import static com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElementNavigation.previousNonTooltipIndex;
+
 /**
  * Pure geometry and grouping engine for ability drag previews.
  * Decides where a drop would land given card snapshots and cursor position.
@@ -276,34 +279,6 @@ public class DropPreviewEngine {
 		}
 
 		return new GroupBoundaries(start, end);
-	}
-
-	private int previousNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
-		if (elements == null || elements.isEmpty()) {
-			return -1;
-		}
-		int index = Math.min(fromIndexInclusive, elements.size() - 1);
-		while (index >= 0) {
-			if (!elements.get(index).isTooltip()) {
-				return index;
-			}
-			index--;
-		}
-		return -1;
-	}
-
-	private int nextNonTooltipIndex(List<SequenceElement> elements, int fromIndexInclusive) {
-		if (elements == null || elements.isEmpty()) {
-			return -1;
-		}
-		int index = Math.max(0, fromIndexInclusive);
-		while (index < elements.size()) {
-			if (!elements.get(index).isTooltip()) {
-				return index;
-			}
-			index++;
-		}
-		return -1;
 	}
 
 	private DropZoneType determineZoneType(DropZoneType existingGroupZone,
