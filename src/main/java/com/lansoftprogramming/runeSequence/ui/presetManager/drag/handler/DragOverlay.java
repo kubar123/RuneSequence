@@ -1,6 +1,8 @@
 package com.lansoftprogramming.runeSequence.ui.presetManager.drag.handler;
 
 import com.lansoftprogramming.runeSequence.ui.presetManager.drag.model.DropZoneType;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
-import java.net.URL;
 
 /**
  * Manages the floating drag card on the glass pane and trash icon swapping
@@ -169,15 +170,9 @@ public class DragOverlay {
 			return;
 		}
 
-		try {
-			URL trashUrl = getClass().getResource("/ui/trash-512.png");
-			if (trashUrl != null) {
-				ImageIcon fullSizeTrash = new ImageIcon(trashUrl);
-				Image scaledImage = fullSizeTrash.getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
-				trashIcon = new ImageIcon(scaledImage);
-			}
-		} catch (Exception e) {
-			logger.warn("Failed to load trash icon", e);
+		trashIcon = IconLoader.loadScaledOrNull(ResourceIcons.TRASH_512, 50, 50);
+		if (trashIcon == null) {
+			logger.warn("Failed to load trash icon resource {}", ResourceIcons.TRASH_512);
 		}
 	}
 

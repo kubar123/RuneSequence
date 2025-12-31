@@ -5,6 +5,8 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.AbilitySettingsOv
 import com.lansoftprogramming.runeSequence.core.sequence.parser.RotationDslCodec;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +27,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -110,20 +111,7 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 			runPresenter.refreshFromService();
 		}
 
-		ImageIcon trashIcon = null;
-		try {
-			// Load icon from resources
-			URL iconUrl = getClass().getResource("/ui/trash-512.png");
-			if (iconUrl != null) {
-				ImageIcon originalIcon = new ImageIcon(iconUrl);
-				Image image = originalIcon.getImage();
-				// Scale the icon to fit the button.
-				Image scaledImage = image.getScaledInstance(16, 16, Image.SCALE_SMOOTH);
-				trashIcon = new ImageIcon(scaledImage);
-			}
-		} catch (Exception e) {
-			logger.debug("Failed to load trash icon resource", e);
-		}
+		ImageIcon trashIcon = IconLoader.loadScaledOrNull(ResourceIcons.TRASH_512, 16, 16);
 
 		if (trashIcon != null) {
 			deleteButton = new JButton(trashIcon);

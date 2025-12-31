@@ -6,6 +6,8 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElemen
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
@@ -27,9 +29,6 @@ import java.util.List;
 
 public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPresenter.View {
 	private static final Logger logger = LoggerFactory.getLogger(SequenceDetailPanel.class);
-	private static final String ICON_COGWHEEL_DARK = "/ui/dark/PresetManagerWindow.cogWheel.png";
-	private static final String ICON_INSERT_CLIPBOARD_DARK = "/ui/dark/PresetManagerWindow.insertFromClipboard.png";
-	private static final String ICON_TEXT_ADD_DARK = "/ui/dark/PresetWindowManager.textAdd.png";
 
 	private final JTextField sequenceNameField;
 	private final ThemedTextBoxPanel sequenceNamePanel;
@@ -61,8 +60,10 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		TextCursorSupport.installTextCursor(sequenceNameField);
 		sequenceNamePanel = ThemedTextBoxes.wrap(sequenceNameField);
 		TextCursorSupport.installTextCursor(sequenceNamePanel);
-		insertIcon = loadScaledIconOrFallback(ICON_INSERT_CLIPBOARD_DARK, 18, 18, this::createInsertIcon);
-		tooltipIcon = loadScaledIconOrFallback(ICON_TEXT_ADD_DARK, 18, 18, this::createTooltipIcon);
+		ImageIcon loadedInsertIcon = IconLoader.loadScaledOrNull(ResourceIcons.PRESET_MANAGER_INSERT_CLIPBOARD_DARK, 18, 18);
+		insertIcon = loadedInsertIcon != null ? loadedInsertIcon : createInsertIcon();
+		ImageIcon loadedTooltipIcon = IconLoader.loadScaledOrNull(ResourceIcons.PRESET_MANAGER_TEXT_ADD_DARK, 18, 18);
+		tooltipIcon = loadedTooltipIcon != null ? loadedTooltipIcon : createTooltipIcon();
 		insertButton = createInsertButton();
 		tooltipButton = createTooltipButton();
 		settingsButton = new JButton("Settings");
@@ -141,7 +142,7 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	}
 
 	private JPanel createInsertButton() {
-		ImageIcon icon = loadScaledIconOrNull(ICON_INSERT_CLIPBOARD_DARK, 18, 18);
+		ImageIcon icon = IconLoader.loadScaledOrNull(ResourceIcons.PRESET_MANAGER_INSERT_CLIPBOARD_DARK, 18, 18);
 		return createHeaderPaletteButton(
 				"insertClipboardButton",
 				icon,
@@ -152,7 +153,7 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	}
 
 	private JPanel createTooltipButton() {
-		ImageIcon icon = loadScaledIconOrNull(ICON_TEXT_ADD_DARK, 18, 18);
+		ImageIcon icon = IconLoader.loadScaledOrNull(ResourceIcons.PRESET_MANAGER_TEXT_ADD_DARK, 18, 18);
 		return createHeaderPaletteButton(
 				"tooltipPaletteButton",
 				icon,
@@ -391,7 +392,7 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	}
 
 	private void applySettingsButtonStyle() {
-		ImageIcon settingsIcon = loadScaledIconOrNull(ICON_COGWHEEL_DARK, 16, 16);
+		ImageIcon settingsIcon = IconLoader.loadScaledOrNull(ResourceIcons.PRESET_MANAGER_COGWHEEL_DARK, 16, 16);
 		if (settingsIcon != null) {
 			settingsButton.setText(null);
 			settingsButton.setIcon(settingsIcon);
@@ -482,28 +483,6 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 		g2d.drawLine(mid - arm, mid, mid + arm, mid);
 		g2d.dispose();
 		return new ImageIcon(image);
-	}
-
-	private ImageIcon loadScaledIconOrNull(String resourcePath, int width, int height) {
-		try {
-			java.net.URL iconUrl = getClass().getResource(resourcePath);
-			if (iconUrl == null) {
-				return null;
-			}
-			ImageIcon originalIcon = new ImageIcon(iconUrl);
-			Image scaledImage = originalIcon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-			return new ImageIcon(scaledImage);
-		} catch (Exception ignored) {
-			return null;
-		}
-	}
-
-	private ImageIcon loadScaledIconOrFallback(String resourcePath,
-	                                          int width,
-	                                          int height,
-	                                          java.util.function.Supplier<ImageIcon> fallback) {
-		ImageIcon icon = loadScaledIconOrNull(resourcePath, width, height);
-		return icon != null ? icon : fallback.get();
 	}
 
 	private String readClipboardContent() {

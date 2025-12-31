@@ -3,6 +3,8 @@ package com.lansoftprogramming.runeSequence.ui.regionSelector;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +15,6 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,18 +96,7 @@ public class RegionManagerWindow extends JFrame {
 	}
 
 	private JButton createDeleteButtonOrFallback() {
-		ImageIcon trashIcon = null;
-		try {
-			URL iconUrl = getClass().getResource("/ui/trash-512.png");
-			if (iconUrl != null) {
-				ImageIcon originalIcon = new ImageIcon(iconUrl);
-				Image image = originalIcon.getImage();
-				Image scaledImage = image.getScaledInstance(16, 16, Image.SCALE_SMOOTH);
-				trashIcon = new ImageIcon(scaledImage);
-			}
-		} catch (Exception e) {
-			logger.debug("Failed to load trash icon for delete button", e);
-		}
+		ImageIcon trashIcon = IconLoader.loadScaledOrNull(ResourceIcons.TRASH_512, 16, 16);
 
 		if (trashIcon != null) {
 			JButton deleteButton = new JButton(trashIcon);

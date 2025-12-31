@@ -6,6 +6,8 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.detail.SequenceDetai
 import com.lansoftprogramming.runeSequence.ui.shared.component.HoverGlowContainerPanel;
 import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityItemFactory;
@@ -31,8 +33,6 @@ import java.util.stream.Collectors;
  * Includes fuzzy search with real-time filtering and visual feedback.
  */
 public class AbilityPalettePanel extends ThemedPanel {
-	private static final String ICON_COGWHEEL_DARK = "/ui/dark/PresetManagerWindow.cogWheel.png";
-
 	private static final Logger logger = LoggerFactory.getLogger(AbilityPalettePanel.class);
 	private static final float DIM_OPACITY = 0.3f;
 	private static final Color DIMMED_CARD_BACKGROUND = UiColorPalette.UI_CARD_BACKGROUND.darker().darker();
@@ -151,7 +151,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 
 		categoryTabs = new TabBar();
 
-		ImageIcon settingsIcon = loadScaledIconOrNull(ICON_COGWHEEL_DARK, 16, 16);
+		ImageIcon settingsIcon = IconLoader.loadScaledOrNull(ResourceIcons.PRESET_MANAGER_COGWHEEL_DARK, 16, 16);
 		settingsButton = createMainAppButton(settingsIcon, "Settings", "Open main app settings", () -> {
 			if (settingsAction != null) {
 				settingsAction.execute();
@@ -248,20 +248,6 @@ public class AbilityPalettePanel extends ThemedPanel {
 		}
 		button.addActionListener(e -> action.run());
 		return button;
-	}
-
-	private ImageIcon loadScaledIconOrNull(String resourcePath, int width, int height) {
-		try {
-			java.net.URL iconUrl = getClass().getResource(resourcePath);
-			if (iconUrl == null) {
-				return null;
-			}
-			ImageIcon originalIcon = new ImageIcon(iconUrl);
-			Image scaledImage = originalIcon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-			return new ImageIcon(scaledImage);
-		} catch (Exception e) {
-			return null;
-		}
 	}
 
 	/**
