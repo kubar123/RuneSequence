@@ -22,6 +22,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.palette.AbilityPalet
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
 import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
+import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
@@ -29,10 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.text.JTextComponent;
 import java.awt.*;
-import java.awt.event.AWTEventListener;
-import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
@@ -66,7 +64,7 @@ public class PresetManagerWindow extends JFrame {
     private boolean suppressSelectionUpdate;
     private String currentSelectionId;
     private boolean autoSaveInProgress;
-    private transient AWTEventListener cursorResolver;
+    private transient TextCursorSupport.WindowTextCursorResolver cursorResolver;
 
     public PresetManagerWindow(
             ConfigManager configManager,
@@ -117,56 +115,18 @@ public class PresetManagerWindow extends JFrame {
         if (cursorResolver != null) {
             return;
         }
-
-        Cursor textCursor = Cursor.getPredefinedCursor(Cursor.TEXT_CURSOR);
-        Cursor defaultCursor = Cursor.getDefaultCursor();
-
-        cursorResolver = event -> {
-            if (!(event instanceof MouseEvent mouseEvent)) {
-                return;
-            }
-            int id = mouseEvent.getID();
-            if (id != MouseEvent.MOUSE_MOVED && id != MouseEvent.MOUSE_DRAGGED && id != MouseEvent.MOUSE_EXITED) {
-                return;
-            }
-            Object src = mouseEvent.getSource();
-            if (!(src instanceof Component sourceComponent)) {
-                return;
-            }
-            if (!SwingUtilities.isDescendingFrom(sourceComponent, getRootPane())) {
-                return;
-            }
-
-            if (id == MouseEvent.MOUSE_EXITED) {
-                setCursor(defaultCursor);
-                return;
-            }
-
-            Container content = getContentPane();
-            if (content == null) {
-                setCursor(defaultCursor);
-                return;
-            }
-
-            Point contentPoint = SwingUtilities.convertPoint(sourceComponent, mouseEvent.getPoint(), content);
-            Component deepest = SwingUtilities.getDeepestComponentAt(content, contentPoint.x, contentPoint.y);
-
-            if (deepest instanceof JTextComponent) {
-                setCursor(textCursor);
-                return;
-            }
-
-            setCursor(defaultCursor);
-        };
-
-        Toolkit.getDefaultToolkit().addAWTEventListener(cursorResolver, AWTEvent.MOUSE_MOTION_EVENT_MASK);
+        JRootPane root = getRootPane();
+        if (root == null) {
+            return;
+        }
+        cursorResolver = TextCursorSupport.installWindowTextCursorResolver(root, logger);
     }
 
     private void uninstallCursorResolver() {
         if (cursorResolver == null) {
             return;
         }
-        Toolkit.getDefaultToolkit().removeAWTEventListener(cursorResolver);
+        cursorResolver.uninstall();
         cursorResolver = null;
     }
 

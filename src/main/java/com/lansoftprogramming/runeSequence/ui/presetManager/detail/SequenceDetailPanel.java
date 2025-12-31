@@ -9,6 +9,7 @@ import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
+import com.lansoftprogramming.runeSequence.ui.shared.util.ClipboardStrings;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,13 +19,9 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.util.List;
 
 public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPresenter.View {
@@ -486,17 +483,18 @@ public class SequenceDetailPanel extends ThemedPanel implements SequenceDetailPr
 	}
 
 	private String readClipboardContent() {
-		try {
-			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-			if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
-				return (String) clipboard.getData(DataFlavor.stringFlavor);
+		ClipboardStrings.ReadResult result = ClipboardStrings.readSystemClipboardString();
+		return switch (result.status()) {
+			case SUCCESS -> result.text();
+			case NO_STRING -> {
+				showToast("Clipboard is empty.", false);
+				yield null;
 			}
-			showToast("Clipboard is empty.", false);
-			return null;
-		} catch (UnsupportedFlavorException | IOException | IllegalStateException e) {
-			showToast("Could not read from clipboard.", true);
-			return null;
-		}
+			case UNAVAILABLE -> {
+				showToast("Could not read from clipboard.", true);
+				yield null;
+			}
+		};
 	}
 
 	private void showToast(String message, boolean error) {

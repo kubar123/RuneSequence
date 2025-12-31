@@ -7,6 +7,7 @@ import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
+import com.lansoftprogramming.runeSequence.ui.shared.util.ClipboardStrings;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,15 +19,10 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.beans.PropertyChangeListener;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -361,7 +357,7 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 	private void importFromClipboard() {
 		String expression = getClipboardContent();
 		if (expression == null) {
-			return; // Toast shown in getClipboardContent
+			return; // Notification shown in getClipboardContent
 		}
 
 		if (expression.trim().isEmpty()) {
@@ -381,18 +377,17 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 	}
 
 	private String getClipboardContent() {
-		try {
-			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-			if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
-				return (String) clipboard.getData(DataFlavor.stringFlavor);
+		ClipboardStrings.ReadResult result = ClipboardStrings.readSystemClipboardString();
+		return switch (result.status()) {
+			case SUCCESS -> result.text();
+			case NO_STRING -> "";
+			case UNAVAILABLE -> {
+				if (notificationService != null) {
+					notificationService.showError("Could not read from clipboard.");
+				}
+				yield null;
 			}
-			return "";
-		} catch (UnsupportedFlavorException | IOException | IllegalStateException e) {
-			if (notificationService != null) {
-				notificationService.showError("Could not read from clipboard.");
-			}
-			return null;
-		}
+		};
 	}
 
 	/**
@@ -437,16 +432,13 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 			exportText = RotationDslCodec.exportSimple(expression);
 		}
 
-		try {
-			StringSelection selection = new StringSelection(exportText);
-			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+		ClipboardStrings.WriteResult result = ClipboardStrings.writeSystemClipboardString(exportText);
+		if (result.status() == ClipboardStrings.WriteStatus.SUCCESS) {
 			if (notificationService != null) {
 				notificationService.showSuccess("Copied to clipboard.");
 			}
-		} catch (IllegalStateException clipboardUnavailable) {
-			if (notificationService != null) {
-				notificationService.showError("Clipboard is not available. Try again.");
-			}
+		} else if (notificationService != null) {
+			notificationService.showError("Clipboard is not available. Try again.");
 		}
 	}
 

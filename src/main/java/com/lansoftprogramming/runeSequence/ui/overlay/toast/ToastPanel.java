@@ -1,11 +1,11 @@
 package com.lansoftprogramming.runeSequence.ui.overlay.toast;
 
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
+import com.lansoftprogramming.runeSequence.ui.shared.util.ClipboardStrings;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.datatransfer.StringSelection;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Objects;
@@ -168,7 +168,9 @@ class ToastPanel extends JPanel {
 		if (hiddenMessage != null && !hiddenMessage.isBlank()) {
 			builder.append(System.lineSeparator()).append(hiddenMessage);
 		}
-		StringSelection selection = new StringSelection(builder.toString());
-		Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+		ClipboardStrings.WriteResult result = ClipboardStrings.writeSystemClipboardString(builder.toString());
+		if (result.status() != ClipboardStrings.WriteStatus.SUCCESS) {
+			Toolkit.getDefaultToolkit().beep();
+		}
 	}
 }
