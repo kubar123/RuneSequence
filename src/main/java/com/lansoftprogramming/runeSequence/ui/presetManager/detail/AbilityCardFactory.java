@@ -5,6 +5,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElemen
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.model.TooltipItem;
 import com.lansoftprogramming.runeSequence.ui.shared.util.AbilityUiFormatters;
+import com.lansoftprogramming.runeSequence.ui.shared.util.HtmlEscaper;
 import com.lansoftprogramming.runeSequence.ui.theme.UiColorPalette;
 
 import javax.swing.*;
@@ -125,16 +126,16 @@ class AbilityCardFactory {
 		return label;
 	}
 
-	private String createTooltipText(AbilityItem item) {
-		if (item instanceof TooltipItem tooltipItem) {
-			String message = tooltipItem.getMessage();
-			if (message == null || message.isEmpty()) {
-				return "<html><b>Tooltip</b><br/>(Double-click to edit)</html>";
+		private String createTooltipText(AbilityItem item) {
+			if (item instanceof TooltipItem tooltipItem) {
+				String message = tooltipItem.getMessage();
+				if (message == null || message.isEmpty()) {
+					return "<html><b>Tooltip</b><br/>(Double-click to edit)</html>";
+				}
+				return "<html>" + HtmlEscaper.escape(message) + "</html>";
 			}
-			return "<html>" + escapeHtml(message) + "</html>";
+			return AbilityUiFormatters.abilityTooltipHtml(item);
 		}
-		return AbilityUiFormatters.abilityTooltipHtml(item);
-	}
 
 	JPanel createTooltipCard(String message) {
 		String normalized = message != null ? message : "";
@@ -184,18 +185,4 @@ class AbilityCardFactory {
 		return label;
 	}
 
-	private String escapeHtml(String text) {
-		StringBuilder builder = new StringBuilder(text.length());
-		for (int i = 0; i < text.length(); i++) {
-			char c = text.charAt(i);
-			switch (c) {
-				case '<' -> builder.append("&lt;");
-				case '>' -> builder.append("&gt;");
-				case '&' -> builder.append("&amp;");
-				case '"' -> builder.append("&quot;");
-				default -> builder.append(c);
-			}
-		}
-		return builder.toString();
-	}
 }

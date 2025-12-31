@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.theme;
 
+import com.lansoftprogramming.runeSequence.ui.shared.util.HtmlEscaper;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -120,16 +122,16 @@ public final class ThemedDialogs {
 		return holder.result;
 	}
 
-	private static JComponent createMessageComponent(String message) {
-		if (message == null || message.isBlank()) {
-			return null;
+		private static JComponent createMessageComponent(String message) {
+			if (message == null || message.isBlank()) {
+				return null;
+			}
+			String html = "<html><div style='text-align:center;'>" + HtmlEscaper.escape(message).replace("\n", "<br>") + "</div></html>";
+			JLabel label = new JLabel(html);
+			label.setHorizontalAlignment(SwingConstants.CENTER);
+			label.setForeground(UiColorPalette.DIALOG_MESSAGE_TEXT);
+			return label;
 		}
-		String html = "<html><div style='text-align:center;'>" + escapeHtml(message).replace("\n", "<br>") + "</div></html>";
-		JLabel label = new JLabel(html);
-		label.setHorizontalAlignment(SwingConstants.CENTER);
-		label.setForeground(UiColorPalette.DIALOG_MESSAGE_TEXT);
-		return label;
-	}
 
 	private static JLabel createDividerLabel() {
 		ImageIcon icon = null;
@@ -145,15 +147,6 @@ public final class ThemedDialogs {
 			return null;
 		}
 		return new JLabel(icon);
-	}
-
-	private static String escapeHtml(String message) {
-		return message
-				.replace("&", "&amp;")
-				.replace("<", "&lt;")
-				.replace(">", "&gt;")
-				.replace("\"", "&quot;")
-				.replace("'", "&#39;");
 	}
 
 	public record DialogButton(String label, Result result) {
