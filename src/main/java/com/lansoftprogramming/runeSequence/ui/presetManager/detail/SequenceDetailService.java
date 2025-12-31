@@ -10,6 +10,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.model.SequenceElemen
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.SequenceVisualService;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityItemFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +29,7 @@ public class SequenceDetailService {
 	private final ConfigManager configManager;
 	private final AbilityIconLoader iconLoader;
 	private final SequenceVisualService visualService;
+	private AbilityItemFactory abilityItemFactory;
 
 	public SequenceDetailService(
 			ConfigManager configManager,
@@ -36,6 +38,7 @@ public class SequenceDetailService {
 		this.configManager = configManager;
 		this.iconLoader = iconLoader;
 		this.visualService = visualService;
+		this.abilityItemFactory = resolveAbilityItemFactory(configManager, iconLoader);
 	}
 
 	public List<SequenceElement> parseSequenceExpression(String expression) {
@@ -47,26 +50,14 @@ public class SequenceDetailService {
 	}
 
 	public AbilityItem createAbilityItem(String abilityKey) {
-		try {
-			AbilityConfig.AbilityData abilityData = configManager.getAbilities().getAbility(abilityKey);
-
-			if (abilityData == null) {
-				logger.debug("Ability data not found for key '{}'", abilityKey);
-				ImageIcon icon = iconLoader.loadIcon(abilityKey);
-				return new AbilityItem(abilityKey, abilityKey, 0, "Unknown", icon);
-			}
-
-			String displayName = getDisplayName(abilityData, abilityKey);
-			int level = abilityData.getLevel() != null ? abilityData.getLevel() : 0;
-			String type = abilityData.getType() != null ? abilityData.getType() : "Unknown";
-			ImageIcon icon = iconLoader.loadIcon(abilityKey);
-
-			return new AbilityItem(abilityKey, displayName, level, type, icon);
-
-		} catch (Exception e) {
-			logger.warn("Failed to create ability item for key: {}", abilityKey, e);
+		AbilityItemFactory factory = abilityItemFactory != null
+				? abilityItemFactory
+				: resolveAbilityItemFactory(configManager, iconLoader);
+		if (factory == null) {
 			return null;
 		}
+		abilityItemFactory = factory;
+		return factory.createAbilityItem(abilityKey);
 	}
 
 	public ImageIcon loadIcon(String abilityKey) {
@@ -91,6 +82,17 @@ public class SequenceDetailService {
 			return null;
 		}
 		return EffectiveAbilityConfig.from(abilityKey, baseAbility, overrides);
+	}
+
+	private static AbilityItemFactory resolveAbilityItemFactory(ConfigManager configManager, AbilityIconLoader iconLoader) {
+		if (configManager == null || iconLoader == null) {
+			return null;
+		}
+		AbilityConfig abilities = configManager.getAbilities();
+		if (abilities == null) {
+			return null;
+		}
+		return new AbilityItemFactory(abilities, iconLoader);
 	}
 
 	AbilityPropertiesDialog.MaskValidator createMaskValidator() {
@@ -121,14 +123,6 @@ public class SequenceDetailService {
 			return trimmed;
 		}
 		return trimmed + ".png";
-	}
-
-	private String getDisplayName(AbilityConfig.AbilityData abilityData, String fallbackKey) {
-		String commonName = abilityData.getCommonName();
-		if (commonName != null && !commonName.isEmpty()) {
-			return commonName;
-		}
-		return fallbackKey;
 	}
 
 	public SaveOutcome saveSequence(String existingId,

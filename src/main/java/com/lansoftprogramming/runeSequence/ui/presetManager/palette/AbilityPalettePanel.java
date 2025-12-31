@@ -8,6 +8,7 @@ import com.lansoftprogramming.runeSequence.ui.shared.component.WrapLayout;
 import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
 import com.lansoftprogramming.runeSequence.ui.shared.model.AbilityItem;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityItemFactory;
 import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
@@ -37,7 +38,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 
 	private final AbilityConfig abilityConfig;
 	private final AbilityCategoryConfig categoryConfig;
-	private final AbilityIconLoader iconLoader;
+	private final AbilityItemFactory abilityItemFactory;
 	private final FuzzySearchService searchService;
 
 	private JTextField searchField;
@@ -70,7 +71,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 		super(PanelStyle.DETAIL, new BorderLayout());
 		this.abilityConfig = Objects.requireNonNull(abilityConfig, "Ability config cannot be null");
 		this.categoryConfig = Objects.requireNonNull(categoryConfig, "Category config cannot be null");
-		this.iconLoader = Objects.requireNonNull(iconLoader, "Icon loader cannot be null");
+		this.abilityItemFactory = new AbilityItemFactory(abilityConfig, Objects.requireNonNull(iconLoader, "Icon loader cannot be null"));
 		this.searchService = new FuzzySearchService();
 		this.categoryPanels = new LinkedHashMap<>();
 		this.categoryAbilities = new LinkedHashMap<>();
@@ -454,7 +455,7 @@ public class AbilityPalettePanel extends ThemedPanel {
 			List<AbilityItem> abilityItems = abilityKeys.stream()
 					.filter(Objects::nonNull)
 					.distinct()
-					.map(this::createAbilityItem)
+					.map(abilityItemFactory::createAbilityItem)
 					.filter(Objects::nonNull)
 					.sorted(Comparator.comparingInt(AbilityItem::getLevel))
 					.collect(Collectors.toList());
@@ -477,43 +478,6 @@ public class AbilityPalettePanel extends ThemedPanel {
 		}
 
 		logger.info("Loaded {} ability categories", categoriesWithFallback.size());
-	}
-
-	/**
-	 * Creates an AbilityItem from an ability key.
-	 */
-	private AbilityItem createAbilityItem(String abilityKey) {
-		try {
-			AbilityConfig.AbilityData abilityData = abilityConfig.getAbility(abilityKey);
-
-			if (abilityData == null) {
-				logger.debug("Ability data not found for key '{}'", abilityKey);
-				ImageIcon icon = iconLoader.loadIcon(abilityKey);
-				return new AbilityItem(abilityKey, abilityKey, 0, "Unknown", icon);
-			}
-
-			String displayName = getDisplayName(abilityData, abilityKey);
-			int level = abilityData.getLevel() != null ? abilityData.getLevel() : 0;
-			String type = abilityData.getType() != null ? abilityData.getType() : "Unknown";
-			ImageIcon icon = iconLoader.loadIcon(abilityKey);
-
-			return new AbilityItem(abilityKey, displayName, level, type, icon);
-
-		} catch (Exception e) {
-			logger.warn("Failed to create ability item for key: {}", abilityKey, e);
-			return null;
-		}
-	}
-
-	/**
-	 * Gets the display name for an ability.
-	 */
-	private String getDisplayName(AbilityConfig.AbilityData abilityData, String fallbackKey) {
-		String commonName = abilityData.getCommonName();
-		if (commonName != null && !commonName.isEmpty()) {
-			return commonName;
-		}
-		return fallbackKey;
 	}
 
 	/**
