@@ -39,6 +39,7 @@ import java.util.*;
 
 public class PresetManagerWindow extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(PresetManagerWindow.class);
+    private static final String BASE_WINDOW_TITLE = "RuneSequence - Preset Manager";
 
     private final ConfigManager configManager;
     private final SequenceListModel sequenceListModel;
@@ -135,7 +136,7 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void initializeFrame() {
-        setTitle("RuneSequence - Preset Manager");
+        setTitle(BASE_WINDOW_TITLE);
         setName("presetManagerWindow");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 750);
@@ -328,6 +329,8 @@ public class PresetManagerWindow extends JFrame {
     }
 
     private void updateTopBarOverlay(SequenceController.State state) {
+        updateWindowTitle(state);
+
         Color nextOverlay;
         if (state == null) {
             nextOverlay = UiColorPalette.RUN_HEADER_NEUTRAL_BACKGROUND;
@@ -346,6 +349,25 @@ public class PresetManagerWindow extends JFrame {
         topBarRunOverlay = nextOverlay;
         if (topBar != null) {
             topBar.repaint();
+        }
+    }
+
+    private void updateWindowTitle(SequenceController.State state) {
+        String statusSuffix = null;
+        if (state != null) {
+            statusSuffix = switch (state) {
+                case PAUSED -> "Paused";
+                case ARMED -> "Armed";
+                case RUNNING -> "Running";
+                default -> null;
+            };
+        }
+
+        String nextTitle = statusSuffix != null
+                ? BASE_WINDOW_TITLE + " - " + statusSuffix
+                : BASE_WINDOW_TITLE;
+        if (!Objects.equals(getTitle(), nextTitle)) {
+            setTitle(nextTitle);
         }
     }
 

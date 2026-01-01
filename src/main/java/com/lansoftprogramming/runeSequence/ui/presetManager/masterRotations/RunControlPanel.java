@@ -24,7 +24,7 @@ class RunControlPanel extends JPanel {
 		setOpaque(false);
 		setLayout(new BorderLayout());
 
-		startButton = new JButton("Arm");
+		startButton = new JButton("Start");
 		pauseButton = new JButton("Pause");
 		restartButton = new JButton("Restart");
 		ThemedButtons.apply(startButton, ButtonStyle.DEFAULT);

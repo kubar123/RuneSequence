@@ -47,7 +47,7 @@ public class SequenceController implements HotkeyListener {
 	}
 	public void onSequenceCompleted() {
 		synchronized (this) {
-			if (currentState == State.RUNNING) {
+			if (currentState == State.RUNNING || currentState == State.ARMED) {
 				setState(State.READY);
 				logger.info("Sequence completed - returning to ready state");
 			}

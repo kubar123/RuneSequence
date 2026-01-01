@@ -33,6 +33,14 @@ public class SequenceRunService implements HotkeyListener {
 		this.tooltipScheduleBuilder = tooltipScheduleBuilder != null
 				? tooltipScheduleBuilder
 				: new TooltipScheduleBuilder();
+
+		if (this.sequenceManager != null && this.detectionEngine != null) {
+			this.sequenceManager.addProgressListener(progress -> {
+				if (progress != null && progress.isSequenceComplete()) {
+					this.detectionEngine.stop();
+				}
+			});
+		}
 	}
 
 	public TooltipScheduleBuilder.BuildResult buildSchedule(String expression) {
@@ -61,13 +69,26 @@ public class SequenceRunService implements HotkeyListener {
 			sequenceController.resetToReady();
 		}
 		ensureDetectionRunning();
+		logger.info("Detection start requested via UI controls.");
+	}
+
+	public synchronized void arm() {
+		if (!isDetectionRunning()) {
+			logger.info("Arm requested while detection is stopped; ignoring.");
+			return;
+		}
+		SequenceManager.SequenceProgress progress = sequenceManager != null ? sequenceManager.snapshotProgress() : null;
+		if (progress != null && progress.isSequenceComplete()) {
+			// Reset the sequence state but keep detection running so we can re-arm cleanly.
+			sequenceManager.resetActiveSequence(false);
+		}
 		sequenceController.onStartSequence();
-		logger.info("Start requested via UI controls.");
+		logger.info("Arm requested via UI controls.");
 	}
 
 	public synchronized void restart() {
-		ensureDetectionRunning();
 		sequenceController.onRestartSequence();
+		detectionEngine.stop();
 		logger.info("Restart requested via UI controls.");
 	}
 

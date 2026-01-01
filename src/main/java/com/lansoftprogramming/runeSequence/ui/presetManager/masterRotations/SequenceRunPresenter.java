@@ -57,13 +57,30 @@ class SequenceRunPresenter {
 			showError("Start action unavailable.");
 			return;
 		}
-		SequenceManager.SequenceProgress progress = sequenceRunService.getProgressSnapshot();
-		if (progress != null && progress.isSequenceComplete()) {
-			sequenceRunService.prepareReadyState();
+
+		if (!sequenceRunService.isDetectionRunning()) {
+			sequenceRunService.start();
+			refreshFromService();
+			showInfo("Detection started.");
+			return;
 		}
-		sequenceRunService.start();
+
+		SequenceController.State state = currentState != null ? currentState : SequenceController.State.READY;
+		if (state != SequenceController.State.READY) {
+			refreshFromService();
+			return;
+		}
+
+		SequenceManager.SequenceProgress progress = sequenceRunService.getProgressSnapshot();
+		if (progress == null || !progress.hasActiveSequence()) {
+			showInfo("Select a rotation first.");
+			refreshFromService();
+			return;
+		}
+
+		sequenceRunService.arm();
 		refreshFromService();
-		showInfo("Start requested.");
+		showInfo("Armed.");
 	}
 
 	void onPauseRequested() {
@@ -105,11 +122,16 @@ class SequenceRunPresenter {
 		SequenceController.State state = currentState != null ? currentState : SequenceController.State.READY;
 		SequenceManager.SequenceProgress progress = currentProgress;
 		boolean serviceAvailable = sequenceRunService != null;
-		StartAccent startAccent = resolveStartAccent(state);
 		boolean pauseHighlighted = state == SequenceController.State.PAUSED;
-		String startLabel = resolveStartLabel(state);
-		boolean startEnabled = serviceAvailable && (state == SequenceController.State.READY || state == SequenceController.State.PAUSED);
-		boolean pauseEnabled = serviceAvailable;
+			String startLabel = resolveStartLabel(state, detectionRunning);
+			StartAccent startAccent = resolveStartAccent(state);
+			boolean startEnabled = serviceAvailable
+					&& (state == SequenceController.State.READY || state == SequenceController.State.PAUSED)
+					&& (
+							!detectionRunning
+									|| (progress != null && progress.hasActiveSequence())
+					);
+		boolean pauseEnabled = serviceAvailable && detectionRunning && state != SequenceController.State.PAUSED;
 		boolean restartEnabled = serviceAvailable;
 		String statusText = serviceAvailable
 				? buildStatusText(state, progress, detectionRunning)
@@ -134,11 +156,13 @@ class SequenceRunPresenter {
 		};
 	}
 
-	private String resolveStartLabel(SequenceController.State state) {
+	private String resolveStartLabel(SequenceController.State state, boolean detectionRunning) {
+		if (!detectionRunning) {
+			return "Start";
+		}
 		return switch (state) {
 			case RUNNING -> "Running";
 			case ARMED -> "Armed";
-			case PAUSED -> "Start";
 			default -> "Arm";
 		};
 	}
@@ -156,7 +180,10 @@ class SequenceRunPresenter {
 		}
 
 		if (progress.isSequenceComplete()) {
-			return "Status: Rotation complete" + rotationSuffix + ". Restart to run again.";
+			if (!detectionRunning) {
+				return "Status: Rotation complete" + rotationSuffix + ". Press Start, then Arm to run again.";
+			}
+			return "Status: Rotation complete" + rotationSuffix + ". Press Arm to run again.";
 		}
 
 		String abilities = describeAbilities(progress);
@@ -172,9 +199,9 @@ class SequenceRunPresenter {
 			case RUNNING -> "Status: Running" + rotationSuffix + " " + stepInfo + " (" + abilities + ").";
 			case READY -> {
 				if (!detectionRunning) {
-					yield "Status: Ready" + rotationSuffix + " - detection halted.";
+					yield "Status: Ready" + rotationSuffix + " - detection halted. Press Start.";
 				}
-				yield "Status: Ready" + rotationSuffix + " - standing by (" + abilities + ").";
+				yield "Status: Ready" + rotationSuffix + " - standing by (" + abilities + "). Press Arm.";
 			}
 			default -> "Status: " + state;
 		};
