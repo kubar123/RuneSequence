@@ -1,5 +1,6 @@
 package com.lansoftprogramming.runeSequence.ui.regionSelector;
 
+import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
@@ -19,7 +20,7 @@ public class RegionSelectorWindow extends JDialog {
     private boolean selectionMade = false;
 
     private RegionSelectorWindow(Frame owner) {
-        super(owner, "Select Region", true); // Modal dialog
+        super(owner, "RuneSequence - Select Region", true); // Modal dialog
         this.selection = new Rectangle();
 	    this.confirmButton = new JButton("Confirm");
         ThemedButtons.apply(confirmButton, ButtonStyle.DEFAULT);
@@ -234,7 +235,13 @@ public class RegionSelectorWindow extends JDialog {
 
     public static RegionSelectorWindow selectRegion() {
         // Create a dummy frame to own the dialog
-        final Frame dummyFrame = new JFrame();
+        final JFrame dummyFrame = new JFrame("RuneSequence");
+        dummyFrame.setName("regionSelectorOwnerFrame");
+        dummyFrame.setType(Window.Type.UTILITY);
+        java.util.List<Image> icons = AppIcon.loadWindowIcons();
+        if (!icons.isEmpty()) {
+            dummyFrame.setIconImages(icons);
+        }
         dummyFrame.setUndecorated(true);
         dummyFrame.setOpacity(0.0f);
         dummyFrame.setLocationRelativeTo(null);

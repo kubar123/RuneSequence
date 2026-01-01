@@ -12,7 +12,9 @@ import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.infrastructure.config.RotationConfig;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyBindingSource;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyEvent;
 import com.lansoftprogramming.runeSequence.infrastructure.hotkey.HotkeyManager;
+import com.lansoftprogramming.runeSequence.infrastructure.hotkey.KeyChord;
 import com.lansoftprogramming.runeSequence.ui.notification.DefaultNotificationService;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.overlay.MouseTooltipOverlay;
@@ -20,6 +22,7 @@ import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
+import com.lansoftprogramming.runeSequence.ui.shared.window.WindowPlacementSupport;
 import com.lansoftprogramming.runeSequence.ui.taskbar.PrimeAbilityCacheAction;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
 import com.lansoftprogramming.runeSequence.ui.taskbar.Taskbar;
@@ -31,8 +34,10 @@ import java.awt.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class Main {
@@ -173,7 +178,9 @@ public class Main {
 			);
 
 			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
-			hotkeyManager = new HotkeyManager(bindingSource.loadBindings(configManager.getSettings().getHotkeys()));
+			Map<HotkeyEvent, List<KeyChord>> initialHotkeys = bindingSource.loadBindings(configManager.getSettings().getHotkeys());
+			AtomicReference<Map<HotkeyEvent, List<KeyChord>>> lastHotkeys = new AtomicReference<>(initialHotkeys);
+			hotkeyManager = new HotkeyManager(initialHotkeys);
 			hotkeyManager.initialize();
 			hotkeyManager.addListener(sequenceRunService);
 			configManager.addSettingsSaveListener(settings -> {
@@ -181,7 +188,13 @@ public class Main {
 					return;
 				}
 				AppSettings.HotkeySettings hotkeys = settings != null ? settings.getHotkeys() : null;
-				hotkeyManager.refreshBindings(bindingSource.loadBindings(hotkeys));
+				Map<HotkeyEvent, List<KeyChord>> nextBindings = bindingSource.loadBindings(hotkeys);
+				Map<HotkeyEvent, List<KeyChord>> previous = lastHotkeys.get();
+				if (nextBindings.equals(previous)) {
+					return;
+				}
+				lastHotkeys.set(nextBindings);
+				hotkeyManager.refreshBindings(nextBindings);
 				hotkeyManager.initialize();
 			});
 
@@ -412,6 +425,11 @@ public class Main {
 		}
 
 		logger.info("Shutdown sequence initiated.");
+		try {
+			WindowPlacementSupport.flushAll();
+		} catch (Exception e) {
+			logger.debug("Failed to flush window placement state during shutdown.", e);
+		}
 		if (taskbar != null) {
 			taskbar.dispose();
 		}

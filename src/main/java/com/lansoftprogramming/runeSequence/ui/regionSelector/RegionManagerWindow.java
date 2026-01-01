@@ -3,8 +3,10 @@ package com.lansoftprogramming.runeSequence.ui.regionSelector;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
+import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
+import com.lansoftprogramming.runeSequence.ui.shared.window.WindowPlacementSupport;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,16 +39,21 @@ public class RegionManagerWindow extends JFrame {
 	private RegionPreviewOverlay previewOverlay;
 
 	public RegionManagerWindow(ConfigManager configManager, Supplier<NotificationService> notificationsSupplier) {
-		super("Regions");
+		super("RuneSequence - Regions");
 		this.configManager = Objects.requireNonNull(configManager, "configManager");
 		this.notificationsSupplier = Objects.requireNonNull(notificationsSupplier, "notificationsSupplier");
 		this.regions = new ArrayList<>();
 		this.selectionGroup = new ButtonGroup();
 		this.regionPanels = new ArrayList<>();
 
+		setName("regionManagerWindow");
 		setAlwaysOnTop(true);
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		ThemedWindowDecorations.applyTitleBar(this);
+		java.util.List<Image> icons = AppIcon.loadWindowIcons();
+		if (!icons.isEmpty()) {
+			setIconImages(icons);
+		}
 
 		ThemedPanel root = new ThemedPanel(PanelStyle.DETAIL, new BorderLayout());
 		setContentPane(root);
@@ -92,7 +99,12 @@ public class RegionManagerWindow extends JFrame {
 		installActions();
 		pack();
 		setMinimumSize(new Dimension(520, 280));
-		setLocationRelativeTo(null);
+
+		boolean restored = WindowPlacementSupport.restore(configManager, WindowPlacementSupport.WindowId.REGION_MANAGER, this);
+		if (!restored) {
+			setLocationRelativeTo(null);
+		}
+		WindowPlacementSupport.install(configManager, WindowPlacementSupport.WindowId.REGION_MANAGER, this);
 	}
 
 	private JButton createDeleteButtonOrFallback() {

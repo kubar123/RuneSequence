@@ -21,6 +21,7 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 	private final JSpinner abilityIndicatorLoopMsSpinner;
 	private final JCheckBox channeledWaitTooltipsCheck;
 	private final JCheckBox autoSaveCheck;
+	private final JCheckBox alwaysOnTopCheck;
 	private final JLabel statusLabel;
 
 	public IconSizeSettingsPanel(ConfigManager configManager) {
@@ -66,6 +67,10 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		autoSaveCheck = new JCheckBox("Auto-save rotations when switching presets");
 		autoSaveCheck.setSelected(resolveAutoSavePreference());
 		autoSaveCheck.setOpaque(false);
+
+		alwaysOnTopCheck = new JCheckBox("Keep main windows always on top");
+		alwaysOnTopCheck.setSelected(resolveAlwaysOnTopPreference());
+		alwaysOnTopCheck.setOpaque(false);
 
 		statusLabel = new JLabel(" ");
 		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
@@ -127,6 +132,11 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		formPanel.add(autoSaveCheck, gbc);
 
 		gbc.gridy++;
+		gbc.gridx = 0;
+		gbc.gridwidth = 2;
+		formPanel.add(alwaysOnTopCheck, gbc);
+
+		gbc.gridy++;
 		gbc.gridwidth = 1;
 		gbc.anchor = GridBagConstraints.EAST;
 		gbc.gridx = 1;
@@ -162,6 +172,7 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 			settings.setUi(new AppSettings.UiSettings());
 		}
 		settings.getUi().setIconSize(resolvedSize);
+		settings.getUi().setPresetManagerAlwaysOnTop(alwaysOnTopCheck.isSelected());
 		settings.getUi().setBlinkCurrentAbilities(blinkCurrentCheck.isSelected());
 		settings.getUi().setAbilityIndicatorEnabled(abilityIndicatorEnabledCheck.isSelected());
 		settings.getUi().setAbilityIndicatorLoopMs(((Number) abilityIndicatorLoopMsSpinner.getValue()).longValue());
@@ -180,6 +191,7 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 					: "Saved icon size: " + resolvedSize + " px";
 			String message = sizeMessage
 					+ "; auto-save rotations " + rotationStateLabel()
+					+ "; always-on-top " + alwaysOnTopStateLabel()
 					+ "; blinking current highlights " + blinkStateLabel()
 					+ "; ability indicator animation " + abilityIndicatorStateLabel()
 					+ " (" + abilityIndicatorLoopMsLabel() + "ms)"
@@ -210,6 +222,14 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		AppSettings settings = configManager.getSettings();
 		if (settings != null && settings.getRotation() != null) {
 			return settings.getRotation().isAutoSaveOnSwitch();
+		}
+		return false;
+	}
+
+	private boolean resolveAlwaysOnTopPreference() {
+		AppSettings settings = configManager.getSettings();
+		if (settings != null && settings.getUi() != null) {
+			return settings.getUi().isPresetManagerAlwaysOnTop();
 		}
 		return false;
 	}
@@ -248,6 +268,10 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 
 	private String rotationStateLabel() {
 		return autoSaveCheck.isSelected() ? "enabled" : "disabled";
+	}
+
+	private String alwaysOnTopStateLabel() {
+		return alwaysOnTopCheck.isSelected() ? "enabled" : "disabled";
 	}
 
 	private String blinkStateLabel() {

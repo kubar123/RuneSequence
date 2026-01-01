@@ -24,6 +24,7 @@ import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorActio
 import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
+import com.lansoftprogramming.runeSequence.ui.shared.window.WindowPlacementSupport;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
@@ -65,6 +66,7 @@ public class PresetManagerWindow extends JFrame {
     private String currentSelectionId;
     private boolean autoSaveInProgress;
     private transient TextCursorSupport.WindowTextCursorResolver cursorResolver;
+    private transient java.util.function.Consumer<AppSettings> settingsListener;
 
     public PresetManagerWindow(
             ConfigManager configManager,
@@ -102,12 +104,14 @@ public class PresetManagerWindow extends JFrame {
         super.addNotify();
         installCursorResolver();
         installThemeListener();
+        installSettingsListener();
     }
 
     @Override
     public void removeNotify() {
         uninstallCursorResolver();
         uninstallThemeListener();
+        uninstallSettingsListener();
         super.removeNotify();
     }
 
@@ -132,9 +136,15 @@ public class PresetManagerWindow extends JFrame {
 
     private void initializeFrame() {
         setTitle("RuneSequence - Preset Manager");
+        setName("presetManagerWindow");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 750);
-        setLocationRelativeTo(null);
+        boolean restored = WindowPlacementSupport.restore(configManager, WindowPlacementSupport.WindowId.PRESET_MANAGER, this);
+        if (!restored) {
+            setLocationRelativeTo(null);
+        }
+        WindowPlacementSupport.install(configManager, WindowPlacementSupport.WindowId.PRESET_MANAGER, this);
+        applyAlwaysOnTopFromSettings();
 
         java.util.List<Image> icons = AppIcon.loadWindowIcons();
         if (!icons.isEmpty()) {
@@ -157,6 +167,30 @@ public class PresetManagerWindow extends JFrame {
         });
 
         applyThemedTitleBar();
+    }
+
+    private void installSettingsListener() {
+        if (settingsListener != null) {
+            return;
+        }
+        settingsListener = ignored -> SwingUtilities.invokeLater(this::applyAlwaysOnTopFromSettings);
+        configManager.addSettingsSaveListener(settingsListener);
+    }
+
+    private void uninstallSettingsListener() {
+        if (settingsListener == null) {
+            return;
+        }
+        configManager.removeSettingsSaveListener(settingsListener);
+        settingsListener = null;
+    }
+
+    private void applyAlwaysOnTopFromSettings() {
+        AppSettings settings = configManager != null ? configManager.getSettings() : null;
+        boolean alwaysOnTop = settings != null
+                && settings.getUi() != null
+                && settings.getUi().isPresetManagerAlwaysOnTop();
+        setAlwaysOnTop(alwaysOnTop);
     }
 
     private void applyThemedTitleBar() {

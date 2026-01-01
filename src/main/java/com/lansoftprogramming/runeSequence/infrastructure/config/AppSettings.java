@@ -537,6 +537,12 @@ public class AppSettings {
 			@JsonProperty("iconSize")
 			private int iconSize = 30; // default icon size in pixels
 
+			@JsonProperty("presetManagerAlwaysOnTop")
+			private boolean presetManagerAlwaysOnTop = false;
+
+			@JsonProperty("windows")
+			private WindowSettings windows = new WindowSettings();
+
 			@JsonProperty("blinkCurrentAbilities")
 			private boolean blinkCurrentAbilities = false;
 
@@ -555,6 +561,25 @@ public class AppSettings {
 
 			public void setIconSize(int iconSize) {
 				this.iconSize = iconSize;
+			}
+
+			public boolean isPresetManagerAlwaysOnTop() {
+				return presetManagerAlwaysOnTop;
+			}
+
+			public void setPresetManagerAlwaysOnTop(boolean presetManagerAlwaysOnTop) {
+				this.presetManagerAlwaysOnTop = presetManagerAlwaysOnTop;
+			}
+
+			public WindowSettings getWindows() {
+				if (windows == null) {
+					windows = new WindowSettings();
+				}
+				return windows;
+			}
+
+			public void setWindows(WindowSettings windows) {
+				this.windows = windows;
 			}
 
 			public boolean isBlinkCurrentAbilities() {
@@ -587,6 +612,114 @@ public class AppSettings {
 
 			public void setChanneledWaitTooltipsEnabled(boolean channeledWaitTooltipsEnabled) {
 				this.channeledWaitTooltipsEnabled = channeledWaitTooltipsEnabled;
+			}
+
+			@JsonIgnoreProperties(ignoreUnknown = true)
+			public static class WindowSettings {
+				@JsonProperty("presetManager")
+				private WindowPlacement presetManager = new WindowPlacement();
+
+				@JsonProperty("settings")
+				private WindowPlacement settings = new WindowPlacement();
+
+				@JsonProperty("regionManager")
+				private WindowPlacement regionManager = new WindowPlacement();
+
+				public WindowPlacement getPresetManager() {
+					if (presetManager == null) {
+						presetManager = new WindowPlacement();
+					}
+					return presetManager;
+				}
+
+				public void setPresetManager(WindowPlacement presetManager) {
+					this.presetManager = presetManager;
+				}
+
+				public WindowPlacement getSettings() {
+					if (settings == null) {
+						settings = new WindowPlacement();
+					}
+					return settings;
+				}
+
+				public void setSettings(WindowPlacement settings) {
+					this.settings = settings;
+				}
+
+				public WindowPlacement getRegionManager() {
+					if (regionManager == null) {
+						regionManager = new WindowPlacement();
+					}
+					return regionManager;
+				}
+
+				public void setRegionManager(WindowPlacement regionManager) {
+					this.regionManager = regionManager;
+				}
+			}
+
+			@JsonIgnoreProperties(ignoreUnknown = true)
+			public static class WindowPlacement {
+				@JsonProperty("x")
+				private Integer x;
+
+				@JsonProperty("y")
+				private Integer y;
+
+				@JsonProperty("width")
+				private Integer width;
+
+				@JsonProperty("height")
+				private Integer height;
+
+				@JsonProperty("maximized")
+				private boolean maximized = false;
+
+				public Integer getX() {
+					return x;
+				}
+
+				public void setX(Integer x) {
+					this.x = x;
+				}
+
+				public Integer getY() {
+					return y;
+				}
+
+				public void setY(Integer y) {
+					this.y = y;
+				}
+
+				public Integer getWidth() {
+					return width;
+				}
+
+				public void setWidth(Integer width) {
+					this.width = width;
+				}
+
+				public Integer getHeight() {
+					return height;
+				}
+
+				public void setHeight(Integer height) {
+					this.height = height;
+				}
+
+				public boolean isMaximized() {
+					return maximized;
+				}
+
+				public void setMaximized(boolean maximized) {
+					this.maximized = maximized;
+				}
+
+				public boolean hasBounds() {
+					return x != null && y != null && width != null && height != null
+							&& width > 0 && height > 0;
+				}
 			}
 		}
 	}

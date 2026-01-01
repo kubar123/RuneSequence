@@ -1,8 +1,11 @@
 package com.lansoftprogramming.runeSequence.ui.taskbar;
 
+import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
 import com.lansoftprogramming.runeSequence.ui.settings.HotkeySettingsPanel;
 import com.lansoftprogramming.runeSequence.ui.settings.IconSizeSettingsPanel;
+import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
+import com.lansoftprogramming.runeSequence.ui.shared.window.WindowPlacementSupport;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
@@ -25,9 +28,14 @@ public class SettingsAction implements MenuAction {
         }
 
         SwingUtilities.invokeLater(() -> {
-			settingsFrame = new JFrame("Settings");
+			settingsFrame = new JFrame("RuneSequence - Settings");
+			settingsFrame.setName("settingsWindow");
 			settingsFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 			ThemedWindowDecorations.applyTitleBar(settingsFrame);
+			java.util.List<Image> icons = AppIcon.loadWindowIcons();
+			if (!icons.isEmpty()) {
+				settingsFrame.setIconImages(icons);
+			}
 
 			ThemedPanel root = new ThemedPanel(PanelStyle.TAB_CONTENT, new BorderLayout());
 			settingsFrame.setContentPane(root);
@@ -39,7 +47,19 @@ public class SettingsAction implements MenuAction {
 
 			root.add(tabs, BorderLayout.CENTER);
 			settingsFrame.pack();
-			settingsFrame.setLocationRelativeTo(null);
+
+			AppSettings settings = configManager != null ? configManager.getSettings() : null;
+			boolean alwaysOnTop = settings != null
+					&& settings.getUi() != null
+					&& settings.getUi().isPresetManagerAlwaysOnTop();
+			settingsFrame.setAlwaysOnTop(alwaysOnTop);
+
+			boolean restored = WindowPlacementSupport.restore(configManager, WindowPlacementSupport.WindowId.SETTINGS, settingsFrame);
+			if (!restored) {
+				settingsFrame.setLocationRelativeTo(null);
+			}
+			WindowPlacementSupport.install(configManager, WindowPlacementSupport.WindowId.SETTINGS, settingsFrame);
+
 			settingsFrame.setVisible(true);
 		});
 	}
