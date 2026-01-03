@@ -2,22 +2,31 @@ package com.lansoftprogramming.runeSequence.ui.taskbar;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.ui.settings.DebugSettingsPanel;
 import com.lansoftprogramming.runeSequence.ui.settings.HotkeySettingsPanel;
 import com.lansoftprogramming.runeSequence.ui.settings.IconSizeSettingsPanel;
+import com.lansoftprogramming.runeSequence.ui.settings.debug.IconDetectionDebugService;
 import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
-import com.lansoftprogramming.runeSequence.ui.shared.window.WindowPlacementSupport;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class SettingsAction implements MenuAction {
 
 	private final ConfigManager configManager;
+	private final IconDetectionDebugService iconDetectionDebugService;
 	private JFrame settingsFrame;
 
 	public SettingsAction(ConfigManager configManager) {
+		this(configManager, null);
+	}
+
+	public SettingsAction(ConfigManager configManager, IconDetectionDebugService iconDetectionDebugService) {
 		this.configManager = configManager;
+		this.iconDetectionDebugService = iconDetectionDebugService;
 	}
 
 	@Override
@@ -43,22 +52,37 @@ public class SettingsAction implements MenuAction {
 			JTabbedPane tabs = new ThemedSettingsTabbedPane();
 			tabs.addTab("General", new IconSizeSettingsPanel(configManager));
 			tabs.addTab("Hotkeys", new HotkeySettingsPanel(configManager));
+	        tabs.addTab("Debug", new DebugSettingsPanel(iconDetectionDebugService));
 			applyTabbedPaneTheme(tabs);
 
 			root.add(tabs, BorderLayout.CENTER);
 			settingsFrame.pack();
 
 			AppSettings settings = configManager != null ? configManager.getSettings() : null;
-			boolean alwaysOnTop = settings != null
-					&& settings.getUi() != null
-					&& settings.getUi().isPresetManagerAlwaysOnTop();
-			settingsFrame.setAlwaysOnTop(alwaysOnTop);
+	        boolean alwaysOnTop = settings != null
+			        && settings.getUi() != null
+			        && settings.getUi().isPresetManagerAlwaysOnTop();
+	        settingsFrame.setAlwaysOnTop(alwaysOnTop);
 
-			boolean restored = WindowPlacementSupport.restore(configManager, WindowPlacementSupport.WindowId.SETTINGS, settingsFrame);
-			if (!restored) {
 				settingsFrame.setLocationRelativeTo(null);
-			}
-			WindowPlacementSupport.install(configManager, WindowPlacementSupport.WindowId.SETTINGS, settingsFrame);
+
+	        settingsFrame.addWindowListener(new WindowAdapter() {
+		        @Override
+		        public void windowClosing(WindowEvent e) {
+			        stopDebugIfRunning();
+		        }
+
+		        @Override
+		        public void windowClosed(WindowEvent e) {
+			        stopDebugIfRunning();
+		        }
+
+		        private void stopDebugIfRunning() {
+			        if (iconDetectionDebugService != null && iconDetectionDebugService.isRunning()) {
+				        iconDetectionDebugService.stop();
+			        }
+		        }
+	        });
 
 			settingsFrame.setVisible(true);
 		});

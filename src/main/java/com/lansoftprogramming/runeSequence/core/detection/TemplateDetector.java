@@ -297,6 +297,14 @@ public class TemplateDetector {
 		return 0.99; // Default high threshold
 	}
 
+	public double resolveRequiredThreshold(String templateName, Double overrideThreshold) {
+		if (templateName == null) {
+			return 0.99d;
+		}
+		String lookupName = normalizeAbilityKeyForLookup(templateName);
+		return getThresholdForTemplate(lookupName, overrideThreshold);
+	}
+
 	/**
 	 * Find best match for the template inside the screen Mat.
 	 *

@@ -79,24 +79,45 @@ public class DetectionEngine {
 	}
 
 	public void stop() {
-		if (!isRunning) {
-			overlay.clearOverlays();
-			if (tooltipOverlay != null) {
-				tooltipOverlay.clear();
+		stop(true);
+	}
+
+	/**
+	 * Stop the detection scheduler. When {@code stopCapture} is true, the underlying screen capture
+	 * grabber is also torn down. For short-lived mode switches (e.g. debug scanning), keeping capture
+	 * alive avoids expensive/fragile gdigrab restart cycles.
+	 */
+	public void stop(boolean stopCapture) {
+		isRunning = false;
+		ScheduledExecutorService schedulerToStop = scheduler;
+		scheduler = null;
+
+		if (schedulerToStop != null) {
+			schedulerToStop.shutdown();
+			try {
+				// Ensure in-flight frame processing is finished before tearing down screen capture.
+				// Avoid waiting on the scheduler thread itself.
+				if (!Thread.currentThread().getName().equals("DetectionEngine")
+						&& !schedulerToStop.awaitTermination(750, TimeUnit.MILLISECONDS)) {
+					schedulerToStop.shutdownNow();
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				schedulerToStop.shutdownNow();
+			} catch (Exception e) {
+				logger.debug("Ignoring failure awaiting detection scheduler termination", e);
 			}
-			return;
 		}
 
-		isRunning = false;
-		if (scheduler != null) {
-			scheduler.shutdown();
+		if (stopCapture) {
+			try {
+				// Avoid leaving the screen-grabber in a stale state across pause/resume cycles.
+				screenCapture.stopCapture();
+			} catch (Exception e) {
+				logger.debug("Ignoring failure stopping screen capture", e);
+			}
 		}
-		try {
-			// Avoid leaving the screen-grabber in a stale state across pause/resume cycles.
-			screenCapture.stopCapture();
-		} catch (Exception e) {
-			logger.debug("Ignoring failure stopping screen capture", e);
-		}
+
 		overlay.clearOverlays();
 		if (tooltipOverlay != null) {
 			tooltipOverlay.clear();
@@ -105,12 +126,15 @@ public class DetectionEngine {
 	}
 
 	private void processFrame() {
-		try {
-		long frameId = ++frameCounter;
-		long frameStartNanos = System.nanoTime();
-		if (logger.isDebugEnabled()) {
-			logger.debug("DetectionEngine.processFrame #{} start", frameId);
+		if (!isRunning) {
+			return;
 		}
+		try {
+			long frameId = ++frameCounter;
+			long frameStartNanos = System.nanoTime();
+			if (logger.isDebugEnabled()) {
+				logger.debug("DetectionEngine.processFrame #{} start", frameId);
+			}
 
 		try {
 			if (!sequenceManager.shouldDetect()) {

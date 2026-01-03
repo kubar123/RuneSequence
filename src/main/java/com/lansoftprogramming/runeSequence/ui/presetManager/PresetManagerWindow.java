@@ -21,6 +21,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.Sequ
 import com.lansoftprogramming.runeSequence.ui.presetManager.palette.AbilityPalettePanel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
+import com.lansoftprogramming.runeSequence.ui.settings.debug.IconDetectionDebugService;
 import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.cursor.TextCursorSupport;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
@@ -48,6 +49,7 @@ public class PresetManagerWindow extends JFrame {
     private final AbilityOverridesService overridesService;
     private final SelectedSequenceIndicator selectionIndicator;
     private final SequenceRunService sequenceRunService;
+    private final IconDetectionDebugService iconDetectionDebugService;
 
     private SequenceMasterPanel masterPanel;
     private SequenceDetailPanel detailPanel;
@@ -76,7 +78,8 @@ public class PresetManagerWindow extends JFrame {
             SequenceDetailService detailService,
             AbilityOverridesService overridesService,
             SelectedSequenceIndicator selectionIndicator,
-            SequenceRunService sequenceRunService) {
+            SequenceRunService sequenceRunService,
+            IconDetectionDebugService iconDetectionDebugService) {
         this.configManager = configManager;
         this.sequenceListModel = sequenceListModel;
         this.iconLoader = iconLoader;
@@ -84,6 +87,7 @@ public class PresetManagerWindow extends JFrame {
         this.overridesService = overridesService;
         this.selectionIndicator = selectionIndicator;
         this.sequenceRunService = sequenceRunService;
+        this.iconDetectionDebugService = iconDetectionDebugService;
 
         initializeFrame();
         toastManager = new ToastManager(this);
@@ -223,7 +227,7 @@ public class PresetManagerWindow extends JFrame {
                 configManager.getAbilityCategories(),
                 iconLoader
             );
-            settingsAction = new SettingsAction(configManager);
+            settingsAction = new SettingsAction(configManager, iconDetectionDebugService);
             regionSelectorAction = new RegionSelectorAction(configManager);
             palettePanel.setMainAppActions(settingsAction, regionSelectorAction);
 

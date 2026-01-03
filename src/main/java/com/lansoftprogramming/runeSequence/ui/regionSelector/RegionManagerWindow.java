@@ -6,7 +6,6 @@ import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
 import com.lansoftprogramming.runeSequence.ui.shared.AppIcon;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.IconLoader;
 import com.lansoftprogramming.runeSequence.ui.shared.icons.ResourceIcons;
-import com.lansoftprogramming.runeSequence.ui.shared.window.WindowPlacementSupport;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -100,12 +99,8 @@ public class RegionManagerWindow extends JFrame {
 		pack();
 		setMinimumSize(new Dimension(520, 280));
 
-		boolean restored = WindowPlacementSupport.restore(configManager, WindowPlacementSupport.WindowId.REGION_MANAGER, this);
-		if (!restored) {
 			setLocationRelativeTo(null);
 		}
-		WindowPlacementSupport.install(configManager, WindowPlacementSupport.WindowId.REGION_MANAGER, this);
-	}
 
 	private JButton createDeleteButtonOrFallback() {
 		ImageIcon trashIcon = IconLoader.loadScaledOrNull(ResourceIcons.TRASH_512, 16, 16);

@@ -7,6 +7,7 @@ import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.Sele
 import com.lansoftprogramming.runeSequence.ui.presetManager.masterRotations.SequenceListModel;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.AbilityOverridesService;
 import com.lansoftprogramming.runeSequence.ui.presetManager.service.SequenceVisualService;
+import com.lansoftprogramming.runeSequence.ui.settings.debug.IconDetectionDebugService;
 import com.lansoftprogramming.runeSequence.ui.shared.service.AbilityIconLoader;
 import com.lansoftprogramming.runeSequence.ui.theme.ThemedDialogs;
 import org.slf4j.Logger;
@@ -21,10 +22,14 @@ public class PresetManagerWindowBuilder {
 
 	private final ConfigManager configManager;
 	private final SequenceRunService sequenceRunService;
+	private final IconDetectionDebugService iconDetectionDebugService;
 
-	public PresetManagerWindowBuilder(ConfigManager configManager, SequenceRunService sequenceRunService) {
+	public PresetManagerWindowBuilder(ConfigManager configManager,
+	                                  SequenceRunService sequenceRunService,
+	                                  IconDetectionDebugService iconDetectionDebugService) {
 		this.configManager = configManager;
 		this.sequenceRunService = sequenceRunService;
+		this.iconDetectionDebugService = iconDetectionDebugService;
 	}
 
 	public PresetManagerWindow buildAndShow() {
@@ -55,7 +60,8 @@ public class PresetManagerWindowBuilder {
 					detailService,
 					overridesService,
 					selectionIndicator,
-					sequenceRunService
+					sequenceRunService,
+					iconDetectionDebugService
 			);
 		} catch (Exception e) {
 			logger.error("Failed to build PresetManagerWindow", e);

@@ -2,6 +2,7 @@ package com.lansoftprogramming.runeSequence.ui.presetManager;
 
 import com.lansoftprogramming.runeSequence.application.SequenceRunService;
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.ui.settings.debug.IconDetectionDebugService;
 import com.lansoftprogramming.runeSequence.ui.taskbar.MenuAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,11 +14,15 @@ public class PresetManagerAction implements MenuAction {
     private static final Logger logger = LoggerFactory.getLogger(PresetManagerAction.class);
     private final ConfigManager configManager;
     private final SequenceRunService sequenceRunService;
+    private final IconDetectionDebugService iconDetectionDebugService;
     private PresetManagerWindow presetManagerWindow;
 
-    public PresetManagerAction(ConfigManager configManager, SequenceRunService sequenceRunService) {
+    public PresetManagerAction(ConfigManager configManager,
+                               SequenceRunService sequenceRunService,
+                               IconDetectionDebugService iconDetectionDebugService) {
         this.configManager = configManager;
         this.sequenceRunService = sequenceRunService;
+        this.iconDetectionDebugService = iconDetectionDebugService;
     }
 
     @Override
@@ -25,7 +30,7 @@ public class PresetManagerAction implements MenuAction {
         Runnable openWindow = () -> {
             if (presetManagerWindow == null || !presetManagerWindow.isVisible()) {
                 logger.info("Opening Preset Manager window...");
-                presetManagerWindow = new PresetManagerWindowBuilder(configManager, sequenceRunService).buildAndShow();
+                presetManagerWindow = new PresetManagerWindowBuilder(configManager, sequenceRunService, iconDetectionDebugService).buildAndShow();
                 if (presetManagerWindow == null) {
                     logger.error("Preset Manager failed to initialize.");
                 }

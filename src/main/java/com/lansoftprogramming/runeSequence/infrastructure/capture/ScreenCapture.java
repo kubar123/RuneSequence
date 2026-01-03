@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ScreenCapture {
 	private static final Logger logger = LoggerFactory.getLogger(ScreenCapture.class);
@@ -20,6 +21,9 @@ public class ScreenCapture {
 	private Rectangle captureRegion;
 	private Rectangle screenBounds;
 	private final AtomicBoolean isInitialized = new AtomicBoolean(false);
+	private final AtomicInteger consecutiveNullFrames = new AtomicInteger(0);
+	private final AtomicInteger consecutiveNullMats = new AtomicInteger(0);
+	private volatile long lastStopNanos = 0L;
 	private String platform;
 	private final boolean supportsNativeRegionCapture;
 
@@ -59,15 +63,16 @@ public class ScreenCapture {
 	 */
 	private synchronized void initializeGrabber() throws Exception {
 		if (grabber != null) {
+			stopCapture();
+		}
+
+		long sinceStopMs = (System.nanoTime() - lastStopNanos) / 1_000_000L;
+		if (lastStopNanos > 0L && sinceStopMs >= 0 && sinceStopMs < 150) {
+			// On Windows gdigrab can intermittently fail (e.g. "error 6") if restarted immediately after close.
 			try {
-				grabber.stop();
-			} catch (Exception e) {
-				logger.debug("Ignoring grabber.stop failure during reinit", e);
-			}
-			try {
-				grabber.close();
-			} catch (Exception e) {
-				logger.debug("Ignoring grabber.close failure during reinit", e);
+				Thread.sleep(150 - sinceStopMs);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
 			}
 		}
 
@@ -95,7 +100,7 @@ public class ScreenCapture {
 	/**
 	 * Capture screen and return OpenCV Mat (cropped to region)
 	 */
-	public Mat captureScreen() {
+	public synchronized Mat captureScreen() {
 		try {
 			ensureConverter();
 			if (!isInitialized.get()) {
@@ -104,15 +109,36 @@ public class ScreenCapture {
 
 			Frame frame = grabber.grab();
 			if (frame == null) {
-				logger.warn("Frame grab returned null");
+				int count = consecutiveNullFrames.incrementAndGet();
+				if (count == 1 || count % 30 == 0) {
+					logger.warn("Frame grab returned null (consecutiveNullFrames={})", count);
+				} else if (logger.isDebugEnabled()) {
+					logger.debug("Frame grab returned null (consecutiveNullFrames={})", count);
+				}
+				if (count >= 30) {
+					// gdigrab can enter a bad state after stop/start or desktop transitions; force a restart.
+					stopCapture();
+					consecutiveNullFrames.set(0);
+				}
 				return new Mat();
 			}
+			consecutiveNullFrames.set(0);
 
 			Mat fullScreenMat = converter.convert(frame);
 			if (fullScreenMat == null) {
-				logger.warn("Frame conversion returned null");
+				int count = consecutiveNullMats.incrementAndGet();
+				if (count == 1 || count % 30 == 0) {
+					logger.warn("Frame conversion returned null (consecutiveNullMats={})", count);
+				} else if (logger.isDebugEnabled()) {
+					logger.debug("Frame conversion returned null (consecutiveNullMats={})", count);
+				}
+				if (count >= 30) {
+					stopCapture();
+					consecutiveNullMats.set(0);
+				}
 				return new Mat();
 			}
+			consecutiveNullMats.set(0);
 
 			boolean needsCropping = shouldCropFrame();
 			if (!needsCropping) {
@@ -322,9 +348,12 @@ public class ScreenCapture {
 	 */
 	public synchronized void stopCapture() {
 		isInitialized.set(false);
+		consecutiveNullFrames.set(0);
+		consecutiveNullMats.set(0);
 		if (grabber == null) {
 			return;
 		}
+		lastStopNanos = System.nanoTime();
 		try {
 			grabber.stop();
 		} catch (Exception e) {

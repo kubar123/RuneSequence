@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -143,6 +144,14 @@ public class TemplateCache {
 
 	public boolean hasTemplate(String abilityName) {
 		return cache.containsKey(abilityName);
+	}
+
+	public Set<String> getTemplateNames() {
+		return Set.copyOf(cache.keySet());
+	}
+
+	public Path getImagePath() {
+		return imagePath;
 	}
 
 	public int getCacheSize() {

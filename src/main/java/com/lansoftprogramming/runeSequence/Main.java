@@ -22,6 +22,7 @@ import com.lansoftprogramming.runeSequence.ui.overlay.OverlayRenderer;
 import com.lansoftprogramming.runeSequence.ui.overlay.toast.ToastManager;
 import com.lansoftprogramming.runeSequence.ui.presetManager.PresetManagerAction;
 import com.lansoftprogramming.runeSequence.ui.regionSelector.RegionSelectorAction;
+import com.lansoftprogramming.runeSequence.ui.settings.debug.IconDetectionDebugService;
 import com.lansoftprogramming.runeSequence.ui.shared.window.WindowPlacementSupport;
 import com.lansoftprogramming.runeSequence.ui.taskbar.PrimeAbilityCacheAction;
 import com.lansoftprogramming.runeSequence.ui.taskbar.SettingsAction;
@@ -177,6 +178,15 @@ public class Main {
 					scheduleBuilder
 			);
 
+			IconDetectionDebugService iconDetectionDebugService = new IconDetectionDebugService(
+					detectionEngine,
+					screenCapture,
+					templateDetector,
+					templateCache,
+					overlayRenderer,
+					Math.max(250, configManager.getDetectionInterval())
+			);
+
 			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
 			Map<HotkeyEvent, List<KeyChord>> initialHotkeys = bindingSource.loadBindings(configManager.getSettings().getHotkeys());
 			AtomicReference<Map<HotkeyEvent, List<KeyChord>>> lastHotkeys = new AtomicReference<>(initialHotkeys);
@@ -207,13 +217,13 @@ public class Main {
 				taskbar.initialize();
 				taskbar.setExitHandler(Main::requestShutdown);
 
-				PresetManagerAction presetManagerAction = new PresetManagerAction(configManager, sequenceRunService);
+				PresetManagerAction presetManagerAction = new PresetManagerAction(configManager, sequenceRunService, iconDetectionDebugService);
 
 				// Add a settings option to the context menu
 				taskbar.addMenuItem("Preset Manager", presetManagerAction);
 				taskbar.addMenuItem("Select Region", new RegionSelectorAction(configManager));
 				taskbar.addMenuItem("Prime Ability Cache", new PrimeAbilityCacheAction(detectionEngine));
-				taskbar.addMenuItem("Settings", new SettingsAction(configManager));
+				taskbar.addMenuItem("Settings", new SettingsAction(configManager, iconDetectionDebugService));
 				taskbar.addSeparator();
 
 				// Main UI

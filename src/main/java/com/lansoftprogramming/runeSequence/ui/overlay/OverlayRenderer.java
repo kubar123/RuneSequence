@@ -32,6 +32,7 @@ public class OverlayRenderer {
 	private static final int ABILITY_INDICATOR_MAX_LOOP_MS = 10_000;
 	private static final String ABILITY_INDICATOR_RESOURCE_PREFIX = "animations/ability_indicator/";
 	private static final int ABILITY_INDICATOR_FRAME_COUNT = 24;
+	private static final int DEFAULT_DEBUG_BORDER_HIDE_MS = 5_000;
 
 	// Border types and colors - like piano key highlighting
 	public enum BorderType {
@@ -59,6 +60,8 @@ public class OverlayRenderer {
 	private final OverlayPanel overlayPanel;
 	private final ConcurrentMap<String, OverlayBorder> activeBorders;
 	private final ConcurrentMap<String, AbilityIndicatorInstance> activeAbilityIndicators;
+	private volatile DebugBorder activeDebugBorder;
+	private final Timer debugBorderHideTimer;
 	private final List<BufferedImage> abilityIndicatorFrames;
 	private final ThreadPoolExecutor renderExecutor;
 	private long overlayUpdateSeq = 0L;
@@ -94,6 +97,7 @@ public class OverlayRenderer {
 			this.overlayPanel = null;
 			this.blinkTimer = null;
 			this.abilityIndicatorTimer = null;
+			this.debugBorderHideTimer = null;
 			this.abilityIndicatorFrames = List.of();
 			this.renderExecutor = null;
 			logger.info("OverlayRenderer initialized in headless mode");
@@ -105,6 +109,7 @@ public class OverlayRenderer {
 		this.blinkTimer = createBlinkTimer();
 		this.abilityIndicatorFrames = loadAbilityIndicatorFrames();
 		this.abilityIndicatorTimer = createAbilityIndicatorTimer();
+		this.debugBorderHideTimer = createDebugBorderHideTimer();
 		this.renderExecutor = createRenderExecutor();
 
 		overlayWindow.add(overlayPanel);
@@ -131,6 +136,12 @@ public class OverlayRenderer {
 	private Timer createBlinkTimer() {
 		Timer timer = new Timer(BLINK_INTERVAL_MS, e -> handleBlinkTick());
 		timer.setRepeats(true);
+		return timer;
+	}
+
+	private Timer createDebugBorderHideTimer() {
+		Timer timer = new Timer(DEFAULT_DEBUG_BORDER_HIDE_MS, e -> enqueueRenderTask(this::clearDebugBorderInternal));
+		timer.setRepeats(false);
 		return timer;
 	}
 
@@ -264,8 +275,7 @@ public class OverlayRenderer {
 				resetBlinkState();
 			}
 
-			boolean shouldShow = !activeBorders.isEmpty();
-			setOverlayVisible(shouldShow);
+			setOverlayVisible(hasAnyOverlays());
 
 			if (logger.isDebugEnabled()) {
 				long elapsedMicros = (System.nanoTime() - startNanos) / 1_000;
@@ -406,9 +416,49 @@ public class OverlayRenderer {
 		activeBorders.clear();
 		activeAbilityIndicators.clear();
 		blinkVisible = true;
-		setOverlayVisible(false);
+		setOverlayVisible(hasAnyOverlays());
 		SwingUtilities.invokeLater(overlayPanel::repaint);
 		logger.debug("Cleared all overlays");
+	}
+
+	public void showDebugBorder(Rectangle bounds, Color color, int thickness, int durationMs) {
+		if (headless || bounds == null || bounds.isEmpty()) {
+			return;
+		}
+		Rectangle normalized = new Rectangle(bounds);
+		enqueueRenderTask(() -> showDebugBorderInternal(normalized, color, thickness, durationMs));
+	}
+
+	public void clearDebugBorder() {
+		if (headless) {
+			activeDebugBorder = null;
+			return;
+		}
+		enqueueRenderTask(this::clearDebugBorderInternal);
+	}
+
+	private void showDebugBorderInternal(Rectangle bounds, Color color, int thickness, int durationMs) {
+		Color resolvedColor = color != null ? color : UiColorPalette.OVERLAY_NEXT_AND;
+		int resolvedThickness = Math.max(1, thickness);
+		activeDebugBorder = new DebugBorder(bounds, resolvedColor, resolvedThickness);
+		setOverlayVisible(true);
+		SwingUtilities.invokeLater(() -> {
+			if (debugBorderHideTimer != null) {
+				debugBorderHideTimer.setInitialDelay(durationMs > 0 ? durationMs : DEFAULT_DEBUG_BORDER_HIDE_MS);
+				debugBorderHideTimer.restart();
+			}
+			overlayPanel.repaint();
+		});
+	}
+
+	private void clearDebugBorderInternal() {
+		activeDebugBorder = null;
+		setOverlayVisible(hasAnyOverlays());
+		SwingUtilities.invokeLater(overlayPanel::repaint);
+	}
+
+	private boolean hasAnyOverlays() {
+		return !activeBorders.isEmpty() || !activeAbilityIndicators.isEmpty() || activeDebugBorder != null;
 	}
 
 	private RemovalChange removeStaleBorders(Set<String> desiredKeys) {
@@ -616,6 +666,18 @@ public class OverlayRenderer {
 		}
 	}
 
+	private static class DebugBorder {
+		final Rectangle bounds;
+		final Color color;
+		final int thickness;
+
+		DebugBorder(Rectangle bounds, Color color, int thickness) {
+			this.bounds = bounds;
+			this.color = color;
+			this.thickness = thickness;
+		}
+	}
+
 	/**
 	 * Custom JPanel for rendering overlay borders
 	 */
@@ -636,6 +698,7 @@ public class OverlayRenderer {
 				g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
 				drawAbilityIndicators(g2d);
+				drawDebugBorder(g2d);
 
 				// Draw all active borders
 				for (OverlayBorder border : activeBorders.values()) {
@@ -666,6 +729,16 @@ public class OverlayRenderer {
 			}
 			return !blinkVisible && isCurrentBorder(border.borderType);
 		}
+	}
+
+	private void drawDebugBorder(Graphics2D g2d) {
+		DebugBorder border = activeDebugBorder;
+		if (border == null) {
+			return;
+		}
+		g2d.setColor(border.color);
+		g2d.setStroke(new BasicStroke(border.thickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+		g2d.drawRect(border.bounds.x, border.bounds.y, border.bounds.width, border.bounds.height);
 	}
 
 	private void drawAbilityIndicators(Graphics2D g2d) {
