@@ -139,6 +139,18 @@ public class IconDetectionDebugService {
 		return running.get();
 	}
 
+	public Mat captureCurrentFrame() {
+		if (screenCapture == null) {
+			return new Mat();
+		}
+		try {
+			return screenCapture.captureScreen();
+		} catch (Exception e) {
+			logger.debug("Failed capturing frame for debug utility", e);
+			return new Mat();
+		}
+	}
+
 	public ManualTestResult runManualTest(String templateName) {
 		String name = templateName != null ? templateName.trim() : "";
 		if (name.isBlank()) {

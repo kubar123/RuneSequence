@@ -1,5 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.settings;
 
+import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.ui.settings.debug.BackpackSaveDebugService;
 import com.lansoftprogramming.runeSequence.ui.settings.debug.IconDetectionDebugService;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
 
@@ -8,9 +10,14 @@ import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Locale;
 
 public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebugService.Listener {
+	private static final String DIALOG_TITLE = "RuneSequence - Debug";
+	private static final double DEFAULT_BACKPACK_TOLERANCE_PERCENT = 39.0d;
+
+	private final ConfigManager configManager;
 	private final IconDetectionDebugService debugService;
 	private final JButton startButton;
 	private final JButton stopButton;
@@ -26,13 +33,18 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 	private final JButton manualTestButton;
 	private final JLabel manualResultLabel;
 	private final java.util.concurrent.atomic.AtomicLong manualTestRequestId = new java.util.concurrent.atomic.AtomicLong(0L);
+	private final JTextField backpackToleranceField;
+	private final JButton saveBackpackButton;
+	private final java.util.concurrent.atomic.AtomicLong backpackSaveRequestId = new java.util.concurrent.atomic.AtomicLong(0L);
+	private volatile boolean savingBackpack = false;
 	private final JTextArea greenArea;
 	private final JTextArea yellowArea;
 	private final JTextArea notFoundArea;
 	private volatile File lastLogFile;
 
-	public DebugSettingsPanel(IconDetectionDebugService debugService) {
+	public DebugSettingsPanel(ConfigManager configManager, IconDetectionDebugService debugService) {
 		super(PanelStyle.TAB_CONTENT, new BorderLayout());
+		this.configManager = configManager;
 		this.debugService = debugService;
 
 		setBorder(new CompoundBorder(getBorder(), new EmptyBorder(15, 15, 15, 15)));
@@ -72,6 +84,13 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 		manualResultLabel = new JLabel(" ");
 		manualResultLabel.setOpaque(false);
 		manualResultLabel.setForeground(UiColorPalette.TEXT_MUTED);
+
+		backpackToleranceField = new JTextField(String.format(Locale.ROOT, "%.0f", DEFAULT_BACKPACK_TOLERANCE_PERCENT));
+		backpackToleranceField.setColumns(4);
+
+		saveBackpackButton = new JButton("Save backpack");
+		ThemedButtons.apply(saveBackpackButton, ButtonStyle.DEFAULT);
+		saveBackpackButton.addActionListener(e -> handleSaveBackpack());
 
 		greenArea = createOutputArea();
 		greenArea.setRows(14);
@@ -242,6 +261,30 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 
 		gbc.gridy++;
 		gbc.insets = new Insets(12, 4, 2, 4);
+		JLabel backpackTitle = new JLabel("Backpack Debug");
+		backpackTitle.setFont(backpackTitle.getFont().deriveFont(Font.BOLD));
+		panel.add(backpackTitle, gbc);
+
+		gbc.gridy++;
+		gbc.insets = new Insets(2, 4, 2, 4);
+		JLabel backpackHelp = new JLabel("Saves full.png + crops into AppData/RuneSequence/debug/");
+		Theme backpackTheme = ThemeManager.getTheme();
+		backpackHelp.setForeground(backpackTheme != null ? backpackTheme.getTextMutedColor() : UiColorPalette.DIALOG_MESSAGE_TEXT);
+		panel.add(backpackHelp, gbc);
+
+		gbc.gridy++;
+		gbc.gridwidth = 1;
+		gbc.gridx = 0;
+		panel.add(new JLabel("BG tolerance (%):"), gbc);
+		gbc.gridx = 1;
+		JPanel backpackTol = ThemedTextBoxes.wrap(backpackToleranceField, TextBoxStyle.DEFAULT);
+		panel.add(backpackTol, gbc);
+		gbc.gridx = 2;
+		gbc.gridwidth = 2;
+		panel.add(saveBackpackButton, gbc);
+
+		gbc.gridy++;
+		gbc.insets = new Insets(12, 4, 2, 4);
 		panel.add(totalGreenLabel, gbc);
 		gbc.gridy++;
 		gbc.insets = new Insets(2, 4, 2, 4);
@@ -387,6 +430,8 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 		openLogButton.setEnabled(!running);
 		manualTemplateField.setEnabled(!running);
 		manualTestButton.setEnabled(!running);
+		backpackToleranceField.setEnabled(!running && !savingBackpack);
+		saveBackpackButton.setEnabled(!running && !savingBackpack);
 	}
 
 	private void renderCompleted(IconDetectionDebugService.RunResult result) {
@@ -479,17 +524,89 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 			logFile = debugService.getLastLogFile().toFile();
 		}
 		if (logFile == null || !logFile.exists()) {
-			ThemedDialogs.showMessageDialog(this, "RuneSequence - Debug", "icon_Detection.log not found yet. Run the test first.");
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "icon_Detection.log not found yet. Run the test first.");
 			return;
 		}
 		if (!Desktop.isDesktopSupported()) {
-			ThemedDialogs.showMessageDialog(this, "RuneSequence - Debug", "Opening files is not supported on this platform.");
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "Opening files is not supported on this platform.");
 			return;
 		}
 		try {
 			Desktop.getDesktop().open(logFile);
 		} catch (Exception ex) {
-			ThemedDialogs.showMessageDialog(this, "RuneSequence - Debug", "Failed to open log file: " + ex.getMessage());
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "Failed to open log file: " + ex.getMessage());
 		}
+	}
+
+	private void handleSaveBackpack() {
+		Path configDir = configManager != null ? configManager.getConfigDir() : null;
+		if (configDir == null) {
+			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
+			statusLabel.setText("Config directory unavailable.");
+			return;
+		}
+
+		double tolerancePercent;
+		try {
+			tolerancePercent = Double.parseDouble(backpackToleranceField.getText().trim());
+		} catch (Exception e) {
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "Backpack tolerance must be a number (0-100).");
+			return;
+		}
+
+		if (Double.isNaN(tolerancePercent) || Double.isInfinite(tolerancePercent) || tolerancePercent < 0.0d || tolerancePercent > 100.0d) {
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "Backpack tolerance must be between 0 and 100.");
+			return;
+		}
+
+		long requestId = backpackSaveRequestId.incrementAndGet();
+		savingBackpack = true;
+		statusLabel.setForeground(UiColorPalette.TEXT_MUTED);
+		statusLabel.setText("Saving backpack...");
+		refreshControls();
+
+		SwingWorker<BackpackSaveDebugService.SaveResult, Void> worker = new SwingWorker<>() {
+			@Override
+			protected BackpackSaveDebugService.SaveResult doInBackground() throws Exception {
+				return BackpackSaveDebugService.save(
+						configDir.resolve("debug"),
+						debugService != null ? debugService::captureCurrentFrame : null,
+						tolerancePercent
+				);
+			}
+
+			@Override
+			protected void done() {
+				if (requestId != backpackSaveRequestId.get()) {
+					return;
+				}
+				savingBackpack = false;
+				try {
+					BackpackSaveDebugService.SaveResult result = get();
+					String dialogMessage = "Saved to:\n" + result.runDir();
+					if (result.warning() != null && !result.warning().isBlank()) {
+						dialogMessage = dialogMessage + "\n\n" + result.warning();
+						statusLabel.setForeground(UiColorPalette.TOAST_WARNING_ACCENT);
+						statusLabel.setText(result.warning() + " Folder: " + result.runDir());
+					} else {
+						statusLabel.setForeground(UiColorPalette.TEXT_SUCCESS);
+						statusLabel.setText("Saved backpack to: " + result.runDir());
+					}
+					ThemedDialogs.showMessageDialog(
+							DebugSettingsPanel.this,
+							DIALOG_TITLE,
+							dialogMessage
+					);
+				} catch (Exception e) {
+					String message = e.getMessage() != null ? e.getMessage() : e.toString();
+					statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
+					statusLabel.setText("Save backpack failed: " + message);
+					ThemedDialogs.showMessageDialog(DebugSettingsPanel.this, DIALOG_TITLE, "Save backpack failed:\n" + message);
+				} finally {
+					refreshControls();
+				}
+			}
+		};
+		worker.execute();
 	}
 }

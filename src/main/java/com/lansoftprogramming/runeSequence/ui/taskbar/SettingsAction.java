@@ -52,7 +52,7 @@ public class SettingsAction implements MenuAction {
 			JTabbedPane tabs = new ThemedSettingsTabbedPane();
 			tabs.addTab("General", new IconSizeSettingsPanel(configManager));
 			tabs.addTab("Hotkeys", new HotkeySettingsPanel(configManager));
-	        tabs.addTab("Debug", new DebugSettingsPanel(iconDetectionDebugService));
+	        tabs.addTab("Debug", new DebugSettingsPanel(configManager, iconDetectionDebugService));
 			applyTabbedPaneTheme(tabs);
 
 			root.add(tabs, BorderLayout.CENTER);
