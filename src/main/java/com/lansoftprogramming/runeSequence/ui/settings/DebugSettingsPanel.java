@@ -597,6 +597,7 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 							DIALOG_TITLE,
 							dialogMessage
 					);
+					openBackpackRunDir(result.runDir());
 				} catch (Exception e) {
 					String message = e.getMessage() != null ? e.getMessage() : e.toString();
 					statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
@@ -608,5 +609,25 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 			}
 		};
 		worker.execute();
+	}
+
+	private void openBackpackRunDir(Path runDir) {
+		if (runDir == null) {
+			return;
+		}
+		File runFolder = runDir.toFile();
+		if (!runFolder.exists()) {
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "Backpack folder not found:\n" + runDir);
+			return;
+		}
+		if (!Desktop.isDesktopSupported()) {
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "Opening folders is not supported on this platform.");
+			return;
+		}
+		try {
+			Desktop.getDesktop().open(runFolder);
+		} catch (Exception ex) {
+			ThemedDialogs.showMessageDialog(this, DIALOG_TITLE, "Failed to open backpack folder:\n" + ex.getMessage());
+		}
 	}
 }

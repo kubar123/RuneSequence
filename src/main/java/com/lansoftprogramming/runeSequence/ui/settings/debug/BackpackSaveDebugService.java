@@ -34,6 +34,8 @@ public final class BackpackSaveDebugService {
 			"/tools/backpack_slow_white.png",
 			"/tools/backpack_slot_white.png"
 	};
+	private static final double HOLE_FILL_INNER_TOLERANCE_RATIO = 0.70d;
+	private static final int HOLE_FILL_MIN_PIXELS = 3;
 
 	private static final int EXPECTED_WIDTH = 2560;
 	private static final int EXPECTED_HEIGHT = 1377;
@@ -112,14 +114,16 @@ public final class BackpackSaveDebugService {
 			info.append("seedPoint=").append('(').append(SEED_X).append(',').append(SEED_Y).append(')').append('\n');
 			info.append("seedPointNote=crop-local 0-based coords; seedX=(width-3), seedY=(height-4)").append('\n');
 
-			int toleranceChannel = percentToByteTolerance(tolerancePercent);
-			info.append("tolerancePercent=").append(String.format(Locale.ROOT, "%.3f", tolerancePercent)).append('\n');
-			info.append("tolerancePerChannel=").append(toleranceChannel).append(" (0-255)").append('\n');
-			info.append("connectivity=8").append('\n');
-			info.append("backgroundSeedPoints=(0,0),(w-1,0),(0,h-1),(w-1,h-1),(").append(SEED_X).append(',').append(SEED_Y).append(')').append('\n');
-			info.append("backgroundTemplates=").append(String.join(",", BACKGROUND_TEMPLATE_RESOURCES)).append('\n');
-			info.append("gridOrigin=").append('(').append(GRID_ORIGIN_X).append(',').append(GRID_ORIGIN_Y).append(')').append('\n');
-			info.append("gridCols=").append(GRID_COLS).append('\n');
+		int toleranceChannel = percentToByteTolerance(tolerancePercent);
+		info.append("tolerancePercent=").append(String.format(Locale.ROOT, "%.3f", tolerancePercent)).append('\n');
+		info.append("tolerancePerChannel=").append(toleranceChannel).append(" (0-255)").append('\n');
+		info.append("connectivity=8").append('\n');
+		info.append("holeFillInnerToleranceRatio=").append(String.format(Locale.ROOT, "%.3f", HOLE_FILL_INNER_TOLERANCE_RATIO)).append('\n');
+		info.append("holeFillMinPixels=").append(HOLE_FILL_MIN_PIXELS).append('\n');
+		info.append("backgroundSeedPoints=(0,0),(w-1,0),(0,h-1),(w-1,h-1),(").append(SEED_X).append(',').append(SEED_Y).append(')').append('\n');
+		info.append("backgroundTemplates=").append(String.join(",", BACKGROUND_TEMPLATE_RESOURCES)).append('\n');
+		info.append("gridOrigin=").append('(').append(GRID_ORIGIN_X).append(',').append(GRID_ORIGIN_Y).append(')').append('\n');
+		info.append("gridCols=").append(GRID_COLS).append('\n');
 			info.append("gridRows=").append(GRID_ROWS).append('\n');
 			info.append("gridStep=").append('(').append(GRID_DX).append(',').append(GRID_DY).append(')').append('\n');
 			info.append("cropRectanglesBasedOn=").append(EXPECTED_WIDTH).append('x').append(EXPECTED_HEIGHT).append('\n');
@@ -366,13 +370,34 @@ public final class BackpackSaveDebugService {
 
 			int w = cropBgr.cols();
 			int h = cropBgr.rows();
-			byte[] visited = new byte[w * h];
+			int pixelCount = w * h;
+			byte[] background = new byte[pixelCount]; // 1 = transparent
+			byte[] candidate = new byte[pixelCount];  // 1 = matches template within outer tolerance
+			int[] diffByPixel = new int[pixelCount];  // 0..255
+			int innerTol = (int) Math.max(1L, Math.round(tolerancePerChannel * HOLE_FILL_INNER_TOLERANCE_RATIO));
 
 			UByteIndexer cropIdx = cropBgr.createIndexer();
 			UByteIndexer tmplIdx = template.createIndexer();
 			try {
-				int[] qx = new int[w * h];
-				int[] qy = new int[w * h];
+				for (int y = 0; y < h; y++) {
+					for (int x = 0; x < w; x++) {
+						int i = y * w + x;
+						int cb = cropIdx.get(y, x, 0) & 0xFF;
+						int cg = cropIdx.get(y, x, 1) & 0xFF;
+						int cr = cropIdx.get(y, x, 2) & 0xFF;
+
+						int tb = tmplIdx.get(y, x, 0) & 0xFF;
+						int tg = tmplIdx.get(y, x, 1) & 0xFF;
+						int tr = tmplIdx.get(y, x, 2) & 0xFF;
+
+						int d = Math.max(Math.max(Math.abs(cb - tb), Math.abs(cg - tg)), Math.abs(cr - tr));
+						diffByPixel[i] = d;
+						candidate[i] = (byte) (d <= tolerancePerChannel ? 1 : 0);
+					}
+				}
+
+				int[] qx = new int[pixelCount];
+				int[] qy = new int[pixelCount];
 				int head = 0;
 				int tail = 0;
 
@@ -393,14 +418,14 @@ public final class BackpackSaveDebugService {
 					if (sx < 0 || sx >= w || sy < 0 || sy >= h) {
 						continue;
 					}
-					if (!matchesTemplate(cropIdx, tmplIdx, sx, sy, tolerancePerChannel)) {
+					int si = sy * w + sx;
+					if (candidate[si] == 0) {
 						continue;
 					}
-					int idx = sy * w + sx;
-					if (visited[idx] != 0) {
+					if (background[si] != 0) {
 						continue;
 					}
-					visited[idx] = 1;
+					background[si] = 1;
 					qx[tail] = sx;
 					qy[tail] = sy;
 					tail++;
@@ -421,16 +446,71 @@ public final class BackpackSaveDebugService {
 							continue;
 						}
 						int nidx = ny * w + nx;
-						if (visited[nidx] != 0) {
+						if (background[nidx] != 0) {
 							continue;
 						}
-						if (!matchesTemplate(cropIdx, tmplIdx, nx, ny, tolerancePerChannel)) {
+						if (candidate[nidx] == 0) {
 							continue;
 						}
-						visited[nidx] = 1;
+						background[nidx] = 1;
 						qx[tail] = nx;
 						qy[tail] = ny;
 						tail++;
+					}
+				}
+
+				// Remove enclosed "holes": background-like components not connected to the crop border,
+				// but only when their max template-diff is within a stricter inner tolerance.
+				byte[] seen = new byte[pixelCount];
+				int[] stack = new int[pixelCount];
+				int[] component = new int[pixelCount];
+				for (int i = 0; i < pixelCount; i++) {
+					if (background[i] != 0 || candidate[i] == 0 || seen[i] != 0) {
+						continue;
+					}
+
+					int sp = 0;
+					int size = 0;
+					int maxDiff = 0;
+					boolean touchesBorder = false;
+
+					stack[sp++] = i;
+					seen[i] = 1;
+					int compCount = 0;
+
+					while (sp > 0) {
+						int cur = stack[--sp];
+						component[compCount++] = cur;
+						int cy = cur / w;
+						int cx = cur - (cy * w);
+						int d = diffByPixel[cur];
+						if (d > maxDiff) {
+							maxDiff = d;
+						}
+						if (cx == 0 || cy == 0 || cx == w - 1 || cy == h - 1) {
+							touchesBorder = true;
+						}
+						size++;
+
+						for (int k = 0; k < 8; k++) {
+							int nx = cx + dx[k];
+							int ny = cy + dy[k];
+							if (nx < 0 || nx >= w || ny < 0 || ny >= h) {
+								continue;
+							}
+							int ni = ny * w + nx;
+							if (seen[ni] != 0 || background[ni] != 0 || candidate[ni] == 0) {
+								continue;
+							}
+							seen[ni] = 1;
+							stack[sp++] = ni;
+						}
+					}
+
+					if (!touchesBorder && size >= HOLE_FILL_MIN_PIXELS && maxDiff <= innerTol) {
+						for (int j = 0; j < compCount; j++) {
+							background[component[j]] = 1;
+						}
 					}
 				}
 			} finally {
@@ -446,7 +526,7 @@ public final class BackpackSaveDebugService {
 				for (int y = 0; y < h; y++) {
 					for (int x = 0; x < w; x++) {
 						int idx = y * w + x;
-						outIdx.put(y, x, 3, visited[idx] != 0 ? 0 : 255);
+						outIdx.put(y, x, 3, background[idx] != 0 ? 0 : 255);
 					}
 				}
 			} finally {
@@ -459,21 +539,6 @@ public final class BackpackSaveDebugService {
 				resizedTemplate.close();
 			}
 		}
-	}
-
-	private static boolean matchesTemplate(UByteIndexer cropIdx, UByteIndexer tmplIdx, int x, int y, int tolerance) {
-		int cb = cropIdx.get(y, x, 0) & 0xFF;
-		int cg = cropIdx.get(y, x, 1) & 0xFF;
-		int cr = cropIdx.get(y, x, 2) & 0xFF;
-
-		int tb = tmplIdx.get(y, x, 0) & 0xFF;
-		int tg = tmplIdx.get(y, x, 1) & 0xFF;
-		int tr = tmplIdx.get(y, x, 2) & 0xFF;
-
-		int db = Math.abs(cb - tb);
-		int dg = Math.abs(cg - tg);
-		int dr = Math.abs(cr - tr);
-		return Math.max(Math.max(db, dg), dr) <= tolerance;
 	}
 
 	private static Mat removeBackgroundMagicWand(Mat crop, int tolerancePerChannel) throws IOException {
