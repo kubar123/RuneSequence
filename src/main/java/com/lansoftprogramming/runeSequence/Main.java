@@ -84,6 +84,14 @@ public class Main {
 
 			// 3. Initialize core components
 			screenCapture = new ScreenCapture(configManager.getSettings());
+			configManager.addSettingsSaveListener(settings -> {
+				if (screenCapture == null) {
+					return;
+				}
+				AppSettings.RegionSettings regionSettings = settings != null ? settings.getRegion() : null;
+				Rectangle region = regionSettings != null ? regionSettings.toRectangle() : null;
+				screenCapture.setRegion(region);
+			});
 			TemplateDetector templateDetector = new TemplateDetector(templateCache, configManager.getAbilities());
 				overlayRenderer = new OverlayRenderer(
 						() -> {
