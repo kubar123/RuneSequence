@@ -1138,5 +1138,90 @@
     "common_name": "Essence of Finality (Yellow)",
     "type": "item",
     "triggers_gcd": false
+  },
+  "Laceration": {
+    "common_name": "Laceration",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "LantaSticks": {
+    "common_name": "LantaSticks",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "abyssalscourge": {
+    "common_name": "Abyssal scourge",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "bolg": {
+    "common_name": "Bow of the Last Guardian",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "dragon2hsword": {
+    "common_name": "Dragon 2h sword",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "dummy": {
+    "common_name": "Combat dummy MKII",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "ezk": {
+    "common_name": "Ek-ZekKil",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "fleetingboots": {
+    "common_name": "Fleeting boots",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "glovesofpassage": {
+    "common_name": "Gloves of Passage",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "jawsoftheabyss": {
+    "common_name": "Jaws of the Abyss",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "mwspear": {
+    "common_name": "Masterwork spear of annihilation",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "nightmaregauntlets": {
+    "common_name": "Nightmare gauntlets",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "salveamulet": {
+    "common_name": "Salve amulet (e)",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "sgb": {
+    "common_name": "Seren godbow",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "vestmentsofhavochood": {
+    "common_name": "Vestments of havoc hood",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "zamorakstaff": {
+    "common_name": "Zamorak staff",
+    "triggers_gcd": false,
+    "type": "item"
+  },
+  "zgs": {
+    "common_name": "Zaros godsword",
+    "triggers_gcd": false,
+    "type": "item"
   }
 }
