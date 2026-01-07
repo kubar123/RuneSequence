@@ -165,6 +165,7 @@ public final class BackpackSaveDebugService {
 				} else {
 					info.append("backgroundRemoval=seedColorFloodFill(fallback)").append('\n');
 				}
+				info.append("cropToSelectionAfterBackgroundRemoval=true").append('\n');
 
 				for (CropSpec cropSpec : crops) {
 					Rect roi = new Rect(cropSpec.x, cropSpec.y, CROP_WIDTH, CROP_HEIGHT);
@@ -186,12 +187,16 @@ public final class BackpackSaveDebugService {
 						Mat transparent = backgroundTemplateBgr != null && backgroundTemplateBgr.mat != null && !backgroundTemplateBgr.mat.empty()
 								? removeBackgroundUsingTemplate(crop, backgroundTemplateBgr.mat, toleranceChannel)
 								: removeBackgroundMagicWand(crop, toleranceChannel);
+						Mat croppedToSelection = cropToSelection(transparent);
 						try {
 							Path outPath = runDir.resolve(cropSpec.key + ".png");
-							if (!opencv_imgcodecs.imwrite(outPath.toString(), transparent)) {
+							if (!opencv_imgcodecs.imwrite(outPath.toString(), croppedToSelection)) {
 								throw new IOException("Failed to write " + outPath.getFileName());
 							}
 						} finally {
+							if (croppedToSelection != transparent) {
+								croppedToSelection.close();
+							}
 							transparent.close();
 						}
 					} finally {
@@ -258,6 +263,36 @@ public final class BackpackSaveDebugService {
 	private static int percentToByteTolerance(double percent) {
 		double clamped = Math.max(0.0d, Math.min(100.0d, percent));
 		return (int) Math.round((clamped / 100.0d) * 255.0d);
+	}
+
+	private static Mat cropToSelection(Mat cropBgra) {
+		Objects.requireNonNull(cropBgra, "cropBgra");
+		if (cropBgra.empty() || cropBgra.channels() != 4) {
+			return cropBgra;
+		}
+
+		Mat alpha = new Mat();
+		Mat nonZero = new Mat();
+		try {
+			opencv_core.extractChannel(cropBgra, alpha, 3);
+			opencv_core.findNonZero(alpha, nonZero);
+			if (nonZero.empty()) {
+				return cropBgra;
+			}
+
+			Rect rect = opencv_imgproc.boundingRect(nonZero);
+			if (rect.width() <= 0 || rect.height() <= 0) {
+				return cropBgra;
+			}
+			if (rect.x() == 0 && rect.y() == 0 && rect.width() == cropBgra.cols() && rect.height() == cropBgra.rows()) {
+				return cropBgra;
+			}
+
+			return new Mat(cropBgra, rect).clone();
+		} finally {
+			nonZero.close();
+			alpha.close();
+		}
 	}
 
 	private static List<CropSpec> buildGridCrops() {
