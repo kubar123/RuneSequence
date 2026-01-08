@@ -1029,7 +1029,7 @@
     "type": "Incantation",
     "level": 92,
     "triggers_gcd": true,
-    "detection_threshold": 0.9,
+    "detection_threshold": 0.99,
     "mask": "mask"
   },
   "vulnbomb": {
