@@ -1,6 +1,7 @@
 package com.lansoftprogramming.runeSequence.ui.settings;
 
 import com.lansoftprogramming.runeSequence.infrastructure.config.ConfigManager;
+import com.lansoftprogramming.runeSequence.infrastructure.config.AppSettings;
 import com.lansoftprogramming.runeSequence.ui.settings.debug.BackpackSaveDebugService;
 import com.lansoftprogramming.runeSequence.ui.settings.debug.IconDetectionDebugService;
 import com.lansoftprogramming.runeSequence.ui.theme.*;
@@ -22,6 +23,8 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 	private final JButton startButton;
 	private final JButton stopButton;
 	private final JButton openLogButton;
+	private final JCheckBox mouseTooltipTickDebugCheck;
+	private final JLabel mouseTooltipTickDebugStatusLabel;
 	private final JLabel progressLabel;
 	private final JLabel totalGreenLabel;
 	private final JLabel totalYellowLabel;
@@ -60,6 +63,15 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 		openLogButton = new JButton("Open icon_Detection.log");
 		ThemedButtons.apply(openLogButton, ButtonStyle.DEFAULT);
 		openLogButton.addActionListener(e -> handleOpenLog());
+
+		mouseTooltipTickDebugCheck = new JCheckBox("Show step/tick debug in mouse tooltip");
+		mouseTooltipTickDebugCheck.setSelected(resolveMouseTooltipTickDebugPreference());
+		mouseTooltipTickDebugCheck.setOpaque(false);
+		mouseTooltipTickDebugCheck.addActionListener(e -> handleMouseTooltipTickDebugToggled());
+
+		mouseTooltipTickDebugStatusLabel = new JLabel(" ");
+		mouseTooltipTickDebugStatusLabel.setOpaque(false);
+		mouseTooltipTickDebugStatusLabel.setForeground(UiColorPalette.TEXT_MUTED);
 
 		progressLabel = new JLabel(" ");
 		progressLabel.setOpaque(false);
@@ -237,6 +249,19 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 		gbc.gridx = 0;
 		gbc.gridwidth = 4;
 		panel.add(openLogButton, gbc);
+
+		gbc.gridy++;
+		gbc.insets = new Insets(12, 4, 2, 4);
+		JLabel tooltipDebugTitle = new JLabel("Mouse Tooltip Debug");
+		tooltipDebugTitle.setFont(tooltipDebugTitle.getFont().deriveFont(Font.BOLD));
+		panel.add(tooltipDebugTitle, gbc);
+
+		gbc.gridy++;
+		gbc.insets = new Insets(2, 4, 2, 4);
+		panel.add(mouseTooltipTickDebugCheck, gbc);
+
+		gbc.gridy++;
+		panel.add(mouseTooltipTickDebugStatusLabel, gbc);
 
 		gbc.gridy++;
 		gbc.insets = new Insets(12, 4, 2, 4);
@@ -516,6 +541,45 @@ public class DebugSettingsPanel extends ThemedPanel implements IconDetectionDebu
 		}
 		notFoundArea.setText(sb.toString());
 		notFoundArea.setCaretPosition(0);
+	}
+
+	private boolean resolveMouseTooltipTickDebugPreference() {
+		if (configManager == null) {
+			return false;
+		}
+		AppSettings settings = configManager.getSettings();
+		if (settings == null || settings.getUi() == null) {
+			return false;
+		}
+		return settings.getUi().isMouseTooltipStepTickDebugEnabled();
+	}
+
+	private void handleMouseTooltipTickDebugToggled() {
+		if (configManager == null) {
+			mouseTooltipTickDebugStatusLabel.setForeground(UiColorPalette.TEXT_DANGER);
+			mouseTooltipTickDebugStatusLabel.setText("Config manager unavailable.");
+			return;
+		}
+		AppSettings settings = configManager.getSettings();
+		if (settings == null) {
+			mouseTooltipTickDebugStatusLabel.setForeground(UiColorPalette.TEXT_DANGER);
+			mouseTooltipTickDebugStatusLabel.setText("Settings unavailable.");
+			return;
+		}
+		if (settings.getUi() == null) {
+			settings.setUi(new AppSettings.UiSettings());
+		}
+		settings.getUi().setMouseTooltipStepTickDebugEnabled(mouseTooltipTickDebugCheck.isSelected());
+		try {
+			configManager.saveSettings();
+			mouseTooltipTickDebugStatusLabel.setForeground(UiColorPalette.TEXT_SUCCESS);
+			mouseTooltipTickDebugStatusLabel.setText(mouseTooltipTickDebugCheck.isSelected()
+					? "Enabled step/tick tooltip debug."
+					: "Disabled step/tick tooltip debug.");
+		} catch (Exception ex) {
+			mouseTooltipTickDebugStatusLabel.setForeground(UiColorPalette.TEXT_DANGER);
+			mouseTooltipTickDebugStatusLabel.setText("Failed to save: " + ex.getMessage());
+		}
 	}
 
 	private void handleOpenLog() {

@@ -85,6 +85,10 @@ public class StepTimer {
 		isPaused = false;
 	}
 
+	public long getStepDurationMs() {
+		return stepDurationMs;
+	}
+
 	private long calculateStepDuration(Step step, AbilityConfig abilityConfig) {
 		final long DEFAULT_GCD_TICKS = 3;
 		long maxTicks = 0;

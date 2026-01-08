@@ -37,7 +37,8 @@ class DetectionEngineTooltipOverlayTest {
 				tooltipOverlay,
 				notifications,
 				50,
-				() -> true
+				() -> true,
+				() -> false
 		);
 
 		List<SequenceTooltip> tooltips = List.of(
@@ -66,7 +67,8 @@ class DetectionEngineTooltipOverlayTest {
 				tooltipOverlay,
 				notifications,
 				50,
-				() -> true
+				() -> true,
+				() -> false
 		);
 
 		sequenceManager.setChanneledWaitTooltip(Optional.of(new SequenceTooltip(0, null, "Wait (channeling Foo)")));
@@ -82,9 +84,37 @@ class DetectionEngineTooltipOverlayTest {
 		assertTrue(tooltipOverlay.clearCount >= 1, "Expected overlay to be cleared when channel ends");
 	}
 
+	@Test
+	void shouldIncludeStepTickDebugTooltipWhenEnabled() throws Exception {
+		RecordingSequenceManager sequenceManager = new RecordingSequenceManager();
+		OverlayRenderer overlayRenderer = new OverlayRenderer(() -> false);
+		RecordingTooltipOverlay tooltipOverlay = new RecordingTooltipOverlay();
+		NotificationService notifications = new NoopNotificationService();
+
+		sequenceManager.setStepTickInfo(Optional.of(new SequenceManager.StepTickInfo(0, 3, 2, 3, false)));
+
+		DetectionEngine engine = new DetectionEngine(
+				new TestScreenCapture(),
+				new TemplateDetector(new TestTemplateCache(), new AbilityConfig()),
+				sequenceManager,
+				overlayRenderer,
+				tooltipOverlay,
+				notifications,
+				50,
+				() -> false,
+				() -> true
+		);
+
+		engine.updateOverlays();
+
+		assertEquals(1, tooltipOverlay.lastTooltips.size());
+		assertTrue(tooltipOverlay.lastTooltips.get(0).message().contains("Tick 2/3"));
+	}
+
 	private static final class RecordingSequenceManager extends SequenceManager {
 		private List<SequenceTooltip> tooltips = List.of();
 		private Optional<SequenceTooltip> channeledWaitTooltip = Optional.empty();
+		private Optional<SequenceManager.StepTickInfo> stepTickInfo = Optional.empty();
 
 		RecordingSequenceManager() {
 			super(Collections.emptyMap(), Collections.emptyMap(), new AbilityConfig(), new NoopNotificationService(),
@@ -97,6 +127,10 @@ class DetectionEngineTooltipOverlayTest {
 
 		void setChanneledWaitTooltip(Optional<SequenceTooltip> tooltip) {
 			this.channeledWaitTooltip = tooltip != null ? tooltip : Optional.empty();
+		}
+
+		void setStepTickInfo(Optional<SequenceManager.StepTickInfo> stepTickInfo) {
+			this.stepTickInfo = stepTickInfo != null ? stepTickInfo : Optional.empty();
 		}
 
 		@Override
@@ -117,6 +151,11 @@ class DetectionEngineTooltipOverlayTest {
 		@Override
 		public synchronized Optional<SequenceTooltip> getChanneledWaitTooltip() {
 			return channeledWaitTooltip;
+		}
+
+		@Override
+		public synchronized Optional<SequenceManager.StepTickInfo> snapshotStepTickInfo() {
+			return stepTickInfo;
 		}
 
 		@Override

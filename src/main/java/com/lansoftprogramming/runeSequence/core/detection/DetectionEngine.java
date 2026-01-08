@@ -33,6 +33,7 @@ public class DetectionEngine {
 	private final int detectionIntervalMs;
 	private final NotificationService notificationService;
 	private final BooleanSupplier channeledWaitTooltipsEnabled;
+	private final BooleanSupplier mouseTooltipStepTickDebugEnabled;
 
 	private ScheduledExecutorService scheduler;
 	private volatile boolean isRunning = false;
@@ -48,7 +49,8 @@ public class DetectionEngine {
 	                       SequenceManager sequenceManager, OverlayRenderer overlay,
 	                       MouseTooltipOverlay tooltipOverlay,
 	                       NotificationService notificationService, int detectionIntervalMs,
-	                       BooleanSupplier channeledWaitTooltipsEnabled) {
+	                       BooleanSupplier channeledWaitTooltipsEnabled,
+	                       BooleanSupplier mouseTooltipStepTickDebugEnabled) {
 		this.screenCapture = screenCapture;
 		this.detector = detector;
 		this.sequenceManager = sequenceManager;
@@ -59,6 +61,9 @@ public class DetectionEngine {
 		this.channeledWaitTooltipsEnabled = channeledWaitTooltipsEnabled != null
 				? channeledWaitTooltipsEnabled
 				: () -> true;
+		this.mouseTooltipStepTickDebugEnabled = mouseTooltipStepTickDebugEnabled != null
+				? mouseTooltipStepTickDebugEnabled
+				: () -> false;
 	}
 
 	public void start() {
@@ -284,14 +289,30 @@ public class DetectionEngine {
 		if (tooltipOverlay != null) {
 			List<SequenceTooltip> merged = currentTooltips;
 			boolean hasWaitTooltip = false;
+
+			Optional<SequenceTooltip> tickDebugTooltip = Optional.empty();
+			if (mouseTooltipStepTickDebugEnabled.getAsBoolean()) {
+				tickDebugTooltip = sequenceManager.snapshotStepTickInfo()
+						.map(this::formatStepTickTooltip);
+			}
+
+			if (tickDebugTooltip.isPresent()) {
+				ArrayList<SequenceTooltip> tooltips = new ArrayList<>();
+				tooltips.add(tickDebugTooltip.get());
+				if (merged != null && !merged.isEmpty()) {
+					tooltips.addAll(merged);
+				}
+				merged = List.copyOf(tooltips);
+			}
+
 			if (channeledWaitTooltipsEnabled.getAsBoolean()) {
 				Optional<SequenceTooltip> wait = sequenceManager.getChanneledWaitTooltip();
 				if (wait.isPresent()) {
 					hasWaitTooltip = true;
 					ArrayList<SequenceTooltip> tooltips = new ArrayList<>();
 					tooltips.add(wait.get());
-					if (currentTooltips != null && !currentTooltips.isEmpty()) {
-						tooltips.addAll(currentTooltips);
+					if (merged != null && !merged.isEmpty()) {
+						tooltips.addAll(merged);
 					}
 					merged = List.copyOf(tooltips);
 				}
@@ -367,6 +388,22 @@ public class DetectionEngine {
 				screenMat.close();
 			}
 		}
+	}
+
+	private SequenceTooltip formatStepTickTooltip(SequenceManager.StepTickInfo info) {
+		int step = info.stepIndex() + 1;
+		int total = Math.max(0, info.totalSteps());
+		long elapsed = Math.max(0, info.elapsedTicks());
+		long duration = Math.max(0, info.durationTicks());
+
+		String suffix = info.paused() ? " (paused)" : "";
+		String message;
+		if (duration > 0) {
+			message = String.format(Locale.ROOT, "Step %d/%d \u2022 Tick %d/%d%s", step, total, elapsed, duration, suffix);
+		} else {
+			message = String.format(Locale.ROOT, "Step %d/%d \u2022 Tick %d%s", step, total, elapsed, suffix);
+		}
+		return new SequenceTooltip(info.stepIndex(), null, message);
 	}
 
 	private String describeRequirements(List<ActiveSequence.DetectionRequirement> requirements) {

@@ -13,12 +13,28 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.function.Consumer;
 
 public class SettingsAction implements MenuAction {
 
 	private final ConfigManager configManager;
 	private final IconDetectionDebugService iconDetectionDebugService;
 	private JFrame settingsFrame;
+	private JTabbedPane tabs;
+	private Consumer<AppSettings> settingsSaveListener;
+
+	private static boolean isDebugToolsEnabled() {
+		return Boolean.getBoolean("runeSequence.debugTools");
+	}
+
+	private boolean shouldShowDebugTab(AppSettings settings) {
+		if (isDebugToolsEnabled()) {
+			return true;
+		}
+		return settings != null
+				&& settings.getUi() != null
+				&& settings.getUi().isShowDebugOptions();
+	}
 
 	public SettingsAction(ConfigManager configManager) {
 		this(configManager, null);
@@ -49,10 +65,10 @@ public class SettingsAction implements MenuAction {
 			ThemedPanel root = new ThemedPanel(PanelStyle.TAB_CONTENT, new BorderLayout());
 			settingsFrame.setContentPane(root);
 
-			JTabbedPane tabs = new ThemedSettingsTabbedPane();
+			tabs = new ThemedSettingsTabbedPane();
 			tabs.addTab("General", new IconSizeSettingsPanel(configManager));
 			tabs.addTab("Hotkeys", new HotkeySettingsPanel(configManager));
-	        tabs.addTab("Debug", new DebugSettingsPanel(configManager, iconDetectionDebugService));
+			refreshDebugTab(configManager != null ? configManager.getSettings() : null, true);
 			applyTabbedPaneTheme(tabs);
 
 			root.add(tabs, BorderLayout.CENTER);
@@ -69,11 +85,13 @@ public class SettingsAction implements MenuAction {
 	        settingsFrame.addWindowListener(new WindowAdapter() {
 		        @Override
 		        public void windowClosing(WindowEvent e) {
+					uninstallSettingsListener();
 			        stopDebugIfRunning();
 		        }
 
 		        @Override
 		        public void windowClosed(WindowEvent e) {
+					uninstallSettingsListener();
 			        stopDebugIfRunning();
 		        }
 
@@ -84,8 +102,71 @@ public class SettingsAction implements MenuAction {
 		        }
 	        });
 
+			installSettingsListener();
 			settingsFrame.setVisible(true);
 		});
+	}
+
+	private void installSettingsListener() {
+		if (configManager == null || settingsSaveListener != null) {
+			return;
+		}
+		settingsSaveListener = settings -> SwingUtilities.invokeLater(() -> {
+			refreshDebugTab(settings, false);
+			if (tabs != null) {
+				applyTabbedPaneTheme(tabs);
+			}
+		});
+		configManager.addSettingsSaveListener(settingsSaveListener);
+	}
+
+	private void uninstallSettingsListener() {
+		if (configManager == null || settingsSaveListener == null) {
+			return;
+		}
+		configManager.removeSettingsSaveListener(settingsSaveListener);
+		settingsSaveListener = null;
+		tabs = null;
+		settingsFrame = null;
+	}
+
+	private void refreshDebugTab(AppSettings settings, boolean initialRender) {
+		if (tabs == null) {
+			return;
+		}
+
+		boolean shouldShow = shouldShowDebugTab(settings);
+		int debugIndex = findTabIndexByTitle(tabs, "Debug");
+
+		if (shouldShow) {
+			if (debugIndex >= 0) {
+				return;
+			}
+			tabs.addTab("Debug", new DebugSettingsPanel(configManager, iconDetectionDebugService));
+			if (!initialRender) {
+				int idx = findTabIndexByTitle(tabs, "Debug");
+				if (idx >= 0) {
+					tabs.setSelectedIndex(idx);
+				}
+			}
+		} else {
+			if (debugIndex < 0) {
+				return;
+			}
+			tabs.removeTabAt(debugIndex);
+		}
+	}
+
+	private static int findTabIndexByTitle(JTabbedPane tabs, String title) {
+		if (tabs == null || title == null) {
+			return -1;
+		}
+		for (int i = 0; i < tabs.getTabCount(); i++) {
+			if (title.equals(tabs.getTitleAt(i))) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	private static void applyTabbedPaneTheme(JTabbedPane tabs) {
@@ -103,16 +184,35 @@ public class SettingsAction implements MenuAction {
 		tabs.setBackground(background);
 		tabs.setForeground(activeForeground);
 
-		Runnable applyPerTabColors = () -> {
-			int selected = tabs.getSelectedIndex();
-			for (int i = 0; i < tabs.getTabCount(); i++) {
-				tabs.setBackgroundAt(i, background);
-				tabs.setForegroundAt(i, i == selected ? activeForeground : inactiveForeground);
-			}
-		};
+		updateTabbedPaneColors(tabs);
+		installTabbedPaneThemeListener(tabs);
+	}
 
-		applyPerTabColors.run();
-		tabs.addChangeListener(e -> applyPerTabColors.run());
+	private static void installTabbedPaneThemeListener(JTabbedPane tabs) {
+		final String key = "runeSequence.settingsTabs.themeListener";
+		Object existing = tabs.getClientProperty(key);
+		if (existing instanceof javax.swing.event.ChangeListener) {
+			return;
+		}
+		javax.swing.event.ChangeListener listener = e -> updateTabbedPaneColors(tabs);
+		tabs.putClientProperty(key, listener);
+		tabs.addChangeListener(listener);
+	}
+
+	private static void updateTabbedPaneColors(JTabbedPane tabs) {
+		if (tabs == null) {
+			return;
+		}
+		Theme theme = ThemeManager.getTheme();
+		Color background = UiColorPalette.UI_CARD_BACKGROUND;
+		Color activeForeground = theme != null ? theme.getTextPrimaryColor() : UiColorPalette.UI_TEXT_COLOR;
+		Color inactiveForeground = theme != null ? theme.getTextMutedColor() : UiColorPalette.DIALOG_MESSAGE_TEXT;
+
+		int selected = tabs.getSelectedIndex();
+		for (int i = 0; i < tabs.getTabCount(); i++) {
+			tabs.setBackgroundAt(i, background);
+			tabs.setForegroundAt(i, i == selected ? activeForeground : inactiveForeground);
+		}
 	}
 
 	private static final class ThemedSettingsTabbedPane extends JTabbedPane {

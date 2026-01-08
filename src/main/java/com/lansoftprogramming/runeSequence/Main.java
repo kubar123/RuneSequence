@@ -177,23 +177,29 @@ public class Main {
 						return settings == null
 								|| settings.getUi() == null
 								|| settings.getUi().isChanneledWaitTooltipsEnabled();
+					},
+					() -> {
+						AppSettings settings = configManager.getSettings();
+						return settings != null
+								&& settings.getUi() != null
+								&& settings.getUi().isMouseTooltipStepTickDebugEnabled();
 					}
 			);
-			SequenceRunService sequenceRunService = new SequenceRunService(
-					sequenceController,
-					sequenceManager,
-					detectionEngine,
-					scheduleBuilder
-			);
+				SequenceRunService sequenceRunService = new SequenceRunService(
+						sequenceController,
+						sequenceManager,
+						detectionEngine,
+						scheduleBuilder
+				);
 
-			IconDetectionDebugService iconDetectionDebugService = new IconDetectionDebugService(
-					detectionEngine,
-					screenCapture,
-					templateDetector,
-					templateCache,
-					overlayRenderer,
-					Math.max(250, configManager.getDetectionInterval())
-			);
+				IconDetectionDebugService iconDetectionDebugService = new IconDetectionDebugService(
+						detectionEngine,
+						screenCapture,
+						templateDetector,
+						templateCache,
+						overlayRenderer,
+						Math.max(250, configManager.getDetectionInterval())
+				);
 
 			HotkeyBindingSource bindingSource = new HotkeyBindingSource();
 			Map<HotkeyEvent, List<KeyChord>> initialHotkeys = bindingSource.loadBindings(configManager.getSettings().getHotkeys());

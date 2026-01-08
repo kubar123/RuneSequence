@@ -147,7 +147,10 @@ public class MouseTooltipOverlay {
 		List<String> nextMessages = normalizeMessages(tooltips);
 		SwingUtilities.invokeLater(() -> {
 			if (!nextMessages.isEmpty()) {
-				// New tooltips: show immediately and cancel any pending hide.
+				// Show immediately and cancel any pending hide.
+				if (hideAtMillis == 0L && window.isVisible() && nextMessages.equals(this.messages)) {
+					return;
+				}
 				hideAtMillis = 0L;
 				updateMessages(nextMessages);
 			} else {

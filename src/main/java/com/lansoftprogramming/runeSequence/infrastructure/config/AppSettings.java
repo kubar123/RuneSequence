@@ -555,6 +555,12 @@ public class AppSettings {
 			@JsonProperty("channeledWaitTooltipsEnabled")
 			private boolean channeledWaitTooltipsEnabled = true;
 
+			@JsonProperty("mouseTooltipStepTickDebugEnabled")
+			private boolean mouseTooltipStepTickDebugEnabled = false;
+
+			@JsonProperty("showDebugOptions")
+			private boolean showDebugOptions = false;
+
 			public int getIconSize() {
 				return iconSize;
 			}
@@ -612,6 +618,22 @@ public class AppSettings {
 
 			public void setChanneledWaitTooltipsEnabled(boolean channeledWaitTooltipsEnabled) {
 				this.channeledWaitTooltipsEnabled = channeledWaitTooltipsEnabled;
+			}
+
+			public boolean isMouseTooltipStepTickDebugEnabled() {
+				return mouseTooltipStepTickDebugEnabled;
+			}
+
+			public void setMouseTooltipStepTickDebugEnabled(boolean mouseTooltipStepTickDebugEnabled) {
+				this.mouseTooltipStepTickDebugEnabled = mouseTooltipStepTickDebugEnabled;
+			}
+
+			public boolean isShowDebugOptions() {
+				return showDebugOptions;
+			}
+
+			public void setShowDebugOptions(boolean showDebugOptions) {
+				this.showDebugOptions = showDebugOptions;
 			}
 
 			@JsonIgnoreProperties(ignoreUnknown = true)

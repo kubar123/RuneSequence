@@ -6,6 +6,7 @@ import com.lansoftprogramming.runeSequence.core.sequence.model.EffectiveAbilityC
 import com.lansoftprogramming.runeSequence.core.sequence.model.SequenceDefinition;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.ActiveSequence;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.SequenceTooltip;
+import com.lansoftprogramming.runeSequence.core.sequence.runtime.StepTimer;
 import com.lansoftprogramming.runeSequence.core.sequence.runtime.TooltipSchedule;
 import com.lansoftprogramming.runeSequence.infrastructure.config.AbilityConfig;
 import com.lansoftprogramming.runeSequence.ui.notification.NotificationService;
@@ -273,6 +274,25 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		return activeSequence != null && !sequenceComplete;
 	}
 
+	public synchronized Optional<StepTickInfo> snapshotStepTickInfo() {
+		if (activeSequence == null || sequenceComplete) {
+			return Optional.empty();
+		}
+		StepTimer timer = activeSequence.stepTimer;
+		long elapsedMs = Math.max(0, timer.getEffectiveElapsedMs());
+		long durationMs = Math.max(0, timer.getStepDurationMs());
+		long elapsedTicks = elapsedMs / StepTimer.TICK_MS;
+		long durationTicks = durationMs / StepTimer.TICK_MS;
+
+		return Optional.of(new StepTickInfo(
+				activeSequence.getCurrentStepIndex(),
+				activeSequence.getStepCount(),
+				elapsedTicks,
+				durationTicks,
+				timer.isPaused()
+		));
+	}
+
 	public void addProgressListener(Consumer<SequenceProgress> listener) {
 		if (listener == null) {
 			return;
@@ -407,6 +427,9 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 		public boolean isSequenceComplete() {
 			return sequenceComplete;
 		}
+	}
+
+	public record StepTickInfo(int stepIndex, int totalSteps, long elapsedTicks, long durationTicks, boolean paused) {
 	}
 
 	private final class GcdLatchTracker {

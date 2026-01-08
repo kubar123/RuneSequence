@@ -20,6 +20,7 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 	private final JCheckBox abilityIndicatorEnabledCheck;
 	private final JSpinner abilityIndicatorLoopMsSpinner;
 	private final JCheckBox channeledWaitTooltipsCheck;
+	private final JCheckBox showDebugOptionsCheck;
 	private final JCheckBox autoSaveCheck;
 	private final JCheckBox alwaysOnTopCheck;
 	private final JLabel statusLabel;
@@ -63,6 +64,10 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		channeledWaitTooltipsCheck = new JCheckBox("Show \"wait\" tooltip at mouse while channeling");
 		channeledWaitTooltipsCheck.setSelected(resolveChanneledWaitTooltipsPreference());
 		channeledWaitTooltipsCheck.setOpaque(false);
+
+		showDebugOptionsCheck = new JCheckBox("Show debug options");
+		showDebugOptionsCheck.setSelected(resolveShowDebugOptionsPreference());
+		showDebugOptionsCheck.setOpaque(false);
 
 		autoSaveCheck = new JCheckBox("Auto-save rotations when switching presets");
 		autoSaveCheck.setSelected(resolveAutoSavePreference());
@@ -129,6 +134,11 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		gbc.gridy++;
 		gbc.gridx = 0;
 		gbc.gridwidth = 2;
+		formPanel.add(showDebugOptionsCheck, gbc);
+
+		gbc.gridy++;
+		gbc.gridx = 0;
+		gbc.gridwidth = 2;
 		formPanel.add(autoSaveCheck, gbc);
 
 		gbc.gridy++;
@@ -177,6 +187,7 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		settings.getUi().setAbilityIndicatorEnabled(abilityIndicatorEnabledCheck.isSelected());
 		settings.getUi().setAbilityIndicatorLoopMs(((Number) abilityIndicatorLoopMsSpinner.getValue()).longValue());
 		settings.getUi().setChanneledWaitTooltipsEnabled(channeledWaitTooltipsCheck.isSelected());
+		settings.getUi().setShowDebugOptions(showDebugOptionsCheck.isSelected());
 
 		if (settings.getRotation() == null) {
 			settings.setRotation(new AppSettings.RotationSettings());
@@ -195,7 +206,8 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 					+ "; blinking current highlights " + blinkStateLabel()
 					+ "; ability indicator animation " + abilityIndicatorStateLabel()
 					+ " (" + abilityIndicatorLoopMsLabel() + "ms)"
-					+ "; channel wait tooltips " + channeledWaitTooltipsStateLabel();
+					+ "; channel wait tooltips " + channeledWaitTooltipsStateLabel()
+					+ "; debug options " + showDebugOptionsStateLabel();
 			statusLabel.setText(message);
 		} catch (IOException ex) {
 			statusLabel.setForeground(UiColorPalette.TEXT_DANGER);
@@ -238,6 +250,14 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		AppSettings settings = configManager.getSettings();
 		if (settings != null && settings.getUi() != null) {
 			return settings.getUi().isBlinkCurrentAbilities();
+		}
+		return false;
+	}
+
+	private boolean resolveShowDebugOptionsPreference() {
+		AppSettings settings = configManager.getSettings();
+		if (settings != null && settings.getUi() != null) {
+			return settings.getUi().isShowDebugOptions();
 		}
 		return false;
 	}
@@ -286,7 +306,11 @@ public class IconSizeSettingsPanel extends ThemedPanel {
 		return String.valueOf(((Number) abilityIndicatorLoopMsSpinner.getValue()).longValue());
 	}
 
-	private String channeledWaitTooltipsStateLabel() {
-		return channeledWaitTooltipsCheck.isSelected() ? "enabled" : "disabled";
+		private String channeledWaitTooltipsStateLabel() {
+			return channeledWaitTooltipsCheck.isSelected() ? "enabled" : "disabled";
+		}
+
+		private String showDebugOptionsStateLabel() {
+			return showDebugOptionsCheck.isSelected() ? "shown" : "hidden";
+		}
 	}
-}
