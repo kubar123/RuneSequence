@@ -119,6 +119,34 @@ class ActiveSequenceTest {
 		assertEquals(0.7, requirement.effectiveAbilityConfig().getDetectionThreshold().orElseThrow());
 	}
 
+	@Test
+	void latchStartShouldRestartCurrentStepWithoutSkippingInitialGcd() {
+		SequenceDefinition definition = new SequenceDefinition(List.of(
+				new Step(List.of(new Term(List.of(new Alternative("Alpha"))))),
+				new Step(List.of(new Term(List.of(new Alternative("Beta")))))
+		));
+
+		AbilityConfig abilityConfig = new AbilityConfig();
+		AbilityConfig.AbilityData alpha = new AbilityConfig.AbilityData();
+		alpha.setTriggersGcd(true);
+		abilityConfig.putAbility("Alpha", alpha);
+
+		AbilityConfig.AbilityData beta = new AbilityConfig.AbilityData();
+		beta.setTriggersGcd(true);
+		abilityConfig.putAbility("Beta", beta);
+
+		ActiveSequence activeSequence = new ActiveSequence(definition, abilityConfig);
+		activeSequence.stepTimer.pause();
+
+		assertEquals(0, activeSequence.getCurrentStepIndex());
+		assertTrue(activeSequence.stepTimer.isPaused());
+
+		activeSequence.onLatchStart(System.currentTimeMillis());
+
+		assertEquals(0, activeSequence.getCurrentStepIndex(), "Latch start must not skip the initial step");
+		assertFalse(activeSequence.stepTimer.isPaused(), "Latch start should begin step timing immediately");
+	}
+
 	private AbilityConfig abilityConfig(String... names) {
 		AbilityConfig config = new AbilityConfig();
 		for (String name : names) {

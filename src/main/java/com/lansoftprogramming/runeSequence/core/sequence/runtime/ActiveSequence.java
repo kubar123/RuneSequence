@@ -421,8 +421,11 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 	}
 
 	/**
-	 * Called when the visual latch fires. We assume the first ability was just used,
-	 * so advance to the next step and restart timing from the latch moment.
+	 * Called when the visual latch fires. We assume the current ability was just used,
+	 * so we restart timing for the current step from the latch moment.
+	 * <p>
+	 * This preserves the initial GCD/cast delay between the first and second abilities and keeps
+	 * UI step-promotion animations aligned with actual step transitions.
 	 * @return true if the sequence became complete as a result of this jump
 	 */
 	public boolean onLatchStart(long latchTimeMs) {
@@ -435,7 +438,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			return true;
 		}
 
-		currentStepIndex++;
+		// Keep the current step active and begin its GCD/cast timing at the latch moment.
 		Step step = getCurrentStep();
 		stepTimer.startStep(step, abilityConfig);
 		stepTimer.restartAt(latchTimeMs);
