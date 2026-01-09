@@ -36,6 +36,15 @@ public class StepTimer {
 		restartAt(nowMs.getAsLong());
 	}
 
+	/**
+	 * Start a one-off timing window with an explicit duration (in ms).
+	 * Used for transitional timing like latch-to-next-step delays.
+	 */
+	public void startCustomDurationMs(long durationMs, long startTimeMs) {
+		stepDurationMs = Math.max(0, durationMs);
+		restartAt(startTimeMs);
+	}
+
 	public void restartAt(long startTimeMs) {
 		stepStartTimeMs = startTimeMs;
 		totalPausedTimeMs = 0;

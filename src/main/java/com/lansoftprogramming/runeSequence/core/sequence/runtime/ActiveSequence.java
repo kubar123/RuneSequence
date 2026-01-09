@@ -23,6 +23,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 	private int currentStepIndex = 0;
 	public final StepTimer stepTimer;
+	private boolean awaitingLatchStepDelay = false;
 
 	private final Map<String, DetectionResult> lastDetections = new HashMap<>();
 
@@ -96,6 +97,17 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 			if (logger.isDebugEnabled()) {
 				logger.debug("Step satisfied! Advancing...");
+			}
+			if (awaitingLatchStepDelay) {
+				awaitingLatchStepDelay = false;
+				Step step = getCurrentStep();
+				if (step != null) {
+					stepTimer.startStep(step, abilityConfig);
+				} else {
+					complete = true;
+				}
+				lastDetections.clear();
+				return;
 			}
 			if (isOnLastStep()) {
 				complete = true;
@@ -191,6 +203,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		}
 
 		currentStepIndex++;
+		awaitingLatchStepDelay = false;
 
 		if (logger.isDebugEnabled()) {
 			logger.debug("advanceStep: Advanced to step {}", currentStepIndex);
@@ -206,6 +219,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			logger.debug("ActiveSequence.reset: Resetting to step 0");
 		}
 		currentStepIndex = 0;
+		awaitingLatchStepDelay = false;
 		stepTimer.reset();
 		// Restart baseline timing so future runs resume properly
 		if (!definition.getSteps().isEmpty()) {
@@ -255,6 +269,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		if (stepInstances.isEmpty()) {
 			currentStepIndex = 0;
 			complete = true;
+			awaitingLatchStepDelay = false;
 			stepTimer.reset();
 			lastDetections.clear();
 			return;
@@ -264,6 +279,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 		if (normalizedIndex >= stepInstances.size()) {
 			currentStepIndex = stepInstances.size();
 			complete = true;
+			awaitingLatchStepDelay = false;
 			stepTimer.reset();
 			lastDetections.clear();
 			return;
@@ -271,6 +287,7 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 
 		currentStepIndex = normalizedIndex;
 		complete = false;
+		awaitingLatchStepDelay = false;
 		stepTimer.reset();
 		stepTimer.startStep(definition.getStep(currentStepIndex), abilityConfig);
 		lastDetections.clear();
@@ -433,15 +450,39 @@ public class ActiveSequence implements SequenceController.StateChangeListener{
 			return true;
 		}
 
+		Step currentStep = getCurrentStep();
+		if (currentStep == null) {
+			complete = true;
+			return true;
+		}
+
+		short castDurationTicks = 0;
+		for (EffectiveAbilityConfig effective : currentStep.getEffectiveAbilityConfigs(abilityConfig)) {
+			if (effective != null) {
+				castDurationTicks = (short) Math.max(castDurationTicks, effective.getCastDuration());
+			}
+		}
+
 		if (isOnLastStep()) {
 			complete = true;
 			return true;
 		}
 
-		// Keep the current step active and begin its GCD/cast timing at the latch moment.
-		Step step = getCurrentStep();
-		stepTimer.startStep(step, abilityConfig);
-		stepTimer.restartAt(latchTimeMs);
+		// Cast steps stay on the same ability while casting.
+		if (castDurationTicks > 0) {
+			awaitingLatchStepDelay = false;
+			stepTimer.startStep(currentStep, abilityConfig);
+			stepTimer.restartAt(latchTimeMs);
+			lastDetections.clear();
+			return false;
+		}
+
+		// Instant abilities: latch means the current ability was already used, so advance to next step immediately.
+		// We still need to respect the just-used step's GCD/cast gating before starting the next step's own timing.
+		long delayMs = stepTimer.getStepDurationMs();
+		currentStepIndex++;
+		awaitingLatchStepDelay = true;
+		stepTimer.startCustomDurationMs(delayMs, latchTimeMs);
 		lastDetections.clear();
 		return false;
 	}

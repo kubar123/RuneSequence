@@ -18,6 +18,7 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 public class SequenceManager implements SequenceController.StateChangeListener {
 
@@ -28,6 +29,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	private final Map<String, TooltipSchedule> tooltipSchedules;
 	private final NotificationService notifications;
 	private final TemplateDetector templateDetector;
+	private final LongSupplier nowMs;
 	private ActiveSequence activeSequence;
 	private SequenceController sequenceController;
 	private final GcdLatchTracker gcdLatchTracker = new GcdLatchTracker();
@@ -40,6 +42,15 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 	                       AbilityConfig abilityConfig,
 	                       NotificationService notifications,
 	                       TemplateDetector templateDetector) {
+		this(namedSequences, tooltipSchedules, abilityConfig, notifications, templateDetector, System::currentTimeMillis);
+	}
+
+	SequenceManager(Map<String, SequenceDefinition> namedSequences,
+	                Map<String, TooltipSchedule> tooltipSchedules,
+	                AbilityConfig abilityConfig,
+	                NotificationService notifications,
+	                TemplateDetector templateDetector,
+	                LongSupplier nowMs) {
 		this.abilityConfig = Objects.requireNonNull(abilityConfig);
 		this.namedSequences = Objects.requireNonNull(namedSequences);
 		this.tooltipSchedules = tooltipSchedules != null
@@ -47,6 +58,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				: new HashMap<>();
 		this.notifications = Objects.requireNonNull(notifications);
 		this.templateDetector = Objects.requireNonNull(templateDetector);
+		this.nowMs = Objects.requireNonNull(nowMs, "nowMs");
 	}
 	public void setSequenceController(SequenceController sequenceController) {
 		if (this.sequenceController != null) {
@@ -467,17 +479,18 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				return;
 			}
 
+			long nowMs = SequenceManager.this.nowMs.getAsLong();
 			boolean allDarkened = true;
 			for (TrackedTarget target : trackedTargets) {
 				double sample = templateDetector.measureBrightness(frame, target.roi);
-				target.updateFromBrightness(sample);
+				target.updateFromBrightness(sample, nowMs);
 				if (!target.hasDarkened()) {
 					allDarkened = false;
 				}
 			}
 
 			if (allDarkened) {
-				latch();
+				latch(nowMs);
 			}
 		}
 
@@ -521,11 +534,11 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			return templateDetector.resolveAbilityRoi(frame, requirement.abilityKey(), threshold);
 		}
 
-		private void latch() {
+		private void latch(long nowMs) {
 			if (!waitingForDarken || sequenceController == null) {
 				return;
 			}
-			long latchTimeMs = System.currentTimeMillis();
+			long latchTimeMs = resolveLatchTimeMs(nowMs);
 			logger.info("LATCH: tracked abilities darkened -> RUNNING");
 			boolean completed = false;
 			if (activeSequence != null) {
@@ -538,6 +551,20 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			if (completed) {
 				onSequenceCompleted();
 			}
+		}
+
+		private long resolveLatchTimeMs(long fallbackNowMs) {
+			long earliestMs = 0L;
+			for (TrackedTarget target : trackedTargets) {
+				long firstDarkMs = target.firstDarkenAtMs;
+				if (firstDarkMs <= 0L) {
+					continue;
+				}
+				if (earliestMs == 0L || firstDarkMs < earliestMs) {
+					earliestMs = firstDarkMs;
+				}
+			}
+			return earliestMs > 0L ? earliestMs : fallbackNowMs;
 		}
 
 		private List<ActiveSequence.DetectionRequirement> selectGcdRequirements() {
@@ -599,6 +626,7 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 			private final double baselineBrightness;
 			private int consecutiveDarkFrames = 0;
 			private boolean darkened = false;
+			private long firstDarkenAtMs = 0L;
 
 			private TrackedTarget(String instanceId, String abilityKey, Rectangle roi, double baselineBrightness) {
 				this.instanceId = instanceId;
@@ -607,13 +635,18 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 				this.baselineBrightness = baselineBrightness;
 			}
 
-			private void updateFromBrightness(double sample) {
+			private void updateFromBrightness(double sample, long nowMs) {
 				if (sample <= 0 || baselineBrightness <= 0) {
 					consecutiveDarkFrames = 0;
+					darkened = false;
+					firstDarkenAtMs = 0L;
 					return;
 				}
 				double drop = (baselineBrightness - sample) / baselineBrightness;
 				if (drop >= DARKEN_PERCENT_THRESHOLD) {
+					if (consecutiveDarkFrames == 0) {
+						firstDarkenAtMs = nowMs;
+					}
 					if (consecutiveDarkFrames < DARKEN_FRAMES_REQUIRED) {
 						consecutiveDarkFrames++;
 					}
@@ -622,6 +655,8 @@ public class SequenceManager implements SequenceController.StateChangeListener {
 					}
 				} else {
 					consecutiveDarkFrames = 0;
+					darkened = false;
+					firstDarkenAtMs = 0L;
 				}
 			}
 
