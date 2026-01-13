@@ -478,7 +478,9 @@ public class PresetManagerWindow extends JFrame {
             RotationDslCodec.ParsedRotation parsed = RotationDslCodec.parse(expression);
             String importedExpression = parsed.expression();
             Map<String, AbilitySettingsOverrides> overridesByLabel = parsed.perInstanceOverrides();
+            Map<String, AbilitySettingsOverrides> overridesByAbility = parsed.perAbilityOverrides();
             Set<String> labelsInExpression = RotationDslCodec.collectLabelsInExpression(importedExpression);
+            Set<String> abilitiesInExpression = RotationDslCodec.collectAbilityKeysInExpression(importedExpression);
 
             Map<String, AbilitySettingsOverrides> filtered = new LinkedHashMap<>();
             for (Map.Entry<String, AbilitySettingsOverrides> entry : overridesByLabel.entrySet()) {
@@ -493,7 +495,21 @@ public class PresetManagerWindow extends JFrame {
                 filtered.put(label, entry.getValue());
             }
 
+            Map<String, AbilitySettingsOverrides> filteredPerAbility = new LinkedHashMap<>();
+            for (Map.Entry<String, AbilitySettingsOverrides> entry : overridesByAbility.entrySet()) {
+                String abilityKey = entry.getKey();
+                if (abilityKey == null || abilityKey.isBlank()) {
+                    continue;
+                }
+                if (!abilitiesInExpression.contains(abilityKey)) {
+                    logger.warn("Ignoring imported per-ability override for '{}' with no matching token in expression.", abilityKey);
+                    continue;
+                }
+                filteredPerAbility.put(abilityKey, entry.getValue());
+            }
+
             PresetAbilitySettings abilitySettings = overridesService.buildAbilitySettingsFromOverrides(filtered);
+            abilitySettings = overridesService.applyPerAbilityOverrides(abilitySettings, filteredPerAbility);
             createNewPreset("Imported Sequence", importedExpression, abilitySettings);
         } catch (Exception e) {
             logger.warn("Failed to parse imported rotation DSL; falling back to legacy import.", e);

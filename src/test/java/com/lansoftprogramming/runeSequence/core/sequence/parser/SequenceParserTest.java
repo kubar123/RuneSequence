@@ -179,6 +179,36 @@ class SequenceParserTest {
 	}
 
 	@Test
+	void shouldApplyPerAbilityOverridesFromInlineDeepDslLines() {
+		String input = String.join("\n",
+				"vulnbomb → tc",
+				"#@vulnbomb detection_threshold=0.7"
+		);
+
+		SequenceDefinition definition = SequenceParser.parse(input);
+		Alternative overridden = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals("vulnbomb", overridden.getToken());
+		assertEquals(0.7d, overridden.getAbilitySettingsOverrides().getDetectionThresholdOverride().orElseThrow(), 1e-9);
+	}
+
+	@Test
+	void shouldPreferProvidedPerAbilityOverridesOverInlineDeepDslLines() {
+		String input = String.join("\n",
+				"vulnbomb → tc",
+				"#@vulnbomb detection_threshold=0.7"
+		);
+		Map<String, AbilitySettingsOverrides> perAbility = Map.of(
+				"vulnbomb",
+				AbilitySettingsOverrides.builder().detectionThreshold(0.8d).build()
+		);
+
+		SequenceDefinition definition = SequenceParser.parse(input, null, perAbility);
+		Alternative overridden = definition.getStep(0).getTerms().get(0).getAlternatives().get(0);
+		assertEquals("vulnbomb", overridden.getToken());
+		assertEquals(0.8d, overridden.getAbilitySettingsOverrides().getDetectionThresholdOverride().orElseThrow(), 1e-9);
+	}
+
+	@Test
 	void shouldPreferPerInstanceOverridesOverPerAbilityOverrides() {
 		Map<String, AbilitySettingsOverrides> perInstance = Map.of(
 				"1",

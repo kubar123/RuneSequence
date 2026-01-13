@@ -38,6 +38,7 @@ class RotationDslCodecTest {
 
 		assertEquals(expression, parsed.expression());
 		assertEquals(overrides, parsed.perInstanceOverrides());
+		assertEquals(Map.of(), parsed.perAbilityOverrides());
 	}
 
 	@Test
@@ -57,6 +58,7 @@ class RotationDslCodecTest {
 				Map.of("1", AbilitySettingsOverrides.builder().cooldown((short) 200).detectionThreshold(0.9).build()),
 				parsed.perInstanceOverrides()
 		);
+		assertEquals(Map.of(), parsed.perAbilityOverrides());
 	}
 
 	@Test
@@ -86,6 +88,7 @@ class RotationDslCodecTest {
 		RotationDslCodec.ParsedRotation imported = RotationDslCodec.parse(deep);
 		assertEquals(expression, imported.expression());
 		assertEquals(overrides, imported.perInstanceOverrides());
+		assertEquals(Map.of(), imported.perAbilityOverrides());
 	}
 
 	@Test
@@ -99,6 +102,37 @@ class RotationDslCodecTest {
 
 		assertTrue(deep.contains("#*2 cooldown=200"));
 		assertFalse(deep.contains("#*99"), "exportDeep should ignore overrides with no matching label in the expression");
+	}
+
+	@Test
+	void shouldDeepExportAndParsePerAbilityOverrides() {
+		String expression = "assault[*2]→gfury→sever→stomp[*1]";
+		Map<String, AbilitySettingsOverrides> perInstance = new LinkedHashMap<>();
+		perInstance.put("1", AbilitySettingsOverrides.builder().detectionThreshold(0.9).build());
+		perInstance.put("2", AbilitySettingsOverrides.builder().detectionThreshold(0.9).build());
+
+		Map<String, AbilitySettingsOverrides> perAbility = new LinkedHashMap<>();
+		perAbility.put("gfury", AbilitySettingsOverrides.builder().detectionThreshold(0.91).build());
+		perAbility.put("sever", AbilitySettingsOverrides.builder().detectionThreshold(0.9).build());
+		perAbility.put("not_in_expression", AbilitySettingsOverrides.builder().detectionThreshold(0.1).build());
+
+		String deep = RotationDslCodec.exportDeep(expression, perInstance, perAbility);
+		assertTrue(deep.contains("#@gfury detection_threshold=0.91"));
+		assertTrue(deep.contains("#@sever detection_threshold=0.9"));
+		assertFalse(deep.contains("#@not_in_expression"));
+		assertTrue(deep.contains("#*1 detection_threshold=0.9"));
+		assertTrue(deep.contains("#*2 detection_threshold=0.9"));
+
+		RotationDslCodec.ParsedRotation parsed = RotationDslCodec.parse(deep);
+		assertEquals(expression, parsed.expression());
+		assertEquals(perInstance, parsed.perInstanceOverrides());
+		assertEquals(
+				Map.of(
+						"gfury", AbilitySettingsOverrides.builder().detectionThreshold(0.91).build(),
+						"sever", AbilitySettingsOverrides.builder().detectionThreshold(0.9).build()
+				),
+				parsed.perAbilityOverrides()
+		);
 	}
 
 	@Test
@@ -133,6 +167,7 @@ class RotationDslCodecTest {
 		RotationDslCodec.ParsedRotation parsed = RotationDslCodec.parse(input);
 		assertEquals("alpha[*1]→beta", parsed.expression());
 		assertEquals(Map.of("1", AbilitySettingsOverrides.builder().cooldown((short) 10).build()), parsed.perInstanceOverrides());
+		assertEquals(Map.of(), parsed.perAbilityOverrides());
 	}
 
 	@Test

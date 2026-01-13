@@ -12,16 +12,20 @@ import java.util.regex.Pattern;
 
 /**
  * Helper for importing and exporting the rotation DSL while keeping per-instance settings lines
- * (`#*N key=value ...`) and label suffixes (`[*N]`) consistent.
+ * (`#*N key=value ...`), per-ability settings lines (`#@abilityKey key=value ...`), and label suffixes (`[*N]`)
+ * consistent.
  */
 public final class RotationDslCodec {
 	private static final Logger logger = LoggerFactory.getLogger(RotationDslCodec.class);
 	private static final Pattern SETTINGS_LINE = Pattern.compile("^#\\*(\\d+)\\s+(.+)$");
+	private static final Pattern PER_ABILITY_SETTINGS_LINE = Pattern.compile("^#@([^\\s]+)\\s+(.+)$");
 
 	private RotationDslCodec() {
 	}
 
-	public record ParsedRotation(String expression, Map<String, AbilitySettingsOverrides> perInstanceOverrides) {
+	public record ParsedRotation(String expression,
+	                            Map<String, AbilitySettingsOverrides> perInstanceOverrides,
+	                            Map<String, AbilitySettingsOverrides> perAbilityOverrides) {
 	}
 
 	/**
@@ -37,7 +41,8 @@ public final class RotationDslCodec {
 		String normalizedInput = ExpressionSanitizer.stripSurroundingQuotes(ExpressionSanitizer.removeInvisibles(input));
 		String[] rawLines = normalizedInput.split("\\R");
 		List<String> expressionLines = new ArrayList<>();
-		List<String> settingsLines = new ArrayList<>();
+		List<String> perInstanceSettingsLines = new ArrayList<>();
+		List<String> perAbilitySettingsLines = new ArrayList<>();
 
 		for (String rawLine : rawLines) {
 			if (rawLine == null) {
@@ -48,7 +53,9 @@ public final class RotationDslCodec {
 				continue;
 			}
 			if (trimmed.startsWith("#*")) {
-				settingsLines.add(trimmed);
+				perInstanceSettingsLines.add(trimmed);
+			} else if (trimmed.startsWith("#@")) {
+				perAbilitySettingsLines.add(trimmed);
 			} else {
 				expressionLines.add(trimmed);
 			}
@@ -59,8 +66,9 @@ public final class RotationDslCodec {
 		}
 
 		String expression = String.join("\n", expressionLines);
-		Map<String, AbilitySettingsOverrides> overridesByLabel = parseSettingsLines(settingsLines);
-		return new ParsedRotation(expression, overridesByLabel);
+		Map<String, AbilitySettingsOverrides> overridesByLabel = parseSettingsLines(perInstanceSettingsLines);
+		Map<String, AbilitySettingsOverrides> overridesByAbility = parsePerAbilitySettingsLines(perAbilitySettingsLines);
+		return new ParsedRotation(expression, overridesByLabel, overridesByAbility);
 	}
 
 	/**
@@ -73,48 +81,95 @@ public final class RotationDslCodec {
 
 	/**
 	 * Exports a deep rotation string: expression (with labels) plus `#*N` settings lines derived from
-	 * the provided overrides map. Only labels present in the expression are emitted.
+	 * the provided per-instance overrides map and optional `#@abilityKey` settings lines derived from
+	 * the provided per-ability overrides map. Only labels/ability keys present in the expression are emitted.
 	 */
 	public static String exportDeep(String input, Map<String, AbilitySettingsOverrides> perInstanceOverrides) {
+		return exportDeep(input, perInstanceOverrides, null);
+	}
+
+	/**
+	 * Exports a deep rotation string: expression (with labels) plus `#@abilityKey` and `#*N` settings lines derived
+	 * from the provided overrides maps. Only abilities/labels present in the expression are emitted.
+	 */
+	public static String exportDeep(String input,
+	                               Map<String, AbilitySettingsOverrides> perInstanceOverrides,
+	                               Map<String, AbilitySettingsOverrides> perAbilityOverrides) {
 		ParsedRotation parsed = parse(input);
 		String expression = parsed.expression().trim();
-		if (perInstanceOverrides == null || perInstanceOverrides.isEmpty()) {
+		boolean hasPerInstance = perInstanceOverrides != null && !perInstanceOverrides.isEmpty();
+		boolean hasPerAbility = perAbilityOverrides != null && !perAbilityOverrides.isEmpty();
+		if (!hasPerInstance && !hasPerAbility) {
 			return expression;
 		}
 
 		Set<String> labelsInExpression = collectLabelsInExpression(expression);
-		if (labelsInExpression.isEmpty()) {
+		Set<String> abilitiesInExpression = collectAbilityKeysInExpression(expression);
+
+		Map<String, AbilitySettingsOverrides> filteredPerAbility = new LinkedHashMap<>();
+		if (hasPerAbility && !abilitiesInExpression.isEmpty()) {
+			for (Map.Entry<String, AbilitySettingsOverrides> entry : perAbilityOverrides.entrySet()) {
+				String abilityKey = entry.getKey();
+				AbilitySettingsOverrides overrides = entry.getValue();
+				if (abilityKey == null || abilityKey.isBlank() || overrides == null || overrides.isEmpty()) {
+					continue;
+				}
+				if (!abilitiesInExpression.contains(abilityKey)) {
+					logger.warn("Ignoring per-ability override for '{}' with no matching token in expression.", abilityKey);
+					continue;
+				}
+				filteredPerAbility.put(abilityKey, overrides);
+			}
+		}
+
+		Map<String, AbilitySettingsOverrides> filteredPerInstance = new LinkedHashMap<>();
+		if (hasPerInstance && !labelsInExpression.isEmpty()) {
+			for (Map.Entry<String, AbilitySettingsOverrides> entry : perInstanceOverrides.entrySet()) {
+				String label = entry.getKey();
+				AbilitySettingsOverrides overrides = entry.getValue();
+				if (label == null || label.isBlank() || overrides == null || overrides.isEmpty()) {
+					continue;
+				}
+				if (!labelsInExpression.contains(label)) {
+					logger.warn("Ignoring per-instance override for label '{}' with no matching label in expression.", label);
+					continue;
+				}
+				filteredPerInstance.put(label, overrides);
+			}
+		}
+
+		if (filteredPerAbility.isEmpty() && filteredPerInstance.isEmpty()) {
 			return expression;
 		}
-
-		Map<String, AbilitySettingsOverrides> filtered = new LinkedHashMap<>();
-		for (Map.Entry<String, AbilitySettingsOverrides> entry : perInstanceOverrides.entrySet()) {
-			String label = entry.getKey();
-			AbilitySettingsOverrides overrides = entry.getValue();
-			if (label == null || label.isBlank() || overrides == null || overrides.isEmpty()) {
-				continue;
-			}
-			if (!labelsInExpression.contains(label)) {
-				logger.warn("Ignoring per-instance override for label '{}' with no matching label in expression.", label);
-				continue;
-			}
-			filtered.put(label, overrides);
-		}
-
-		if (filtered.isEmpty()) {
-			return expression;
-		}
-
-		List<String> labels = new ArrayList<>(filtered.keySet());
-		labels.sort(RotationDslCodec::compareLabelsNumericFirst);
 
 		StringBuilder out = new StringBuilder(expression);
-		for (String label : labels) {
-			String payload = serializeOverridesPayload(filtered.get(label));
-			if (payload == null || payload.isBlank()) {
-				continue;
+
+		if (!filteredPerAbility.isEmpty()) {
+			List<String> abilityKeys = new ArrayList<>(filteredPerAbility.keySet());
+			abilityKeys.sort(String::compareTo);
+			for (String abilityKey : abilityKeys) {
+				if (containsWhitespace(abilityKey)) {
+					logger.warn("Skipping per-ability DSL export for key '{}' containing whitespace.", abilityKey);
+					continue;
+				}
+				String payload = serializeOverridesPayload(filteredPerAbility.get(abilityKey));
+				if (payload == null || payload.isBlank()) {
+					continue;
+				}
+				out.append("\n#@").append(abilityKey).append(' ').append(payload);
 			}
-			out.append("\n#*").append(label).append(' ').append(payload);
+		}
+
+		if (!filteredPerInstance.isEmpty()) {
+			List<String> labels = new ArrayList<>(filteredPerInstance.keySet());
+			labels.sort(RotationDslCodec::compareLabelsNumericFirst);
+			for (String label : labels) {
+				String payload = serializeOverridesPayload(filteredPerInstance.get(label));
+				if (payload == null || payload.isBlank()) {
+					continue;
+				}
+				out.append("\n#*").append(label).append(' ').append(payload);
+			}
 		}
 
 		return out.toString();
@@ -152,6 +207,40 @@ public final class RotationDslCodec {
 				labels.add(matcher.group(1));
 			}
 			return Set.copyOf(labels);
+		}
+	}
+
+	/**
+	 * Collects any base ability keys found in the expression (ignores tooltip annotations and instance labels).
+	 */
+	public static Set<String> collectAbilityKeysInExpression(String expression) {
+		if (expression == null || expression.isBlank()) {
+			return Set.of();
+		}
+
+		String cleaned;
+		try {
+			cleaned = new TooltipMarkupParser().parse(expression).cleanedExpression();
+		} catch (Exception e) {
+			cleaned = expression;
+		}
+
+		Set<String> abilities = new HashSet<>();
+		try {
+			Tokenizer tokenizer = new Tokenizer();
+			List<Token> tokens = tokenizer.tokenize(cleaned);
+			for (Token token : tokens) {
+				if (token instanceof Token.Ability abilityToken) {
+					AbilityToken parsed = AbilityToken.parse(abilityToken.name());
+					String key = parsed.getAbilityKey();
+					if (key != null && !key.isBlank()) {
+						abilities.add(key);
+					}
+				}
+			}
+			return Set.copyOf(abilities);
+		} catch (Exception ignored) {
+			return Set.of();
 		}
 	}
 
@@ -234,6 +323,42 @@ public final class RotationDslCodec {
 		}
 
 		return Map.copyOf(mergedByLabel);
+	}
+
+	private static Map<String, AbilitySettingsOverrides> parsePerAbilitySettingsLines(List<String> settingsLines) {
+		if (settingsLines == null || settingsLines.isEmpty()) {
+			return Map.of();
+		}
+
+		Map<String, AbilitySettingsOverrides> mergedByAbility = new HashMap<>();
+
+		for (String line : settingsLines) {
+			if (line == null) {
+				continue;
+			}
+			Matcher matcher = PER_ABILITY_SETTINGS_LINE.matcher(line.trim());
+			if (!matcher.matches()) {
+				logger.warn("Ignoring malformed per-ability settings line: '{}'", line);
+				continue;
+			}
+
+			String abilityKey = matcher.group(1);
+			String payload = matcher.group(2).trim();
+			if (payload.isEmpty()) {
+				logger.warn("Ignoring per-ability settings line with no key/value pairs: '{}'", line);
+				continue;
+			}
+
+			AbilitySettingsOverrides delta = parseSettingsPayload(payload, line);
+			if (delta == null || delta.isEmpty()) {
+				continue;
+			}
+
+			AbilitySettingsOverrides existing = mergedByAbility.get(abilityKey);
+			mergedByAbility.put(abilityKey, mergeOverrides(existing, delta));
+		}
+
+		return Map.copyOf(mergedByAbility);
 	}
 
 	private static AbilitySettingsOverrides mergeOverrides(AbilitySettingsOverrides existing,

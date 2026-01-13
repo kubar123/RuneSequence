@@ -70,10 +70,11 @@ public class SequenceParser {
 		RotationDslCodec.ParsedRotation parts = RotationDslCodec.parse(input);
 		String expression = parts.expression();
 		Map<String, AbilitySettingsOverrides> overridesByLabel = mergeOverridesMaps(parts.perInstanceOverrides(), perInstanceOverrides);
+		Map<String, AbilitySettingsOverrides> overridesByAbility = mergeOverridesMaps(parts.perAbilityOverrides(), perAbilityOverrides);
 
 		Tokenizer tokenizer = new Tokenizer();
 		List<Token> tokens = tokenizer.tokenize(expression);
-		SequenceParser parser = new SequenceParser(tokens, overridesByLabel, perAbilityOverrides);
+		SequenceParser parser = new SequenceParser(tokens, overridesByLabel, overridesByAbility);
 		SequenceDefinition definition = parser.parseExpression();
 		parser.ensureFullyConsumed();
 		return AbilityModifierEngine.apply(definition);

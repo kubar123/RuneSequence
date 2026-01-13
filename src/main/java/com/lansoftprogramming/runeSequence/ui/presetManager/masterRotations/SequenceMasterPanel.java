@@ -427,7 +427,9 @@ public class SequenceMasterPanel extends ThemedPanel implements SequenceRunPrese
 		if (deepExport) {
 			java.util.Map<String, AbilitySettingsOverrides> overridesByLabel =
 					overridesService.toDomainOverrides(entry.getPresetData().getAbilitySettings());
-			exportText = RotationDslCodec.exportDeep(expression, overridesByLabel);
+			java.util.Map<String, AbilitySettingsOverrides> overridesByAbility =
+					overridesService.toDomainPerAbilityOverrides(entry.getPresetData().getAbilitySettings());
+			exportText = RotationDslCodec.exportDeep(expression, overridesByLabel, overridesByAbility);
 		} else {
 			exportText = RotationDslCodec.exportSimple(expression);
 		}
