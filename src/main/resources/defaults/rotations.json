@@ -11,11 +11,6 @@
     "a1b2c3d4-e5f6-7890-abcd-ef1234567890" : {
       "name" : "Burst Rotation",
       "expression" : "deathskulls → soulsap → touchofdeath → volleyofsouls"
-    },
-    "debug-limitless": {
-      "name": "Debug Limitless",
-      "expression": "deathskulls → touchofdeath → soulsap → Basic → basic → livingdeath + Adrenaline_renewal → touchofdeath + soulsap → deathskulls → [more here]"
-
     }
   }
 }
