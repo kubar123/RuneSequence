@@ -25,7 +25,7 @@ import java.util.function.LongSupplier;
  */
 public class OverlayRenderer {
 	private static final Logger logger = LoggerFactory.getLogger(OverlayRenderer.class);
-	private static final int BLINK_INTERVAL_MS = 450;
+	private static final int BLINK_INTERVAL_MS = 250;
 	private static final int ABILITY_INDICATOR_REPAINT_MS = 16;
 	private static final long DEFAULT_ABILITY_INDICATOR_LOOP_MS = 600L;
 	private static final int ABILITY_INDICATOR_MIN_LOOP_MS = 50;
