@@ -35,7 +35,7 @@ The application bootstraps in `Main` by loading configuration and templates, wir
   - `SequenceController` exposes a small state machine (READY → ARMED → RUNNING) and integrates hotkeys.
   - `HotkeyManager` loads user bindings from settings and notifies `SequenceController`.
 - Selects a rotation to activate:
-  - Prefers `settings.rotation.selectedId` as a preset id; if missing, attempts to match by preset name; else falls back to `debug-limitless`.
+  - Uses `settings.rotation.selectedId` (when set) to select a preset id; otherwise no sequence is active until the user selects one.
 - Starts the `DetectionEngine` with configured interval; initializes a system tray UI with actions (Preset Manager, Select Region, Settings), and installs a shutdown hook to cleanly stop detection, overlay, and cache.
 
 ---

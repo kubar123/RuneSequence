@@ -40,7 +40,7 @@ A simple Plain Old Java Object (POJO) that models the main application settings 
 `AbilityConfig` is a container for all known abilities, mapping ability names (e.g., "limitless") to their `AbilityData`. This class is populated from `abilities.json`. `AbilityData` is a POJO that stores metadata for a single ability, such as its cooldown, cast duration, and whether it triggers the global cooldown (GCD). This information is crucial for the `SequenceManager` to make decisions. It also allows for a custom detection threshold per ability, overriding the global default.
 
 ### `RotationConfig` and `PresetData`
-`RotationConfig` acts as a container for different ability rotation presets, loaded from `rotations.json`. It maps a preset name (e.g., "debug-limitless") to its `PresetData`. `PresetData` holds the name of the preset and the string-based expression that defines the sequence of abilities (e.g., "Ability1 > (Ability2 | Ability3) + Ability4"). This expression is what the `SequenceParser` consumes to build a runnable sequence.
+`RotationConfig` acts as a container for different ability rotation presets, loaded from `rotations.json`. It maps a preset id (e.g., `"f47ac10b-58cc-4372-a567-0e02b2c3d479"`) to its `PresetData`. `PresetData` holds the name of the preset and the string-based expression that defines the sequence of abilities (e.g., "Ability1 > (Ability2 | Ability3) + Ability4"). This expression is what the `SequenceParser` consumes to build a runnable sequence.
 
 ---
 
