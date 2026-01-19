@@ -32,6 +32,12 @@ RuneSequence is a desktop application designed to help users master complex abil
   <img src="readme/view_blurred.gif" alt="RuneSequence overlay demo" width="900" />
 </p>
 
+<p align="center">
+  <img src="readme/closeup ability.gif" alt="Closeup ability preview" width="900" />
+  <br />
+  <sub>Closeup view of ability detection</sub>
+</p>
+
 ## Getting Started
 
 1. **Download the Application:** Grab the latest `RuneSequence-<version>.zip` from the releases page.
