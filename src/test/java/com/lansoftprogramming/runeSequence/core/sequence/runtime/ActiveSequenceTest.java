@@ -120,7 +120,7 @@ class ActiveSequenceTest {
 	}
 
 	@Test
-	void latchStartShouldRestartCurrentStepWithoutSkippingInitialGcd() {
+	void latchStartShouldAdvanceToNextStepAndStartTimingFromLatch() {
 		SequenceDefinition definition = new SequenceDefinition(List.of(
 				new Step(List.of(new Term(List.of(new Alternative("Alpha"))))),
 				new Step(List.of(new Term(List.of(new Alternative("Beta")))))
@@ -143,7 +143,7 @@ class ActiveSequenceTest {
 
 		activeSequence.onLatchStart(System.currentTimeMillis());
 
-		assertEquals(0, activeSequence.getCurrentStepIndex(), "Latch start must not skip the initial step");
+		assertEquals(1, activeSequence.getCurrentStepIndex(), "Latch start should advance to the next step to press");
 		assertFalse(activeSequence.stepTimer.isPaused(), "Latch start should begin step timing immediately");
 	}
 

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class ActiveSequenceLatchStartTest {
 
 	@Test
-	void shouldAdvanceImmediatelyOnLatchForInstantAbility() throws Exception {
+	void latchStartShouldAdvanceToNextStepAndAdvanceAgainWhenReady() throws Exception {
 		AbilityConfig abilityConfig = new AbilityConfig();
 		AbilityConfig.AbilityData a = new AbilityConfig.AbilityData();
 		a.setTriggersGcd(true);
@@ -25,14 +25,21 @@ class ActiveSequenceLatchStartTest {
 		abilityConfig.putAbility("A", a);
 
 		AbilityConfig.AbilityData b = new AbilityConfig.AbilityData();
-		b.setTriggersGcd(false);
+		b.setTriggersGcd(true);
 		b.setCastDuration((short) 0);
 		b.setCooldown((short) 0);
 		abilityConfig.putAbility("B", b);
 
+		AbilityConfig.AbilityData c = new AbilityConfig.AbilityData();
+		c.setTriggersGcd(true);
+		c.setCastDuration((short) 0);
+		c.setCooldown((short) 0);
+		abilityConfig.putAbility("C", c);
+
 		SequenceDefinition definition = new SequenceDefinition(List.of(
 				new Step(List.of(new Term(List.of(new Alternative("A"))))),
-				new Step(List.of(new Term(List.of(new Alternative("B")))))
+				new Step(List.of(new Term(List.of(new Alternative("B"))))),
+				new Step(List.of(new Term(List.of(new Alternative("C")))))
 		));
 
 		ActiveSequence seq = new ActiveSequence(definition, abilityConfig);
@@ -43,19 +50,19 @@ class ActiveSequenceLatchStartTest {
 		assertEquals(1, seq.getCurrentStepIndex());
 		assertFalse(seq.isComplete());
 
-		// Force the latch-delay window to complete.
+		// Force the delay window (for the just-used step) to complete.
 		setPrivateLongField(seq.stepTimer, "stepStartTimeMs", System.currentTimeMillis() - seq.stepTimer.getStepDurationMs() - 5);
 
 		seq.processDetections(List.of());
 
-		// Still on step 1, but now using step 1's own timing (B has 0 duration).
-		assertEquals(1, seq.getCurrentStepIndex());
-		assertEquals(0L, seq.stepTimer.getStepDurationMs());
+		// Advanced to the next step as soon as the current step became ready (no "double tick" on the same step).
+		assertEquals(2, seq.getCurrentStepIndex());
+		assertEquals(3L * StepTimer.TICK_MS, seq.stepTimer.getStepDurationMs());
 		assertFalse(seq.isComplete());
 	}
 
 	@Test
-	void shouldNotAdvanceOnLatchForCastAbility() {
+	void latchStartShouldHonorCastDurationAsDelayToNextStep() {
 		AbilityConfig abilityConfig = new AbilityConfig();
 		AbilityConfig.AbilityData a = new AbilityConfig.AbilityData();
 		a.setTriggersGcd(true);
@@ -78,7 +85,7 @@ class ActiveSequenceLatchStartTest {
 
 		seq.onLatchStart(System.currentTimeMillis());
 
-		assertEquals(0, seq.getCurrentStepIndex());
+		assertEquals(1, seq.getCurrentStepIndex());
 		assertEquals(4 * StepTimer.TICK_MS, seq.stepTimer.getStepDurationMs());
 	}
 
@@ -88,4 +95,3 @@ class ActiveSequenceLatchStartTest {
 		field.setLong(target, value);
 	}
 }
-
