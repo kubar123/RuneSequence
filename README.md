@@ -42,8 +42,7 @@ RuneSequence is a desktop application designed to help users master complex abil
 
 1. **Download the Application:** Grab the latest `RuneSequence-<version>.zip` from the releases page.
 2. **Extract and Run:**
-   - Windows: run `bin\RuneSequence.bat`
-   - Linux: run `bin/RuneSequence`
+   - Windows: run `RuneSequence.exe`
 3. **Configure Your Setup:**
     * Use the "Select Region" option to draw a box around your in-game abilities.
     * Open the "Preset Manager" to create a new rotation or import an existing one.
