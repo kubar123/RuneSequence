@@ -1,6 +1,6 @@
 # RuneSequence: An Advanced Sequence Helper
 
-RuneSequence is a desktop application designed to help users master complex ability rotations in their favorite online games. It provides a real-time, on-screen overlay that guides you through your chosen sequence, helping you build muscle memory and execute your rotations with precision.
+RuneSequence is a desktop application designed to help users master complex ability rotations. It provides a real-time, on-screen overlay that guides you through your chosen sequence, helping you build muscle memory and execute your rotations with precision.
 
 
 
