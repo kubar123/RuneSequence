@@ -50,11 +50,26 @@ RuneSequence is a desktop application designed to help users master complex abil
     * Assign your preferred hotkeys in the settings.
 4. **Start Playing:** Activate your chosen sequence and follow the on-screen prompts.
 
-## Building Test Versions (Developers)
-Playtest builds are shipped as Gradle `distZip` distributions (they include a bundled Java runtime under `runtime/`).
+## Development Builds
+
+Playtest builds are shipped as Gradle `distZip` distributions (they include a bundled Java runtime under `runtime/`,
+created via `jlink`).
 
 - Windows (PowerShell/CMD): `.\gradlew.bat clean test distZip`
 - Linux/WSL: `./gradlew clean test distZip`
+
+## Packaging (Windows)
+
+Windows end-user builds are produced via `jpackage` and include a bundled Java runtime (users do not install Java
+separately).
+
+### Portable Zip
+
+Creates a portable zip (no installer):
+
+- Windows (PowerShell/CMD): `.\gradlew.bat clean jpackageZip`
+- Output: `build/distributions/RuneSequence-<version>-windows.zip`
+- End user: extract the zip and run `RuneSequence.exe` (keep the `app/` and `runtime/` folders next to the exe)
 
 Troubleshooting:
 - If ability detection fails to load OpenCV natives on a clean Windows VM, install the Microsoft Visual C++ Redistributable (x64) and restart RuneSequence.

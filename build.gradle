@@ -5,6 +5,7 @@ plugins {
 
 version = '0.1.0'
 
+def os = org.gradle.internal.os.OperatingSystem.current()
 def isWindowsBuild = System.getProperty("os.name").toLowerCase().contains("win")
 
 // CI-friendly defaults -------------------------------------------------------
@@ -30,21 +31,116 @@ application {
 def requiredJavaMajor = 25
 
 def bundledRuntimeRoot = layout.buildDirectory.dir("bundled-runtime")
+def packagedRuntimeImageDir = layout.buildDirectory.dir("runtime-image")
+def packagedAppInputDir = layout.buildDirectory.dir("jpackage/input")
+def packagedOutputDir = layout.buildDirectory.dir("jpackage/out")
+def packagedAppImageName = (findProperty('rsAppName') ?: 'RuneSequence') as String
+def packagedVendor = (findProperty('rsVendor') ?: 'LanSoft Programming') as String
+def packagedDescription = (findProperty('rsDescription') ?: 'RuneSequence') as String
+def packagedCopyright = (findProperty('rsCopyright') ?: 'Copyright (c) LanSoft Programming') as String
+def packagedIconPath = (findProperty('rsIcon') ?: 'src/main/resources/icon.ico') as String
+def packagedIconFile = file(packagedIconPath)
+def packagedIconArgs = packagedIconFile.exists()
+		? ['--icon', packagedIconFile.absolutePath]
+		: []
+
 def bundledRuntimeLauncher = javaToolchains.launcherFor {
 	languageVersion = JavaLanguageVersion.of(requiredJavaMajor)
 }
 
-tasks.register('prepareBundledRuntime', Sync) {
-	from({
-		bundledRuntimeLauncher.get().metadata.installationPath.asFile
-	}) {
-		// Bundle a runnable runtime with the distribution so testers do not need Java installed.
-		include 'bin/**'
-		include 'conf/**'
-		include 'lib/**'
-		include 'legal/**'
-		include 'release'
+def isOnPath = { String exeName ->
+	def path = System.getenv('PATH') ?: ''
+	def parts = path.split(java.util.regex.Pattern.quote(File.pathSeparator))
+	return parts.any { new File(it, exeName).exists() }
+}
+
+def wixToolsetPresent = os.isWindows() && (isOnPath('wix.exe') || (isOnPath('candle.exe') && isOnPath('light.exe')))
+
+def javaToolExecutable = { String toolName ->
+	def javaHome = bundledRuntimeLauncher.get().metadata.installationPath.asFile
+	def exe = os.isWindows() ? "${toolName}.exe" : toolName
+	return new File(new File(javaHome, "bin"), exe).absolutePath
+}
+
+tasks.named('jar').configure {
+	manifest {
+		attributes('Main-Class': application.mainClass.get())
 	}
+}
+
+tasks.register('computeRuntimeModules') {
+	dependsOn(tasks.named('jar'))
+
+	def outputFile = layout.buildDirectory.file("runtime-modules.txt")
+	outputs.file(outputFile)
+
+	doLast {
+		def appJar = tasks.named('jar').get().archiveFile.get().asFile
+		def classpath = configurations.runtimeClasspath.files.collect { it.absolutePath }.join(File.pathSeparator)
+
+		// Gradle 9 removed/locked down some legacy exec APIs from build scripts in some setups.
+		// Use ProcessBuilder here for maximum compatibility.
+		def cmd = [
+				javaToolExecutable('jdeps'),
+				'--ignore-missing-deps',
+				'--multi-release', String.valueOf(requiredJavaMajor),
+				'--print-module-deps',
+				'--class-path', classpath,
+				appJar.absolutePath
+		]
+
+		def proc = new ProcessBuilder(cmd)
+				.redirectErrorStream(true)
+				.start()
+		def output = proc.inputStream.getText('UTF-8')
+		proc.waitFor()
+
+		def detected = (output ?: '').trim()
+
+		// Conservative fallbacks: add Swing + common runtime pieces. (jlink will error if a module is invalid.)
+		def fallback = [
+				'java.base',
+				'java.desktop',
+				'java.logging',
+				'java.management',
+				'java.naming',
+				'java.xml',
+				'jdk.unsupported',
+				'java.net.http'
+		].join(',')
+
+		def modules = (detected ? detected : fallback)
+		outputFile.get().asFile.text = modules + System.lineSeparator()
+	}
+}
+
+tasks.register('createRuntimeImage', Exec) {
+	dependsOn(tasks.named('computeRuntimeModules'))
+	outputs.dir(packagedRuntimeImageDir)
+
+	doFirst {
+		delete(packagedRuntimeImageDir)
+	}
+
+	doFirst {
+		def modules = layout.buildDirectory.file("runtime-modules.txt").get().asFile.text.trim()
+		args = [
+				'--add-modules', modules,
+				'--strip-debug',
+				'--no-header-files',
+				'--no-man-pages',
+				'--compress', '2',
+				'--bind-services',
+				'--output', packagedRuntimeImageDir.get().asFile.absolutePath
+		]
+	}
+
+	executable = javaToolExecutable('jlink')
+}
+
+tasks.register('prepareBundledRuntime', Sync) {
+	dependsOn(tasks.named('createRuntimeImage'))
+	from(packagedRuntimeImageDir)
 	into(bundledRuntimeRoot)
 }
 
@@ -69,6 +165,107 @@ tasks.named('distZip').configure {
 }
 tasks.named('installDist').configure {
 	dependsOn(tasks.named('prepareBundledRuntime'))
+}
+
+tasks.register('prepareJpackageInput', Sync) {
+	dependsOn(tasks.named('jar'))
+	into(packagedAppInputDir)
+
+	from(tasks.named('jar')) {
+		rename { "RuneSequence.jar" }
+	}
+	from(configurations.runtimeClasspath)
+}
+
+def jpackageJvmOptions = (application.applicationDefaultJvmArgs ?: []).collect { it as String }
+
+tasks.register('jpackageAppImage', Exec) {
+	dependsOn(tasks.named('createRuntimeImage'), tasks.named('prepareJpackageInput'))
+
+	doFirst {
+		delete(packagedOutputDir)
+	}
+
+	doFirst {
+		def opts = []
+		jpackageJvmOptions.each { opt ->
+			opts += ['--java-options', opt]
+		}
+
+		args = [
+				'--name', packagedAppImageName,
+				'--app-version', String.valueOf(project.version),
+				'--vendor', packagedVendor,
+				'--description', packagedDescription,
+				'--copyright', packagedCopyright,
+				'--input', packagedAppInputDir.get().asFile.absolutePath,
+				'--main-jar', 'RuneSequence.jar',
+				'--main-class', application.mainClass.get(),
+				'--runtime-image', packagedRuntimeImageDir.get().asFile.absolutePath,
+				'--type', 'app-image',
+				'--dest', packagedOutputDir.get().asFile.absolutePath
+		] + packagedIconArgs + opts
+	}
+
+	executable = javaToolExecutable('jpackage')
+}
+
+tasks.register('jpackageExe', Exec) {
+	onlyIf { os.isWindows() }
+	dependsOn(tasks.named('createRuntimeImage'), tasks.named('prepareJpackageInput'))
+
+	doFirst {
+		if (!wixToolsetPresent) {
+			throw new GradleException(
+					"WiX Toolset not found on PATH. Install WiX (v3 candle.exe/light.exe or v4+ wix.exe) to build a Windows .exe installer, " +
+							"or run `jpackageAppImage` to produce a portable app image without WiX."
+			)
+		}
+		delete(packagedOutputDir)
+	}
+
+	doFirst {
+		def opts = []
+		jpackageJvmOptions.each { opt ->
+			opts += ['--java-options', opt]
+		}
+
+		args = [
+				'--name', packagedAppImageName,
+				'--app-version', String.valueOf(project.version),
+				'--vendor', packagedVendor,
+				'--description', packagedDescription,
+				'--copyright', packagedCopyright,
+				'--input', packagedAppInputDir.get().asFile.absolutePath,
+				'--main-jar', 'RuneSequence.jar',
+				'--main-class', application.mainClass.get(),
+				'--runtime-image', packagedRuntimeImageDir.get().asFile.absolutePath,
+				'--type', 'exe',
+				'--dest', packagedOutputDir.get().asFile.absolutePath,
+				'--win-dir-chooser',
+				'--win-shortcut',
+				'--win-menu'
+		] + packagedIconArgs + opts
+	}
+
+	executable = javaToolExecutable('jpackage')
+}
+
+tasks.register('jpackageZip', Zip) {
+	// Portable zip for end users: does not require WiX. Produces build/distributions/RuneSequence-<version>-windows.zip (on Windows).
+	onlyIf { os.isWindows() }
+	dependsOn(tasks.named('jpackageAppImage'))
+
+	from(packagedOutputDir) {
+		include "${packagedAppImageName}/**"
+	}
+	// Keep Windows file timestamps (avoid the common "1980-02-01" zip epoch metadata).
+	preserveFileTimestamps = true
+	reproducibleFileOrder = true
+	destinationDirectory = layout.buildDirectory.dir("distributions").get().asFile
+	archiveBaseName = packagedAppImageName
+	archiveVersion = String.valueOf(project.version)
+	archiveClassifier = 'windows'
 }
 
 tasks.named('startScripts').configure {
@@ -211,9 +408,29 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.bytedeco:opencv-platform:4.10.0-1.5.11'
+	// Bytedeco "platform" artifacts bundle natives for multiple OSes and can be very large.
+	// For Windows releases, use Windows-only natives to keep the installer size reasonable.
+	def javacppVersion = '1.5.11'
+	def opencvVersion = "4.10.0-${javacppVersion}"
+	def ffmpegVersion = "7.1-${javacppVersion}"
+	def openblasVersion = "0.3.28-${javacppVersion}"
+	def leptonicaVersion = "1.85.0-${javacppVersion}"
+	def tesseractVersion = "5.5.0-${javacppVersion}"
+
+	if (os.isWindows()) {
+		implementation "org.bytedeco:opencv:${opencvVersion}:windows-x86_64"
+		implementation "org.bytedeco:ffmpeg:${ffmpegVersion}:windows-x86_64"
+		// Some Bytedeco components (including parts of OpenCV/JavaCV pipelines) expect these native jars at runtime.
+		implementation "org.bytedeco:openblas:${openblasVersion}:windows-x86_64"
+		implementation "org.bytedeco:leptonica:${leptonicaVersion}:windows-x86_64"
+		implementation "org.bytedeco:tesseract:${tesseractVersion}:windows-x86_64"
+	} else {
+		// Keep dev builds working on other OSes for now; can be tightened later per-platform.
+		implementation "org.bytedeco:opencv-platform:${opencvVersion}"
+		implementation "org.bytedeco:ffmpeg-platform:${ffmpegVersion}"
+	}
+
     implementation 'org.bytedeco:javacv:1.5.11'
-    implementation 'org.bytedeco:ffmpeg-platform:7.1-1.5.11'
 
     //heybinds
     implementation 'com.1stleg:jnativehook:2.1.0'
